@@ -1,0 +1,47 @@
+name: "✨ Feature"
+description: 새 기능이나 기존 기능 개선을 요청합니다.
+title: "[FEAT] "
+labels: ["✨ Feature"]
+
+body:
+  - type: dropdown
+    id: fr_id
+    attributes:
+      label: "관련 상위 FR ID"
+      options:
+        - "FR-001 공통 헤더 및 알림"
+        - "FR-002 인증/로그인"
+        - "FR-003 메인 대시보드"
+        - "FR-004 병목 모니터링"
+        - "FR-005 MES 실시간 모니터링"
+        - "FR-006 장비 모니터링"
+        - "FR-007 3D FAB 뷰"
+        - "FR-008 병목 감지"
+        - "FR-009 원인 분석"
+        - "FR-010 대응안 비교/HITL"
+        - "FR-011 리포트 생성"
+        - "FR-012 대응 이력"
+        - "FR-013 AI 챗봇"
+        - "FR-014 임계값 관리"
+        - "FR-015 MLflow 모니터링"
+        - "FR-016 권한 관리"
+        - "FR-017 MES 인터페이스 관리"
+        - "FR-018 프롬프트 관리"
+    validations:
+      required: false
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: "기능 설명"
+      description: "새롭게 추가하거나 개선하고자 하는 기능을 설명해 주세요."
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional_info
+    attributes:
+      label: "추가 정보"
+      description: "추가로 공유할 내용이 있다면 자유롭게 작성해 주세요."
+    validations:
+      required: false

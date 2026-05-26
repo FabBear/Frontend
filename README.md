@@ -1,102 +1,93 @@
-# fabBear Frontend
+# fabBEAR Frontend
+
+제조 공정에서 발생하는 병목을 AI Agent가 조기에 감지하고, 원인 분석부터 대응안 검증·리포트 생성까지 자동화해 생산계획 변경의 리스크와 손실을 최소화하는 서비스입니다.
+
+<br/>
+
+## Tech Stack
+
+| 분류             | 기술                    |
+| ---------------- | ----------------------- |
+| Framework        | Vue 3 (Composition API) |
+| Language         | TypeScript              |
+| Build Tool       | Vite                    |
+| Routing          | Vue Router              |
+| State Management | Pinia                   |
+| HTTP Client      | Axios                   |
+| Testing          | Vitest, @vue/test-utils |
+| Linting          | ESLint, Prettier        |
+| Git Hooks        | Husky, lint-staged      |
+
+<br/>
+
+## Project Structure
+
+```
+src/
+├── assets/        # 이미지, 폰트 등 정적 리소스
+├── components/    # 재사용 가능한 컴포넌트
+├── composables/   # 재사용 가능한 로직 (useXxx 형태)
+├── constants/     # 상수
+├── router/        # Vue Router 설정
+├── services/      # API 호출 모듈
+├── stores/        # Pinia 전역 상태
+├── styles/        # 전역 스타일
+├── types/         # TypeScript 타입 정의
+└── views/         # 라우트 단위 페이지 컴포넌트
+```
+
+<br/>
 
 ## Branch Strategy
 
 ```
-main     ← 배포용 브랜치 (직접 push 금지)
- └─ dev  ← 개발 통합 브랜치
+main              ← 배포 브랜치
+ └─ dev           ← 개발 통합 브랜치
      └─ feat/#12-login   ← 기능 단위 작업 브랜치
 ```
 
 브랜치 이름은 `타입/#이슈번호-설명` 형식으로 작성합니다.
 
----
-
-## Issue Convention
-
-이슈는 반드시 제공된 **템플릿**을 사용해 작성합니다.
-
-### 이슈 타입
-
-| 타입         | 설명                                    |
-| ------------ | --------------------------------------- |
-| ✨ Feature   | 새로운 기능 추가 또는 기존 기능 개선    |
-| 🪄 Modify    | 기존 기능의 동작·구조·표현 변경         |
-| 🎨 UI Update | UI 개선 또는 변경                       |
-| 🐞 BugFix    | 예상과 다른 동작, 오류, 예외 상황       |
-| 🧹 Chore     | 빌드, 패키지 관리 등 프로젝트 관리 작업 |
-
-### 이슈 제목 규칙
-
-```
-[타입] 작업 내용 요약
-```
-
-이슈 템플릿을 선택하면 제목 prefix가 자동으로 입력됩니다.
-
-```
-[FEAT] 로그인 페이지 구현
-[MODIFY] 대시보드 레이아웃 개선
-[UI] 공통 헤더 반응형 처리
-[BUG] 로그인 후 리다이렉트 오류
-[CHORE] ESLint 설정 추가
-```
-
-> 이슈를 등록하면 작성자가 자동으로 assignee로 지정됩니다.
-
----
+<br/>
 
 ## Commit Convention
 
-### 형식
-
 ```
-[타입] 작업 내용 요약
+[타입] #이슈번호 작업 내용 요약
 ```
 
-### 커밋 타입
+| 타입         | 설명                     |
+| ------------ | ------------------------ |
+| `[FEAT]`     | 새로운 기능 추가         |
+| `[ADD]`      | 파일, 의존성 추가        |
+| `[MODIFY]`   | 기능 수정 또는 변경      |
+| `[FIX]`      | 버그 수정                |
+| `[STYLE]`    | UI/UX, 스타일링          |
+| `[REFACTOR]` | 코드 리팩토링            |
+| `[PERF]`     | 성능 개선                |
+| `[TEST]`     | 테스트 코드 작성 및 수정 |
+| `[DOCS]`     | 문서 수정                |
+| `[CHORE]`    | 빌드, 패키지 관리 등     |
+| `[SETTING]`  | 프로젝트 설정            |
+| `[RENAME]`   | 파일·변수명 변경         |
+| `[REMOVE]`   | 파일·코드 삭제           |
 
-| 타입         | 설명                              | 예시                                   |
-| ------------ | --------------------------------- | -------------------------------------- |
-| `[FEAT]`     | 새로운 기능 추가                  | `[FEAT] 로그인 폼 구현`                |
-| `[ADD]`      | 파일·의존성 추가                  | `[ADD] axios 설치`                     |
-| `[MODIFY]`   | 기능 수정 또는 변경               | `[MODIFY] 버튼 클릭 이벤트 수정`       |
-| `[RENAME]`   | 파일·변수명 변경                  | `[RENAME] UserCard → MemberCard`       |
-| `[CORRECT]`  | 오타·경미한 수정                  | `[CORRECT] 주석 오타 수정`             |
-| `[UI]`       | UI·스타일링 작업                  | `[UI] 헤더 레이아웃 조정`              |
-| `[STYLE]`    | 코드 스타일 정리 (로직 변경 없음) | `[STYLE] 들여쓰기 통일`                |
-| `[FIX]`      | 버그 수정                         | `[FIX] 무한 렌더링 버그 수정`          |
-| `[HOTFIX]`   | 긴급 버그 수정                    | `[HOTFIX] 배포 환경 API URL 오류 수정` |
-| `[REFACTOR]` | 코드 리팩토링 (기능 변경 없음)    | `[REFACTOR] useAuth 훅 분리`           |
-| `[PERF]`     | 성능 개선                         | `[PERF] 이미지 lazy loading 적용`      |
-| `[TEST]`     | 테스트 코드 추가·수정             | `[TEST] LoginForm 단위 테스트 작성`    |
-| `[DOCS]`     | 문서 수정                         | `[DOCS] README 브랜치 전략 추가`       |
-| `[SETTING]`  | 설정 파일 변경                    | `[SETTING] tsconfig paths 설정`        |
-| `[CHORE]`    | 빌드·패키지 관리 등               | `[CHORE] 불필요한 패키지 제거`         |
+**예시**
 
-### 작성 규칙
+```
+[FEAT] #12 로그인 페이지 구현
+[FIX] #34 토큰 만료 시 리다이렉트 오류 수정
+```
 
-- 제목은 **명령문·현재형**으로 작성합니다. (과거형 ❌)
-- 한 커밋에는 **하나의 논리적 변경**만 담습니다.
-- 제목은 **50자 이내**로 작성합니다.
-
----
+<br/>
 
 ## PR Convention
 
-### PR 제목 규칙
-
-커밋 타입과 동일한 prefix를 사용합니다.
+PR 제목은 커밋 타입과 동일한 prefix를 사용합니다.
 
 ```
 [FEAT] #12 로그인 페이지 구현
 ```
 
-PR 제목의 prefix를 기준으로 **라벨이 자동 부여**됩니다.
-
-### PR 작성 규칙
-
-- **Draft PR**: 작업 중인 PR은 Draft로 생성합니다. Draft 상태에서는 🚧 Not Ready for Review 라벨이 자동으로 붙습니다.
-- **이슈 연결**: PR 본문의 `Close #이슈번호`를 반드시 작성합니다. merge 시 연결된 이슈가 자동으로 닫힙니다.
-- **리뷰 요청**: Ready for Review 전환 후 리뷰어를 지정합니다.
-- **셀프 머지 금지**: 본인이 작성한 PR은 본인이 merge하지 않습니다.
+- 작업 중인 PR은 Draft PR로 생성합니다.
+- PR 본문에 `Close #이슈번호`를 작성합니다.

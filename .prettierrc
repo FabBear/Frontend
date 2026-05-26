@@ -1,0 +1,32 @@
+{
+  "tabWidth": 2,
+  "useTabs": false,
+  "semi": true,
+  "singleQuote": true,
+  "trailingComma": "es5",
+  "printWidth": 120,
+  "endOfLine": "lf",
+  "arrowParens": "always",
+  "vueIndentScriptAndStyle": false,
+
+  "plugins": ["@trivago/prettier-plugin-sort-imports"],
+
+  "importOrder": [
+    "^(vue|vue-router|pinia)$",
+    "<THIRD_PARTY_MODULES>",
+    "^@/router/(.*)$",
+    "^@/stores/(.*)$",
+    "^@/services/(.*)$",
+    "^@/composables/(.*)$",
+    "^@/constants/(.*)$",
+    "^@/types/(.*)$",
+    "^@/components/(.*)$",
+    "^@/views/(.*)$",
+    "^@/assets/(.*)$",
+    "^@/styles/(.*)$",
+    "^@/(.*)$",
+    "^[./]"
+  ],
+  "importOrderSeparation": true,
+  "importOrderSortSpecifiers": true
+}

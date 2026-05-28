@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-import { RouterLink, useRoute } from 'vue-router';
+import { RouterLink } from 'vue-router';
 
 import {
   Activity,
@@ -22,8 +21,6 @@ import {
 } from '@lucide/vue';
 
 import type { NavSection } from '@/types/nav';
-
-const route = useRoute();
 
 const navSections: NavSection[] = [
   {
@@ -53,12 +50,6 @@ const navSections: NavSection[] = [
     ],
   },
 ];
-
-const activePath = computed(() => route.path);
-
-function isActive(path: string) {
-  return activePath.value === path;
-}
 </script>
 
 <template>
@@ -75,7 +66,7 @@ function isActive(path: string) {
           v-for="item in section.items"
           :key="item.to"
           class="the-sidebar__link"
-          :class="{ 'the-sidebar__link--active': isActive(item.to) }"
+          exact-active-class="the-sidebar__link--active"
           :to="item.to"
         >
           <component

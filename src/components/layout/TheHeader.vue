@@ -34,7 +34,8 @@ const emit = defineEmits<{
         class="the-header__notification-button"
         :class="{ 'the-header__notification-button--active': notificationOpen }"
         type="button"
-        aria-label="알림 열기"
+        aria-label="알림"
+        :aria-expanded="notificationOpen"
         @click="emit('toggleNotifications')"
       >
         <Bell :size="17" aria-hidden="true" />

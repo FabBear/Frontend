@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { Component } from 'vue';
+
 import { AlertTriangle, CheckCircle2, Info, TriangleAlert, X } from '@lucide/vue';
 
 import type { NotificationItem, NotificationLevel } from '@/types/notification';
@@ -16,7 +18,7 @@ const emit = defineEmits<{
   close: [];
 }>();
 
-const levelIconMap: Record<NotificationLevel, unknown> = {
+const levelIconMap: Record<NotificationLevel, Component> = {
   critical: AlertTriangle,
   warning: TriangleAlert,
   info: Info,

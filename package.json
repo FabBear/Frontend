@@ -15,6 +15,7 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@lucide/vue": "^1.16.0",
     "axios": "^1.16.1",
     "pinia": "^3.0.4",
     "vue": "^3.5.34",

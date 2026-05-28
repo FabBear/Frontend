@@ -10,14 +10,26 @@ interface Props {
   columns: BaseTableColumn[];
   rows: TableRow[];
   loading?: boolean;
+  rowKey?: string;
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   loading: false,
+  rowKey: 'id',
 });
 
 function getCellValue(row: TableRow, key: string) {
   return row[key] ?? '';
+}
+
+function getRowKey(row: TableRow, rowIndex: number) {
+  const keyValue = row[props.rowKey];
+
+  if (typeof keyValue === 'string' || typeof keyValue === 'number') {
+    return keyValue;
+  }
+
+  return rowIndex;
 }
 </script>
 
@@ -40,7 +52,7 @@ function getCellValue(row: TableRow, key: string) {
             <slot name="empty">데이터가 없습니다.</slot>
           </td>
         </tr>
-        <tr v-for="(row, rowIndex) in rows" v-else :key="rowIndex">
+        <tr v-for="(row, rowIndex) in rows" v-else :key="getRowKey(row, rowIndex)">
           <td v-for="column in columns" :key="column.key">
             <slot :name="`cell-${column.key}`" :row="row" :value="getCellValue(row, column.key)">
               {{ getCellValue(row, column.key) }}

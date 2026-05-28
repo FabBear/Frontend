@@ -27,6 +27,10 @@ function handleKeydown(event: KeyboardEvent) {
 watch(
   () => props.modelValue,
   (isOpen) => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
     if (isOpen) {
       window.addEventListener('keydown', handleKeydown);
       return;
@@ -38,13 +42,17 @@ watch(
 );
 
 onBeforeUnmount(() => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
   window.removeEventListener('keydown', handleKeydown);
 });
 </script>
 
 <template>
-  <Teleport to="body">
-    <div v-if="modelValue" class="base-modal" role="presentation">
+  <Teleport v-if="modelValue" to="body">
+    <div class="base-modal" role="presentation">
       <div class="base-modal__overlay" @click="closeModal" />
       <section class="base-modal__panel surface-card" role="dialog" aria-modal="true" :aria-label="title">
         <header class="base-modal__header">

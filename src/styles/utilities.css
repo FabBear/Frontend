@@ -23,7 +23,7 @@
 
 .section-subtitle {
   color: var(--color-fg-muted);
-  font-size: var(--font-size-md);
+  font-size: var(--text-body-size);
   line-height: var(--text-body-line-height);
 }
 
@@ -36,7 +36,7 @@
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   padding: 6px 13px;
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-base);
   font-weight: var(--font-weight-semibold);
   transition:
     background-color var(--transition-fast),
@@ -78,7 +78,7 @@
   border: 1px solid currentColor;
   border-radius: var(--radius-sm);
   padding: 2px 8px;
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
   line-height: var(--line-height-tight);
 }
@@ -92,6 +92,7 @@
 .badge--warning {
   background: var(--color-status-warning-soft);
   color: var(--color-status-warning);
+  border-style: dashed;
 }
 
 .badge--high {
@@ -104,7 +105,12 @@
   color: var(--color-risk-medium);
 }
 
-.badge--success,
+.badge--success {
+  background: var(--color-status-success-soft);
+  color: var(--color-status-success);
+  border-style: dashed;
+}
+
 .badge--low {
   background: rgba(112, 173, 71, 0.16);
   color: var(--color-risk-low);
@@ -124,7 +130,7 @@
   padding: 5px var(--space-3);
   background: var(--color-bg-surface);
   color: var(--color-fg);
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-base);
   transition: border-color var(--transition-fast);
 }
 
@@ -162,7 +168,7 @@
 .data-table td {
   border-bottom: 1px solid var(--color-border-subtle);
   padding: var(--spacing-table-cell-y) var(--spacing-table-cell-x);
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-base);
 }
 
 .data-table tr:hover td {

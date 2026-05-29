@@ -1,5 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router';
 
+import { useAuthStore } from '@/stores/auth';
+
+import LoginView from '@/views/LoginView.vue';
 import PlaceholderView from '@/views/PlaceholderView.vue';
 
 const appRoutes = [
@@ -32,7 +35,7 @@ const router = createRouter({
     {
       path: '/login',
       name: 'login',
-      component: PlaceholderView,
+      component: LoginView,
       meta: {
         layout: 'empty',
         title: '로그인',
@@ -44,9 +47,29 @@ const router = createRouter({
       component: PlaceholderView,
       meta: {
         title: route.title,
+        requiresAuth: true,
+        requiresAdmin: route.path.startsWith('/admin'),
       },
     })),
   ],
+});
+
+router.beforeEach((to) => {
+  const authStore = useAuthStore();
+
+  if (to.name === 'login' && authStore.isLoggedIn) {
+    return { path: '/dashboard' };
+  }
+
+  if (to.meta.requiresAuth && !authStore.isLoggedIn) {
+    return { path: '/login', query: { redirect: to.fullPath } };
+  }
+
+  if (to.meta.requiresAdmin && !authStore.isAdmin) {
+    return { path: '/dashboard' };
+  }
+
+  return true;
 });
 
 export default router;

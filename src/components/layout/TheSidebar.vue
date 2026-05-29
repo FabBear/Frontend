@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { RouterLink } from 'vue-router';
 
 import {
@@ -20,7 +21,11 @@ import {
   Wrench,
 } from '@lucide/vue';
 
+import { useAuthStore } from '@/stores/auth';
+
 import type { NavSection } from '@/types/nav';
+
+const authStore = useAuthStore();
 
 const navSections: NavSection[] = [
   {
@@ -50,6 +55,15 @@ const navSections: NavSection[] = [
     ],
   },
 ];
+
+const visibleNavSections = computed(() => {
+  return navSections
+    .map((section) => ({
+      ...section,
+      items: section.title === '관리자' && !authStore.isAdmin ? [] : section.items,
+    }))
+    .filter((section) => section.items.length > 0);
+});
 </script>
 
 <template>
@@ -60,7 +74,7 @@ const navSections: NavSection[] = [
     </RouterLink>
 
     <nav class="the-sidebar__nav">
-      <section v-for="section in navSections" :key="section.title" class="the-sidebar__section">
+      <section v-for="section in visibleNavSections" :key="section.title" class="the-sidebar__section">
         <h2 class="the-sidebar__section-title">{{ section.title }}</h2>
         <RouterLink
           v-for="item in section.items"

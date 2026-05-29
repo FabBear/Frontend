@@ -12,7 +12,7 @@ export const useAuthStore = defineStore('auth', () => {
   const isLoggedIn = computed(() => Boolean(user.value && token.value));
   const isAdmin = computed(() => user.value?.roles.includes('ADMIN') ?? false);
 
-  function login(payload: LoginRequest): LoginResponse {
+  async function login(payload: LoginRequest): Promise<LoginResponse> {
     const account = MOCK_AUTH_ACCOUNTS.find(
       (mockAccount) =>
         mockAccount.loginId === payload.loginId &&

@@ -13,13 +13,13 @@ interface Props {
   fabs: AuthFab[];
 }
 
-const props = withDefaults(defineProps<Props>(), { loading: false });
+withDefaults(defineProps<Props>(), { loading: false });
 
 const emit = defineEmits<{
   submit: [payload: LoginRequest];
 }>();
 
-const selectedFabId = ref(props.fabs[0]?.fabId ?? '');
+const selectedFabId = ref('');
 const loginId = ref('');
 const password = ref('');
 const fabTouched = ref(false);

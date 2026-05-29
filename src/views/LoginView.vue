@@ -27,7 +27,7 @@ async function handleLogin(payload: LoginRequest) {
   isLoading.value = true;
 
   try {
-    authStore.login(payload);
+    await authStore.login(payload);
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/dashboard';
     router.push(redirect);
   } catch (error) {

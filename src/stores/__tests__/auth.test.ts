@@ -14,10 +14,10 @@ describe('auth store and route guard', () => {
     await router.push('/login');
   });
 
-  it('logs in with matching mock credentials', () => {
+  it('logs in with matching mock credentials', async () => {
     const authStore = useAuthStore();
 
-    const response = authStore.login({
+    const response = await authStore.login({
       loginId: 'engineer01',
       password: 'eng1234',
       fabId: MOCK_AUTH_FABS[0].fabId,
@@ -29,22 +29,22 @@ describe('auth store and route guard', () => {
     expect(authStore.token).toBe('mock-access-token-engineer-01');
   });
 
-  it('rejects invalid credentials', () => {
+  it('rejects invalid credentials', async () => {
     const authStore = useAuthStore();
 
-    expect(() =>
+    await expect(
       authStore.login({
         loginId: 'engineer01',
         password: 'wrong-password',
         fabId: MOCK_AUTH_FABS[0].fabId,
       })
-    ).toThrow('아이디 또는 비밀번호가 일치하지 않습니다.');
+    ).rejects.toThrow('아이디 또는 비밀번호가 일치하지 않습니다.');
     expect(authStore.isLoggedIn).toBe(false);
   });
 
   it('redirects a signed-in engineer away from admin routes', async () => {
     const authStore = useAuthStore();
-    authStore.login({
+    await authStore.login({
       loginId: 'engineer01',
       password: 'eng1234',
       fabId: MOCK_AUTH_FABS[0].fabId,
@@ -57,7 +57,7 @@ describe('auth store and route guard', () => {
 
   it('allows an admin to enter admin routes', async () => {
     const authStore = useAuthStore();
-    authStore.login({
+    await authStore.login({
       loginId: 'admin',
       password: 'admin1234',
       fabId: MOCK_AUTH_FABS[0].fabId,

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Bell, Bot } from '@lucide/vue';
+import { Bell, Bot, UserRound } from '@lucide/vue';
 
 import type { AuthUser } from '@/types/auth';
 
@@ -48,7 +48,10 @@ const emit = defineEmits<{
         </span>
       </button>
       <div class="the-header__user">
-        <span class="the-header__avatar">{{ user?.roles.includes('ADMIN') ? 'A' : 'E' }}</span>
+        <span class="the-header__avatar">
+          <template v-if="user">{{ user.roles.includes('ADMIN') ? 'A' : 'E' }}</template>
+          <UserRound v-else :size="15" aria-hidden="true" />
+        </span>
         <div>
           <strong>{{ user?.userName ?? '미인증 사용자' }}</strong>
           <span>{{ user?.fabName ?? 'Fab 미선택' }}</span>

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
+
+import { useAuthStore } from '@/stores/auth';
 
 import { MOCK_NOTIFICATIONS } from '@/constants/mockData/notification';
 
@@ -9,6 +11,8 @@ import TheNotificationPanel from './TheNotificationPanel.vue';
 import TheSidebar from './TheSidebar.vue';
 
 const route = useRoute();
+const router = useRouter();
+const authStore = useAuthStore();
 const isNotificationOpen = ref(false);
 
 const pageTitle = computed(() => {
@@ -22,6 +26,11 @@ const unreadCount = computed(() => {
 function handleToggleNotifications() {
   isNotificationOpen.value = !isNotificationOpen.value;
 }
+
+function handleLogout() {
+  authStore.logout();
+  router.push('/login');
+}
 </script>
 
 <template>
@@ -32,7 +41,9 @@ function handleToggleNotifications() {
         :title="pageTitle"
         :notification-count="unreadCount"
         :notification-open="isNotificationOpen"
+        :user="authStore.user"
         @toggle-notifications="handleToggleNotifications"
+        @logout="handleLogout"
       />
       <main class="app-layout__content">
         <slot />

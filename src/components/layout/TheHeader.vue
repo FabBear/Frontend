@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { Bell, Bot } from '@lucide/vue';
 
+import type { AuthUser } from '@/types/auth';
+
 import BaseButton from '@/components/base/BaseButton.vue';
 
 interface Props {
   title: string;
   notificationCount: number;
+  user: AuthUser | null;
   notificationOpen?: boolean;
 }
 
@@ -15,6 +18,7 @@ withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   toggleNotifications: [];
+  logout: [];
 }>();
 </script>
 
@@ -44,12 +48,13 @@ const emit = defineEmits<{
         </span>
       </button>
       <div class="the-header__user">
-        <span class="the-header__avatar">E</span>
+        <span class="the-header__avatar">{{ user?.roles.includes('ADMIN') ? 'A' : 'E' }}</span>
         <div>
-          <strong>김엔지니어</strong>
-          <span>일반 엔지니어</span>
+          <strong>{{ user?.userName ?? '미인증 사용자' }}</strong>
+          <span>{{ user?.fabName ?? 'Fab 미선택' }}</span>
         </div>
       </div>
+      <BaseButton variant="ghost" size="sm" @click="emit('logout')">로그아웃</BaseButton>
     </div>
   </header>
 </template>

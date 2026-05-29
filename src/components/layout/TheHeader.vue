@@ -52,7 +52,7 @@ const emit = defineEmits<{
           <template v-if="user">{{ user.roles.includes('ADMIN') ? 'A' : 'E' }}</template>
           <UserRound v-else :size="15" aria-hidden="true" />
         </span>
-        <div>
+        <div class="the-header__info">
           <strong>{{ user?.userName ?? '미인증 사용자' }}</strong>
           <span>{{ user?.fabName ?? 'Fab 미선택' }}</span>
         </div>
@@ -68,9 +68,15 @@ const emit = defineEmits<{
   height: var(--layout-header-height);
   align-items: center;
   justify-content: space-between;
+  min-width: 0;
+  gap: var(--space-3);
   border-bottom: var(--border-width-default) solid var(--color-border-default);
   background: var(--color-bg-surface);
   padding: 0 var(--spacing-page);
+}
+
+.the-header > div:first-child {
+  min-width: 0;
 }
 
 .the-header__eyebrow {
@@ -80,14 +86,18 @@ const emit = defineEmits<{
 }
 
 .the-header__title {
+  overflow: hidden;
   color: var(--color-fg-strong);
   font-size: var(--font-size-lg);
   line-height: var(--line-height-tight);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .the-header__actions {
   display: flex;
   align-items: center;
+  min-width: 0;
   gap: var(--space-3);
 }
 
@@ -126,6 +136,7 @@ const emit = defineEmits<{
 .the-header__user {
   display: flex;
   align-items: center;
+  min-width: 0;
   gap: var(--space-2);
   border: var(--border-width-default) solid var(--color-border-subtle);
   border-radius: var(--radius-pill);
@@ -133,8 +144,20 @@ const emit = defineEmits<{
   font-size: var(--font-size-xs);
 }
 
+.the-header__info {
+  display: grid;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.the-header__info strong,
+.the-header__info span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .the-header__user span {
-  display: block;
   color: var(--color-fg-muted);
 }
 
@@ -147,5 +170,15 @@ const emit = defineEmits<{
   background: var(--color-action-primary);
   color: var(--color-text-inverse) !important;
   font-weight: var(--font-weight-bold);
+}
+
+@media (max-width: 1180px) {
+  .the-header__actions {
+    gap: var(--space-2);
+  }
+
+  .the-header__info span {
+    display: none;
+  }
 }
 </style>

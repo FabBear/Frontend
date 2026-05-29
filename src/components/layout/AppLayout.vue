@@ -60,7 +60,8 @@ function handleLogout() {
 <style scoped>
 .app-layout {
   display: flex;
-  min-width: var(--layout-content-min-width);
+  width: 100%;
+  min-width: 0;
 }
 
 .app-layout__main {
@@ -69,6 +70,7 @@ function handleLogout() {
 }
 
 .app-layout__content {
+  min-width: 0;
   min-height: calc(100svh - var(--layout-header-height));
   overflow: auto;
   padding: var(--spacing-page);

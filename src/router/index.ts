@@ -44,7 +44,7 @@ const router = createRouter({
     ...appRoutes.map((route) => ({
       path: route.path,
       name: route.name,
-      component: PlaceholderView,
+      component: route.path === '/dashboard' ? () => import('@/views/DashboardView.vue') : PlaceholderView,
       meta: {
         title: route.title,
         requiresAuth: true,

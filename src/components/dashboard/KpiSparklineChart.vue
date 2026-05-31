@@ -30,10 +30,18 @@ function resolveColor(token: string) {
 }
 
 function withAlpha(color: string, alpha: number): string {
-  const normalized = color.startsWith('#') ? color : resolveColor(color);
-  const r = parseInt(normalized.slice(1, 3), 16);
-  const g = parseInt(normalized.slice(3, 5), 16);
-  const b = parseInt(normalized.slice(5, 7), 16);
+  const normalized = color.trim();
+  if (normalized.startsWith('rgb')) {
+    const nums = normalized.match(/\d+/g)!;
+    return `rgba(${nums[0]},${nums[1]},${nums[2]},${alpha})`;
+  }
+  const hex =
+    normalized.length === 4
+      ? `#${normalized[1]}${normalized[1]}${normalized[2]}${normalized[2]}${normalized[3]}${normalized[3]}`
+      : normalized;
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
   return `rgba(${r},${g},${b},${alpha})`;
 }
 

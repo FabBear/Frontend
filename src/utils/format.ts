@@ -46,3 +46,16 @@ export function formatMetricValue(value: number, valueFormat: MetricValueFormat)
 export function formatKoTime(dateTime: string): string {
   return KO_TIME_FORMATTER.format(new Date(dateTime));
 }
+
+export function formatMesDispatchAt(value?: string | null): string {
+  const normalizedValue = value?.trim();
+  if (!normalizedValue) return '-';
+
+  const date = new Date(normalizedValue);
+
+  if (normalizedValue.startsWith('Day') || Number.isNaN(date.getTime())) {
+    return normalizedValue;
+  }
+
+  return formatKoTime(normalizedValue);
+}

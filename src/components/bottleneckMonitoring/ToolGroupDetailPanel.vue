@@ -7,6 +7,7 @@ import ToolGroupRiskProbability from '@/components/bottleneckMonitoring/ToolGrou
 
 interface Props {
   detail: BottleneckToolGroupDetail | null;
+  errorMessage?: string | null;
 }
 
 const props = defineProps<Props>();
@@ -28,7 +29,12 @@ function handleOpenCenter() {
     :class="{ 'tool-group-detail-panel--open': detail }"
     aria-label="Tool Group 상세"
   >
-    <div v-if="!detail" class="tool-group-detail-panel__empty">
+    <div v-if="errorMessage" class="tool-group-detail-panel__empty tool-group-detail-panel__empty--error">
+      <strong>{{ errorMessage }}</strong>
+      <span>다시 행을 선택해 주세요.</span>
+    </div>
+
+    <div v-else-if="!detail" class="tool-group-detail-panel__empty">
       <strong>Tool Group을 선택하세요</strong>
       <span>행을 클릭하면 상세 지표가 표시됩니다.</span>
     </div>
@@ -89,6 +95,10 @@ function handleOpenCenter() {
 
 .tool-group-detail-panel__empty strong {
   color: var(--color-fg-strong);
+}
+
+.tool-group-detail-panel__empty--error strong {
+  color: var(--color-status-danger);
 }
 
 .tool-group-detail-panel__header {

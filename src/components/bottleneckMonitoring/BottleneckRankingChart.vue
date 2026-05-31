@@ -23,15 +23,24 @@ interface Props {
 
 const props = defineProps<Props>();
 
-function resolveColor(token: string) {
-  if (typeof window === 'undefined') return '#888';
-  return getComputedStyle(document.documentElement).getPropertyValue(token).trim() || '#888';
+function resolveColor(colorValue: string) {
+  if (typeof window === 'undefined' || !document.body) return '#888';
+  const temp = document.createElement('span');
+  temp.style.color = colorValue;
+  document.body.appendChild(temp);
+  const resolvedColor = getComputedStyle(temp).color;
+  document.body.removeChild(temp);
+
+  return resolvedColor || '#888';
 }
 
 function resolveFontSize(token: string) {
-  if (typeof window === 'undefined') return 16;
-  const rawValue = getComputedStyle(document.documentElement).getPropertyValue(token).trim();
-  const parsedValue = Number.parseFloat(rawValue);
+  if (typeof window === 'undefined' || !document.body) return 16;
+  const temp = document.createElement('span');
+  temp.style.fontSize = `var(${token})`;
+  document.body.appendChild(temp);
+  const parsedValue = Number.parseFloat(getComputedStyle(temp).fontSize);
+  document.body.removeChild(temp);
 
   return Number.isNaN(parsedValue) ? 16 : parsedValue;
 }
@@ -43,7 +52,7 @@ const chartOption = computed(() => {
   const baseFontSize = resolveFontSize('--font-size-base');
   const colors = items.map((tg) => {
     const level = toRiskLevel(tg.riskGrade);
-    return resolveColor(RISK_LEVEL_META[level].color.replace('var(', '').replace(')', ''));
+    return resolveColor(RISK_LEVEL_META[level].color);
   });
 
   return {
@@ -92,7 +101,8 @@ const chartOption = computed(() => {
 
 <template>
   <div class="bottleneck-ranking-chart">
-    <VChart class="bottleneck-ranking-chart__chart" :option="chartOption" autoresize />
+    <div v-if="toolGroups.length === 0" class="bottleneck-ranking-chart__empty">표시할 데이터가 없습니다.</div>
+    <VChart v-else class="bottleneck-ranking-chart__chart" :option="chartOption" autoresize />
   </div>
 </template>
 
@@ -104,5 +114,14 @@ const chartOption = computed(() => {
 .bottleneck-ranking-chart__chart {
   width: 100%;
   height: 260px;
+}
+
+.bottleneck-ranking-chart__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 260px;
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-sm);
 }
 </style>

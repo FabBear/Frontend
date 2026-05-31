@@ -21,6 +21,7 @@ const {
   toolGroups,
   selectedToolGroupId,
   selectedToolGroupDetail,
+  detailErrorMessage,
   isLoading,
   errorMessage,
   loadMonitoringData,
@@ -103,7 +104,11 @@ watch(
             :loading="isLoading"
             @select-tool-group="selectToolGroup"
           />
-          <ToolGroupDetailPanel :detail="selectedToolGroupDetail" @open-center="handleOpenCenter" />
+          <ToolGroupDetailPanel
+            :detail="selectedToolGroupDetail"
+            :error-message="detailErrorMessage"
+            @open-center="handleOpenCenter"
+          />
         </div>
       </section>
 

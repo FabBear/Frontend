@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { RISK_LEVEL_META, type RiskLevel } from '@/constants/riskLevel';
+import { toRiskLevel } from '@/composables/useBottleneckMonitoring';
+
+import { RISK_LEVEL_META } from '@/constants/riskLevel';
 
 import type { BottleneckRiskGrade } from '@/types/bottleneckMonitoring';
 
@@ -14,7 +16,7 @@ interface Props {
 
 const props = defineProps<Props>();
 
-const riskLevel = computed(() => props.riskGrade.toLowerCase() as RiskLevel);
+const riskLevel = computed(() => toRiskLevel(props.riskGrade));
 const riskMeta = computed(() => RISK_LEVEL_META[riskLevel.value]);
 const probabilityText = computed(() => formatRatioPercent(props.probability));
 </script>

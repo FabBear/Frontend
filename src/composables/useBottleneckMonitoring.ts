@@ -49,6 +49,7 @@ export function useBottleneckMonitoring() {
   const selectedToolGroupDetail = shallowRef<BottleneckToolGroupDetail | null>(null);
   const isLoading = ref(false);
   const errorMessage = ref<string | null>(null);
+  const detailErrorMessage = ref<string | null>(null);
 
   const areaOptions = computed<AreaFilterOption[]>(() =>
     areas.value.map((area) => ({
@@ -71,11 +72,13 @@ export function useBottleneckMonitoring() {
     toolGroups.value = data.items;
     selectedToolGroupId.value = null;
     selectedToolGroupDetail.value = null;
+    detailErrorMessage.value = null;
   }
 
   async function loadMonitoringData(initialAreaCode: string | null) {
     isLoading.value = true;
     errorMessage.value = null;
+    detailErrorMessage.value = null;
     try {
       const [snapshotData, processMapData, processAreasData] = await Promise.all([
         fetchBottleneckSnapshot(),
@@ -98,13 +101,28 @@ export function useBottleneckMonitoring() {
   }
 
   async function selectArea(areaCode: string | null) {
-    selectedAreaCode.value = areaCode;
-    await loadToolGroups(areaCode);
+    isLoading.value = true;
+    errorMessage.value = null;
+    detailErrorMessage.value = null;
+    try {
+      selectedAreaCode.value = areaCode;
+      await loadToolGroups(areaCode);
+    } catch {
+      errorMessage.value = '공정별 Tool Group 데이터를 불러오지 못했습니다.';
+    } finally {
+      isLoading.value = false;
+    }
   }
 
   async function selectToolGroup(tgId: string) {
-    selectedToolGroupId.value = tgId;
-    selectedToolGroupDetail.value = await fetchBottleneckToolGroupDetail(tgId);
+    detailErrorMessage.value = null;
+    try {
+      selectedToolGroupId.value = tgId;
+      selectedToolGroupDetail.value = await fetchBottleneckToolGroupDetail(tgId);
+    } catch {
+      selectedToolGroupDetail.value = null;
+      detailErrorMessage.value = 'Tool Group 상세 정보를 불러오지 못했습니다.';
+    }
   }
 
   return {
@@ -116,6 +134,7 @@ export function useBottleneckMonitoring() {
     toolGroups,
     selectedToolGroupId,
     selectedToolGroupDetail,
+    detailErrorMessage,
     isLoading,
     errorMessage,
     loadMonitoringData,

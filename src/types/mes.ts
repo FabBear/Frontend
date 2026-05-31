@@ -76,7 +76,10 @@ export interface MesKpiCard {
   title: string;
   value: string;
   subtitle: string;
-  deltaText?: string;
+  delta?: number;
+  deltaUnit?: string;
+  isPositiveGood?: boolean;
+  note?: string;
   tone?: RiskLevel | 'info' | 'success' | 'warning' | 'danger';
 }
 

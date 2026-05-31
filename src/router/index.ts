@@ -2,71 +2,141 @@ import { createRouter, createWebHistory } from 'vue-router';
 
 import { useAuthStore } from '@/stores/auth';
 
-import LoginView from '@/views/LoginView.vue';
-import PlaceholderView from '@/views/PlaceholderView.vue';
+import { ROUTE_NAMES } from '@/constants/routes';
 
-const appRoutes = [
-  { path: '/dashboard', name: 'dashboard', title: '대시보드' },
-  { path: '/monitoring/bottlenecks', name: 'bottlenecks', title: '병목 모니터링' },
-  { path: '/monitoring/mes', name: 'mesMonitoring', title: 'MES 모니터링' },
-  { path: '/monitoring/machines', name: 'machineMonitoring', title: '장비 모니터링' },
-  { path: '/monitoring/fab-3d', name: 'fab3d', title: '3D FAB 뷰' },
-  { path: '/response/bottleneck-center', name: 'bottleneckCenter', title: '병목 대응 센터' },
-  { path: '/reports/cause', name: 'causeReport', title: '원인 분석 리포트' },
-  { path: '/reports/action-history', name: 'actionHistory', title: '대응 이력' },
-  { path: '/ai/chatbot', name: 'aiChatbot', title: 'AI 챗봇' },
-  { path: '/admin/thresholds', name: 'adminThresholds', title: '임계값 관리' },
-  { path: '/admin/mlflow', name: 'adminMlflow', title: 'MLflow 모니터링' },
-  { path: '/admin/access', name: 'adminAccess', title: '권한 관리' },
-  { path: '/admin/sites', name: 'adminSites', title: '공장 관리' },
-  { path: '/admin/mes-interface', name: 'adminMesInterface', title: 'MES 인터페이스' },
-  { path: '/admin/prompts', name: 'adminPrompts', title: '프롬프트 관리' },
-  { path: '/admin/ingestion', name: 'adminIngestion', title: '데이터 수집' },
-  { path: '/admin/logs', name: 'adminLogs', title: '운영 로그' },
-] as const;
+import PlaceholderView from '@/views/PlaceholderView.vue';
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
       path: '/',
-      redirect: '/dashboard',
+      redirect: { name: ROUTE_NAMES.dashboard },
     },
     {
       path: '/login',
-      name: 'login',
-      component: LoginView,
-      meta: {
-        layout: 'empty',
-        title: '로그인',
-      },
+      name: ROUTE_NAMES.login,
+      component: () => import('@/views/LoginView.vue'),
+      meta: { layout: 'empty', title: '로그인' },
     },
-    ...appRoutes.map((route) => ({
-      path: route.path,
-      name: route.name,
-      component: route.path === '/dashboard' ? () => import('@/views/DashboardView.vue') : PlaceholderView,
-      meta: {
-        title: route.title,
-        requiresAuth: true,
-        requiresAdmin: route.path.startsWith('/admin'),
-      },
-    })),
+    {
+      path: '/dashboard',
+      name: ROUTE_NAMES.dashboard,
+      component: () => import('@/views/DashboardView.vue'),
+      meta: { title: '대시보드', requiresAuth: true },
+    },
+    {
+      path: '/monitoring/bottlenecks',
+      name: ROUTE_NAMES.bottleneckMonitoring,
+      component: PlaceholderView,
+      meta: { title: '병목 모니터링', requiresAuth: true },
+    },
+    {
+      path: '/monitoring/mes',
+      name: 'mesMonitoring',
+      component: PlaceholderView,
+      meta: { title: 'MES 모니터링', requiresAuth: true },
+    },
+    {
+      path: '/monitoring/machines',
+      name: 'machineMonitoring',
+      component: PlaceholderView,
+      meta: { title: '장비 모니터링', requiresAuth: true },
+    },
+    {
+      path: '/monitoring/fab-3d',
+      name: 'fab3d',
+      component: PlaceholderView,
+      meta: { title: '3D FAB 뷰', requiresAuth: true },
+    },
+    {
+      path: '/response/bottleneck-center',
+      name: ROUTE_NAMES.bottleneckCenter,
+      component: PlaceholderView,
+      meta: { title: '병목 대응 센터', requiresAuth: true },
+    },
+    {
+      path: '/reports/cause',
+      name: ROUTE_NAMES.causeReport,
+      component: PlaceholderView,
+      meta: { title: '원인 분석 리포트', requiresAuth: true },
+    },
+    {
+      path: '/reports/action-history',
+      name: 'actionHistory',
+      component: PlaceholderView,
+      meta: { title: '대응 이력', requiresAuth: true },
+    },
+    {
+      path: '/ai/chatbot',
+      name: 'aiChatbot',
+      component: PlaceholderView,
+      meta: { title: 'AI 챗봇', requiresAuth: true },
+    },
+    {
+      path: '/admin/thresholds',
+      name: 'adminThresholds',
+      component: PlaceholderView,
+      meta: { title: '임계값 관리', requiresAuth: true, requiresAdmin: true },
+    },
+    {
+      path: '/admin/mlflow',
+      name: 'adminMlflow',
+      component: PlaceholderView,
+      meta: { title: 'MLflow 모니터링', requiresAuth: true, requiresAdmin: true },
+    },
+    {
+      path: '/admin/access',
+      name: 'adminAccess',
+      component: PlaceholderView,
+      meta: { title: '권한 관리', requiresAuth: true, requiresAdmin: true },
+    },
+    {
+      path: '/admin/sites',
+      name: 'adminSites',
+      component: PlaceholderView,
+      meta: { title: '공장 관리', requiresAuth: true, requiresAdmin: true },
+    },
+    {
+      path: '/admin/mes-interface',
+      name: 'adminMesInterface',
+      component: PlaceholderView,
+      meta: { title: 'MES 인터페이스', requiresAuth: true, requiresAdmin: true },
+    },
+    {
+      path: '/admin/prompts',
+      name: 'adminPrompts',
+      component: PlaceholderView,
+      meta: { title: '프롬프트 관리', requiresAuth: true, requiresAdmin: true },
+    },
+    {
+      path: '/admin/ingestion',
+      name: 'adminIngestion',
+      component: PlaceholderView,
+      meta: { title: '데이터 수집', requiresAuth: true, requiresAdmin: true },
+    },
+    {
+      path: '/admin/logs',
+      name: 'adminLogs',
+      component: PlaceholderView,
+      meta: { title: '운영 로그', requiresAuth: true, requiresAdmin: true },
+    },
   ],
 });
 
 router.beforeEach((to) => {
   const authStore = useAuthStore();
 
-  if (to.name === 'login' && authStore.isLoggedIn) {
-    return { path: '/dashboard' };
+  if (to.name === ROUTE_NAMES.login && authStore.isLoggedIn) {
+    return { name: ROUTE_NAMES.dashboard };
   }
 
   if (to.meta.requiresAuth && !authStore.isLoggedIn) {
-    return { path: '/login', query: { redirect: to.fullPath } };
+    return { name: ROUTE_NAMES.login, query: { redirect: to.fullPath } };
   }
 
   if (to.meta.requiresAdmin && !authStore.isAdmin) {
-    return { path: '/dashboard' };
+    return { name: ROUTE_NAMES.dashboard };
   }
 
   return true;

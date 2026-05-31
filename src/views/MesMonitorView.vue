@@ -8,6 +8,7 @@ import MesKpiCardGrid from '@/components/mes/MesKpiCardGrid.vue';
 import MesTabNav from '@/components/mes/MesTabNav.vue';
 import ToolGroupDetailPanel from '@/components/mes/ToolGroupDetailPanel.vue';
 import ToolGroupListPanel from '@/components/mes/ToolGroupListPanel.vue';
+import MesAllProcessTab from '@/components/mes/tabs/MesAllProcessTab.vue';
 
 const {
   data,
@@ -49,11 +50,7 @@ onMounted(() => {
     <p v-else-if="errorMessage" class="mes-monitor-view__state mes-monitor-view__state--error">{{ errorMessage }}</p>
 
     <template v-else-if="data">
-      <section v-if="activeTab === 'all'" class="mes-monitor-view__panel">
-        <h2>공정 전체</h2>
-        <MesKpiCardGrid :cards="data.kpiCards" :columns="6" />
-        <p class="mes-monitor-view__placeholder">공정 전체 차트/히트맵은 Task 1-4-B에서 목업 로직을 이식합니다.</p>
-      </section>
+      <MesAllProcessTab v-if="activeTab === 'all'" :data="data" />
 
       <section v-else-if="activeTab === 'process'" class="mes-monitor-view__panel">
         <h2>공정별 KPI</h2>

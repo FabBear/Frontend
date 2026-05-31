@@ -48,7 +48,7 @@ function getRiskFilterColor(value: MesRiskGrade | 'ALL') {
           :key="filter.value"
           class="tool-group-list-panel__filter"
           :class="{ 'tool-group-list-panel__filter--active': riskFilter === filter.value }"
-          :style="{ color: getRiskFilterColor(filter.value) }"
+          :style="riskFilter !== filter.value ? { color: getRiskFilterColor(filter.value) } : {}"
           type="button"
           @click="emit('update:riskFilter', filter.value)"
         >

@@ -8,6 +8,8 @@ import type { BottleneckAlertItem } from '@/types/dashboard';
 import BaseBadge from '@/components/base/BaseBadge.vue';
 import BaseButton from '@/components/base/BaseButton.vue';
 
+import { formatKoTime, formatNumber } from '@/utils/format';
+
 interface Props {
   alert: BottleneckAlertItem;
 }
@@ -24,14 +26,7 @@ const riskLabel = computed(() => (props.alert.riskLevel === 'critical' ? '위험
 const cardStyle = computed(() => ({ borderLeftColor: riskMeta.value.color }));
 const delayStyle = computed(() => ({ color: riskMeta.value.color }));
 
-const detectedTime = computed(() => {
-  return new Intl.DateTimeFormat('ko-KR', {
-    timeZone: 'Asia/Seoul',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).format(new Date(props.alert.detectedAt));
-});
+const detectedTime = computed(() => formatKoTime(props.alert.detectedAt));
 
 function handleShowSolutions() {
   emit('showSolutions', props.alert.caseId);
@@ -56,7 +51,7 @@ function handleAnalyzeCause() {
       <dt>예상 지연</dt>
       <dd :style="delayStyle">{{ alert.estDelayHours.toFixed(1) }}시간</dd>
       <dt>영향 Lot</dt>
-      <dd>{{ alert.affectedLotCount.toLocaleString('ko-KR') }}개</dd>
+      <dd>{{ formatNumber(alert.affectedLotCount) }}개</dd>
       <dt>주요 원인</dt>
       <dd>{{ alert.mainCause }}</dd>
     </dl>

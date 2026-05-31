@@ -25,7 +25,6 @@ export interface BottleneckAlertItem {
 export interface ProcessAreaStatus {
   areaCode: string;
   areaName: string;
-  areaNameKo: string;
   riskLevel: RiskLevel;
   bottleneckProb: number;
   wipCount: number;
@@ -49,7 +48,6 @@ export interface ProcessToolGroup {
 
 export interface ProcessAreaData {
   name: string;
-  ko: string;
   gFE: ProcessToolGroup[];
   gBE: ProcessToolGroup[];
 }
@@ -63,4 +61,11 @@ export interface KpiTrendSeries {
   xLabels: string[];
   valueFormat: 'percent' | 'integer' | 'decimal';
   targetValue?: number;
+}
+
+export interface DashboardData {
+  kpi: FabKpiSnapshot;
+  alerts: BottleneckAlertItem[];
+  processAreas: ProcessAreaData[];
+  trends: KpiTrendSeries[];
 }

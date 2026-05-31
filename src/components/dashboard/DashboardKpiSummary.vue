@@ -3,6 +3,8 @@ import { computed } from 'vue';
 
 import type { FabKpiSnapshot } from '@/types/dashboard';
 
+import { formatNumber, formatRatioPercent } from '@/utils/format';
+
 interface Props {
   kpi: FabKpiSnapshot;
 }
@@ -23,7 +25,7 @@ const kpiCards = computed<KpiCard[]>(() => [
   {
     key: 'rtf',
     title: 'RTF',
-    value: formatPercent(props.kpi.rtf),
+    value: formatRatioPercent(props.kpi.rtf),
     delta: props.kpi.rtfDelta * 100,
     deltaUnit: '%p',
     isPositiveGood: true,
@@ -55,14 +57,6 @@ const kpiCards = computed<KpiCard[]>(() => [
     note: '목표 ≤ 3,500 · 전체 대기 Lot 합산',
   },
 ]);
-
-function formatNumber(value: number) {
-  return new Intl.NumberFormat('ko-KR').format(value);
-}
-
-function formatPercent(value: number) {
-  return `${(value * 100).toFixed(1)}%`;
-}
 
 function getDeltaClass(card: KpiCard) {
   const isImproved = card.isPositiveGood ? card.delta >= 0 : card.delta <= 0;

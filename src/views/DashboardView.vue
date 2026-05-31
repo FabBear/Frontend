@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router';
 
-import { MOCK_BOTTLENECK_ALERTS, MOCK_FAB_KPI, MOCK_KPI_TRENDS, MOCK_PM_DATA } from '@/constants/mockData/dashboard';
+import { useDashboardData } from '@/composables/useDashboardData';
+
+import { ROUTE_NAMES } from '@/constants/routes';
 
 import BottleneckAlertList from '@/components/dashboard/BottleneckAlertList.vue';
 import DashboardKpiSummary from '@/components/dashboard/DashboardKpiSummary.vue';
@@ -9,57 +11,63 @@ import KpiSparklineChart from '@/components/dashboard/KpiSparklineChart.vue';
 import ProcessMapCard from '@/components/dashboard/ProcessMapCard.vue';
 
 const router = useRouter();
+const { dashboardData, isLoading, errorMessage } = useDashboardData();
 
 function handleShowSolutions(caseId: string) {
-  router.push({ path: '/response/bottleneck-center', query: { caseId, tab: 'solutions' } });
+  router.push({ name: ROUTE_NAMES.bottleneckCenter, query: { caseId, tab: 'solutions' } });
 }
 
 function handleAnalyzeCause(caseId: string) {
-  router.push({ path: '/reports/cause', query: { caseId } });
+  router.push({ name: ROUTE_NAMES.causeReport, query: { caseId } });
 }
 
 function handleOpenCenter() {
-  router.push('/response/bottleneck-center');
+  router.push({ name: ROUTE_NAMES.bottleneckCenter });
 }
 
 function handleSelectArea(areaCode: string) {
-  router.push({ path: '/monitoring/bottlenecks', query: { areaCode } });
+  router.push({ name: ROUTE_NAMES.bottleneckMonitoring, query: { areaCode } });
 }
 </script>
 
 <template>
   <div class="dashboard-view">
-    <DashboardKpiSummary :kpi="MOCK_FAB_KPI" />
+    <p v-if="isLoading" class="dashboard-view__state">대시보드 데이터를 불러오는 중입니다.</p>
+    <p v-else-if="errorMessage" class="dashboard-view__state dashboard-view__state--error">{{ errorMessage }}</p>
 
-    <div class="dashboard-view__main">
-      <BottleneckAlertList
-        :alerts="MOCK_BOTTLENECK_ALERTS"
-        @open-center="handleOpenCenter"
-        @show-solutions="handleShowSolutions"
-        @analyze-cause="handleAnalyzeCause"
-      />
-      <ProcessMapCard :areas="MOCK_PM_DATA" @select-area="handleSelectArea" />
-    </div>
+    <template v-if="dashboardData">
+      <DashboardKpiSummary :kpi="dashboardData.kpi" />
 
-    <div class="dashboard-view__charts" aria-label="차트 추이 영역">
-      <section v-for="trend in MOCK_KPI_TRENDS" :key="trend.key" class="dashboard-view__chart-card">
-        <header class="dashboard-view__chart-header">
-          <div class="dashboard-view__chart-title-row">
-            <h3>{{ trend.title }}</h3>
-            <span>{{ trend.subtitle }}</span>
+      <div class="dashboard-view__main">
+        <BottleneckAlertList
+          :alerts="dashboardData.alerts"
+          @open-center="handleOpenCenter"
+          @show-solutions="handleShowSolutions"
+          @analyze-cause="handleAnalyzeCause"
+        />
+        <ProcessMapCard :areas="dashboardData.processAreas" @select-area="handleSelectArea" />
+      </div>
+
+      <div class="dashboard-view__charts" aria-label="차트 추이 영역">
+        <section v-for="trend in dashboardData.trends" :key="trend.key" class="dashboard-view__chart-card">
+          <header class="dashboard-view__chart-header">
+            <div class="dashboard-view__chart-title-row">
+              <h3>{{ trend.title }}</h3>
+              <span>{{ trend.subtitle }}</span>
+            </div>
+          </header>
+          <div class="dashboard-view__chart-body">
+            <KpiSparklineChart
+              :values="trend.values"
+              :color-token="trend.colorToken"
+              :x-labels="trend.xLabels"
+              :value-format="trend.valueFormat"
+              :target-value="trend.targetValue"
+            />
           </div>
-        </header>
-        <div class="dashboard-view__chart-body">
-          <KpiSparklineChart
-            :values="trend.values"
-            :color-token="trend.colorToken"
-            :x-labels="trend.xLabels"
-            :value-format="trend.valueFormat"
-            :target-value="trend.targetValue"
-          />
-        </div>
-      </section>
-    </div>
+        </section>
+      </div>
+    </template>
   </div>
 </template>
 
@@ -76,6 +84,20 @@ function handleSelectArea(areaCode: string) {
   align-items: stretch;
   gap: 14px;
   min-width: 0;
+}
+
+.dashboard-view__state {
+  border: var(--border-width-default) solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-card);
+  padding: var(--space-3);
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-sm);
+}
+
+.dashboard-view__state--error {
+  border-color: var(--color-status-danger);
+  color: var(--color-status-danger);
 }
 
 .dashboard-view__charts {

@@ -1,3 +1,12 @@
+import {
+  getAreaBottleneckCount,
+  getAreaMaxUtilization,
+  getAreaToolGroupCount,
+  getAreaToolGroups,
+  getProcessAreaCode,
+  getRiskLevelByUtilization,
+} from '@/constants/processRisk';
+
 import type {
   BottleneckAlertItem,
   FabKpiSnapshot,
@@ -106,7 +115,6 @@ export const MOCK_KPI_TRENDS: KpiTrendSeries[] = [
 export const MOCK_PM_DATA: ProcessAreaData[] = [
   {
     name: 'EPI',
-    ko: '에피택시',
     gFE: [
       { name: 'EPI_38', util: 0.397, wipCount: 0 },
       { name: 'EPI_36', util: 0.162, wipCount: 0 },
@@ -115,7 +123,6 @@ export const MOCK_PM_DATA: ProcessAreaData[] = [
   },
   {
     name: 'Diffusion',
-    ko: '증착/열처리',
     gFE: [
       { name: 'Diffusion_FE_101', util: 0.801, wipCount: 98 },
       { name: 'Diffusion_FE_122', util: 0.766, wipCount: 40 },
@@ -131,7 +138,6 @@ export const MOCK_PM_DATA: ProcessAreaData[] = [
   },
   {
     name: 'Litho',
-    ko: '포토',
     gFE: [
       { name: 'LithoMet_FE_19', util: 0.911, wipCount: 126 },
       { name: 'Litho_REG_FE_64', util: 0.888, wipCount: 224 },
@@ -154,7 +160,6 @@ export const MOCK_PM_DATA: ProcessAreaData[] = [
   },
   {
     name: 'Etch',
-    ko: '식각',
     gFE: [
       { name: 'DE_FE_72', util: 0.871, wipCount: 0 },
       { name: 'DE_FE_62', util: 0.85, wipCount: 0 },
@@ -197,7 +202,6 @@ export const MOCK_PM_DATA: ProcessAreaData[] = [
   },
   {
     name: 'TF/Diel',
-    ko: '박막/유전체',
     gFE: [
       { name: 'DefMet_FE_10', util: 0.862, wipCount: 44 },
       { name: 'DefMet_FE_43', util: 0.79, wipCount: 48 },
@@ -241,7 +245,6 @@ export const MOCK_PM_DATA: ProcessAreaData[] = [
   },
   {
     name: 'Implant',
-    ko: '이온주입',
     gFE: [
       { name: 'Implant_132', util: 0.631, wipCount: 152 },
       { name: 'Implant_128', util: 0.62, wipCount: 190 },
@@ -255,45 +258,26 @@ export const MOCK_PM_DATA: ProcessAreaData[] = [
   },
   {
     name: 'Delay',
-    ko: '버퍼/대기',
     gFE: [{ name: 'Delay_32', util: 0.305, wipCount: 0 }],
     gBE: [],
   },
 ];
 
-function getRiskLevel(utilizationRate: number) {
-  if (utilizationRate >= 0.9) {
-    return 'critical';
-  }
-
-  if (utilizationRate >= 0.85) {
-    return 'high';
-  }
-
-  if (utilizationRate >= 0.7) {
-    return 'medium';
-  }
-
-  return 'low';
-}
-
 export const MOCK_PROCESS_AREA_STATUS: ProcessAreaStatus[] = MOCK_PM_DATA.map((area) => {
-  const toolGroups = [...area.gFE, ...area.gBE];
-  const maxUtilizationRate = Math.max(...toolGroups.map((toolGroup) => toolGroup.util));
-  const riskLevel = getRiskLevel(maxUtilizationRate);
+  const toolGroups = getAreaToolGroups(area);
+  const maxUtilizationRate = getAreaMaxUtilization(area);
 
   return {
-    areaCode: area.name.toUpperCase().replaceAll('/', '_'),
+    areaCode: getProcessAreaCode(area.name),
     areaName: area.name,
-    areaNameKo: area.ko,
-    riskLevel,
+    riskLevel: getRiskLevelByUtilization(maxUtilizationRate),
     bottleneckProb: maxUtilizationRate,
     wipCount: toolGroups.reduce((sum, toolGroup) => sum + toolGroup.wipCount, 0),
-    totalToolGroupCount: toolGroups.length,
-    bottleneckToolGroupCount: toolGroups.filter((toolGroup) => toolGroup.util >= 0.85).length,
+    totalToolGroupCount: getAreaToolGroupCount(area),
+    bottleneckToolGroupCount: getAreaBottleneckCount(area),
     toolGroups: toolGroups.map((toolGroup) => ({
       tgCode: toolGroup.name,
-      riskLevel: getRiskLevel(toolGroup.util),
+      riskLevel: getRiskLevelByUtilization(toolGroup.util),
       utilizationRate: toolGroup.util,
       wipCount: toolGroup.wipCount,
     })),

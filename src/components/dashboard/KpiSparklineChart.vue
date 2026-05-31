@@ -7,13 +7,15 @@ import { use } from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
 import VChart from 'vue-echarts';
 
+import { type MetricValueFormat, formatMetricValue } from '@/utils/format';
+
 use([CanvasRenderer, LineChart, GridComponent, MarkLineComponent, TooltipComponent]);
 
 interface Props {
   values: number[];
   colorToken: string;
   xLabels?: string[];
-  valueFormat: 'percent' | 'integer' | 'decimal';
+  valueFormat: MetricValueFormat;
   targetValue?: number;
 }
 
@@ -33,18 +35,6 @@ function withAlpha(color: string, alpha: number): string {
   const g = parseInt(normalized.slice(3, 5), 16);
   const b = parseInt(normalized.slice(5, 7), 16);
   return `rgba(${r},${g},${b},${alpha})`;
-}
-
-function formatValue(value: number) {
-  if (props.valueFormat === 'percent') {
-    return `${value.toFixed(1)}%`;
-  }
-
-  if (props.valueFormat === 'decimal') {
-    return value.toFixed(2);
-  }
-
-  return value.toLocaleString('ko-KR');
 }
 
 const option = computed(() => {
@@ -86,7 +76,7 @@ const option = computed(() => {
       axisLabel: {
         color: mutedColor,
         fontSize: 11,
-        formatter: (v: number) => formatValue(v),
+        formatter: (v: number) => formatMetricValue(v, props.valueFormat),
       },
       min: (v: { min: number }) => +(v.min * 0.996).toFixed(4),
       max: (v: { max: number }) => +(v.max * 1.004).toFixed(4),
@@ -100,7 +90,7 @@ const option = computed(() => {
       textStyle: { color: textColor, fontSize: 12 },
       formatter: (params: { name: string; value: number }[]) => {
         const p = params[0];
-        return `${p.name}<br/>${formatValue(p.value)}`;
+        return `${p.name}<br/>${formatMetricValue(p.value, props.valueFormat)}`;
       },
     },
     series: [
@@ -130,7 +120,7 @@ const option = computed(() => {
               symbol: 'none',
               label: {
                 color: mutedColor,
-                formatter: `목표 ${formatValue(targetValue)}`,
+                formatter: `목표 ${formatMetricValue(targetValue, props.valueFormat)}`,
                 fontSize: 10,
               },
               lineStyle: {

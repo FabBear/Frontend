@@ -17,6 +17,21 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (
+            id.includes('node_modules/echarts') ||
+            id.includes('node_modules/vue-echarts') ||
+            id.includes('node_modules/zrender')
+          ) {
+            return 'echarts-vendor';
+          }
+        },
+      },
+    },
+  },
   test: {
     environment: 'jsdom',
     globals: true,

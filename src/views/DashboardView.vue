@@ -1,0 +1,166 @@
+<script setup lang="ts">
+import { useRouter } from 'vue-router';
+
+import { useDashboardData } from '@/composables/useDashboardData';
+
+import { ROUTE_NAMES } from '@/constants/routes';
+
+import BottleneckAlertList from '@/components/dashboard/BottleneckAlertList.vue';
+import DashboardKpiSummary from '@/components/dashboard/DashboardKpiSummary.vue';
+import KpiSparklineChart from '@/components/dashboard/KpiSparklineChart.vue';
+import ProcessMapCard from '@/components/dashboard/ProcessMapCard.vue';
+
+const router = useRouter();
+const { dashboardData, isLoading, errorMessage } = useDashboardData();
+
+function handleShowSolutions(caseId: string) {
+  router.push({ name: ROUTE_NAMES.bottleneckCenter, query: { caseId, tab: 'solutions' } });
+}
+
+function handleAnalyzeCause(caseId: string) {
+  router.push({ name: ROUTE_NAMES.causeReport, query: { caseId } });
+}
+
+function handleOpenCenter() {
+  router.push({ name: ROUTE_NAMES.bottleneckCenter });
+}
+
+function handleSelectArea(areaCode: string) {
+  router.push({ name: ROUTE_NAMES.bottleneckMonitoring, query: { areaCode } });
+}
+</script>
+
+<template>
+  <div class="dashboard-view">
+    <p v-if="isLoading && !dashboardData" class="dashboard-view__state">대시보드 데이터를 불러오는 중입니다.</p>
+    <p v-else-if="errorMessage" class="dashboard-view__state dashboard-view__state--error">{{ errorMessage }}</p>
+
+    <template v-if="dashboardData">
+      <DashboardKpiSummary :kpi="dashboardData.kpi" />
+
+      <div class="dashboard-view__main">
+        <BottleneckAlertList
+          :alerts="dashboardData.alerts"
+          @open-center="handleOpenCenter"
+          @show-solutions="handleShowSolutions"
+          @analyze-cause="handleAnalyzeCause"
+        />
+        <ProcessMapCard :areas="dashboardData.processAreas" @select-area="handleSelectArea" />
+      </div>
+
+      <div class="dashboard-view__charts" aria-label="차트 추이 영역">
+        <section v-for="trend in dashboardData.trends" :key="trend.key" class="dashboard-view__chart-card">
+          <header class="dashboard-view__chart-header">
+            <div class="dashboard-view__chart-title-row">
+              <h3>{{ trend.title }}</h3>
+              <span>{{ trend.subtitle }}</span>
+            </div>
+          </header>
+          <div class="dashboard-view__chart-body">
+            <KpiSparklineChart
+              :values="trend.values"
+              :color-token="trend.colorToken"
+              :x-labels="trend.xLabels"
+              :value-format="trend.valueFormat"
+              :target-value="trend.targetValue"
+            />
+          </div>
+        </section>
+      </div>
+    </template>
+  </div>
+</template>
+
+<style scoped>
+.dashboard-view {
+  display: grid;
+  min-width: 0;
+  gap: 14px;
+}
+
+.dashboard-view__main {
+  display: grid;
+  grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
+  align-items: stretch;
+  gap: 14px;
+  min-width: 0;
+}
+
+.dashboard-view__state {
+  border: var(--border-width-default) solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-card);
+  padding: var(--space-3);
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-sm);
+}
+
+.dashboard-view__state--error {
+  border-color: var(--color-status-danger);
+  color: var(--color-status-danger);
+}
+
+.dashboard-view__charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.dashboard-view__chart-card {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: var(--space-3);
+  border: var(--border-width-default) solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-card);
+  padding: var(--space-3);
+  box-shadow: var(--shadow-sm);
+}
+
+.dashboard-view__chart-header {
+  min-width: 0;
+}
+
+.dashboard-view__chart-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.dashboard-view__chart-card h3 {
+  overflow: hidden;
+  color: var(--color-fg-strong);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-view__chart-card span {
+  flex-shrink: 0;
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+.dashboard-view__chart-body {
+  min-width: 0;
+  height: 150px;
+}
+
+@media (max-width: 1440px) {
+  .dashboard-view__main {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .dashboard-view__charts {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

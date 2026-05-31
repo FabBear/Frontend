@@ -73,14 +73,17 @@
 
 .badge {
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   gap: var(--space-1);
   border: 1px solid currentColor;
   border-radius: var(--radius-sm);
   padding: 2px 8px;
+  color: inherit;
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
   line-height: var(--line-height-tight);
+  white-space: nowrap;
 }
 
 .badge--danger,

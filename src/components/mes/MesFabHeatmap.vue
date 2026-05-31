@@ -26,9 +26,12 @@ const LEGEND = [
 ] as const;
 
 const areas = computed(() => {
-  const sorted = [...props.processSummaries].sort(
-    (a, b) => (PROCESS_AREA_ORDER.indexOf(a.areaCode) + 1 || 999) - (PROCESS_AREA_ORDER.indexOf(b.areaCode) + 1 || 999)
-  );
+  const sorted = [...props.processSummaries].sort((a, b) => {
+    const indexA = PROCESS_AREA_ORDER.indexOf(a.areaCode);
+    const indexB = PROCESS_AREA_ORDER.indexOf(b.areaCode);
+    return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
+  });
+
   return sorted.map((ps) => ({
     process: ps,
     toolGroups: props.toolGroups

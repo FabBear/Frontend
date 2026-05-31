@@ -32,9 +32,11 @@ const chartData = computed(() => {
     areaMap.get(tg.areaCode)![tg.riskGrade]++;
   }
 
-  const areas = [...areaMap.values()].sort(
-    (a, b) => (PROCESS_AREA_ORDER.indexOf(a.code) + 1 || 999) - (PROCESS_AREA_ORDER.indexOf(b.code) + 1 || 999)
-  );
+  const areas = [...areaMap.values()].sort((a, b) => {
+    const indexA = PROCESS_AREA_ORDER.indexOf(a.code);
+    const indexB = PROCESS_AREA_ORDER.indexOf(b.code);
+    return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
+  });
 
   return {
     names: areas.map((a) => a.code),
@@ -72,7 +74,7 @@ const chartOption = computed(() => {
       trigger: 'axis',
       axisPointer: { type: 'shadow' },
       textStyle: { fontSize: chartFontSize },
-      formatter: (params: { seriesName: string; value: number; marker: string }[]) => {
+      formatter: (params: { seriesName: string; value: number; marker: string; axisValue?: string }[]) => {
         const total = params.reduce((s, p) => s + p.value, 0);
         const rows = params
           .filter((p) => p.value > 0)

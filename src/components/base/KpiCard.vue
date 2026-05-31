@@ -10,7 +10,14 @@ interface Props {
   note?: string;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+  valueColor: undefined,
+  delta: undefined,
+  deltaUnit: undefined,
+  isPositiveGood: true,
+  subtitle: undefined,
+  note: undefined,
+});
 
 // isPositiveGood: true  → 값이 오를수록 좋음 (throughput, RTF 등)
 // isPositiveGood: false → 값이 오를수록 나쁨 (WIP, Q-time 등)

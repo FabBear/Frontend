@@ -116,10 +116,15 @@ export function useMesMonitoring() {
     selectedToolGroupId.value = tgId;
     detailErrorMessage.value = null;
     try {
-      selectedTools.value = await fetchMesToolsByToolGroup(tgId);
+      const tools = await fetchMesToolsByToolGroup(tgId);
+      if (selectedToolGroupId.value === tgId) {
+        selectedTools.value = tools;
+      }
     } catch {
-      selectedTools.value = [];
-      detailErrorMessage.value = 'Tool 상세 데이터를 불러오지 못했습니다.';
+      if (selectedToolGroupId.value === tgId) {
+        selectedTools.value = [];
+        detailErrorMessage.value = 'Tool 상세 데이터를 불러오지 못했습니다.';
+      }
     }
   }
 

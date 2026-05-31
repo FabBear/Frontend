@@ -51,9 +51,13 @@ export function formatMesDispatchAt(value?: string | null): string {
   const normalizedValue = value?.trim();
   if (!normalizedValue) return '-';
 
+  if (normalizedValue.startsWith('Day')) {
+    return normalizedValue;
+  }
+
   const date = new Date(normalizedValue);
 
-  if (normalizedValue.startsWith('Day') || Number.isNaN(date.getTime())) {
+  if (Number.isNaN(date.getTime())) {
     return normalizedValue;
   }
 

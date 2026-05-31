@@ -3,6 +3,8 @@ import { RISK_LEVEL_META, type RiskLevel } from '@/constants/riskLevel';
 
 import type { MesKpiCard } from '@/types/mes';
 
+import KpiCard from '@/components/base/KpiCard.vue';
+
 interface Props {
   cards: MesKpiCard[];
   columns?: 5 | 6;
@@ -24,18 +26,24 @@ const TONE_COLOR: Record<NonNullable<MesKpiCard['tone']>, string> = {
 };
 
 function getToneColor(tone?: RiskLevel | 'info' | 'success' | 'warning' | 'danger') {
-  return tone ? TONE_COLOR[tone] : 'var(--color-fg-strong)';
+  return tone ? TONE_COLOR[tone] : undefined;
 }
 </script>
 
 <template>
   <div class="mes-kpi-card-grid" :class="`mes-kpi-card-grid--cols-${columns}`">
-    <article v-for="card in cards" :key="card.key" class="mes-kpi-card-grid__card">
-      <span>{{ card.title }}</span>
-      <strong :style="{ color: getToneColor(card.tone) }">{{ card.value }}</strong>
-      <small>{{ card.subtitle }}</small>
-      <em v-if="card.deltaText">{{ card.deltaText }}</em>
-    </article>
+    <KpiCard
+      v-for="card in cards"
+      :key="card.key"
+      :title="card.title"
+      :value="card.value"
+      :value-color="getToneColor(card.tone)"
+      :delta="card.delta"
+      :delta-unit="card.deltaUnit"
+      :is-positive-good="card.isPositiveGood"
+      :subtitle="card.subtitle"
+      :note="card.note"
+    />
   </div>
 </template>
 
@@ -51,32 +59,6 @@ function getToneColor(tone?: RiskLevel | 'info' | 'success' | 'warning' | 'dange
 
 .mes-kpi-card-grid--cols-6 {
   grid-template-columns: repeat(6, minmax(0, 1fr));
-}
-
-.mes-kpi-card-grid__card {
-  border: var(--border-width-default) solid var(--color-border-default);
-  border-radius: var(--radius-lg);
-  background: var(--color-bg-surface);
-  padding: var(--space-3);
-}
-
-.mes-kpi-card-grid__card span,
-.mes-kpi-card-grid__card small,
-.mes-kpi-card-grid__card em {
-  color: var(--color-fg-muted);
-  font-size: var(--font-size-xs);
-}
-
-.mes-kpi-card-grid__card strong {
-  display: block;
-  margin: var(--space-1) 0;
-  font-size: var(--font-size-xl);
-}
-
-.mes-kpi-card-grid__card em {
-  display: block;
-  margin-top: var(--space-1);
-  font-style: normal;
 }
 
 @media (max-width: 1280px) {

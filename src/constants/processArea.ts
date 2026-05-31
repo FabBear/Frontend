@@ -1,3 +1,5 @@
+export const PROCESS_AREA_ORDER: string[] = ['EPI', 'Diffusion', 'Implant', 'Litho', 'Etch', 'TF/Diel', 'Delay'];
+
 export const PROCESS_AREA_NAME_KO: Record<string, string> = {
   DRY_ETCH: '식각',
   ETCH: '식각',

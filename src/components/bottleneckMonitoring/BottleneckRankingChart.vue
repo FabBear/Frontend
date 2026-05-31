@@ -13,6 +13,7 @@ import { RISK_LEVEL_META } from '@/constants/riskLevel';
 
 import type { BottleneckToolGroupItem } from '@/types/bottleneckMonitoring';
 
+import { resolveCssFontSize, resolveCssVar } from '@/utils/chart';
 import { toRatioPercentNumber } from '@/utils/format';
 
 use([CanvasRenderer, BarChart, GridComponent, TooltipComponent]);
@@ -23,36 +24,14 @@ interface Props {
 
 const props = defineProps<Props>();
 
-function resolveColor(colorValue: string) {
-  if (typeof window === 'undefined' || !document.body) return '#888';
-  const temp = document.createElement('span');
-  temp.style.color = colorValue;
-  document.body.appendChild(temp);
-  const resolvedColor = getComputedStyle(temp).color;
-  document.body.removeChild(temp);
-
-  return resolvedColor || '#888';
-}
-
-function resolveFontSize(token: string) {
-  if (typeof window === 'undefined' || !document.body) return 16;
-  const temp = document.createElement('span');
-  temp.style.fontSize = `var(${token})`;
-  document.body.appendChild(temp);
-  const parsedValue = Number.parseFloat(getComputedStyle(temp).fontSize);
-  document.body.removeChild(temp);
-
-  return Number.isNaN(parsedValue) ? 16 : parsedValue;
-}
-
 const chartOption = computed(() => {
   const items = [...props.toolGroups].reverse();
   const names = items.map((tg) => tg.tgName);
   const probs = items.map((tg) => toRatioPercentNumber(tg.bottleneckProb));
-  const baseFontSize = resolveFontSize('--font-size-base');
+  const baseFontSize = resolveCssFontSize('--font-size-base');
   const colors = items.map((tg) => {
     const level = toRiskLevel(tg.riskGrade);
-    return resolveColor(RISK_LEVEL_META[level].color);
+    return resolveCssVar(RISK_LEVEL_META[level].color);
   });
 
   return {

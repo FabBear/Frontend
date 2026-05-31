@@ -28,7 +28,7 @@ const router = createRouter({
     {
       path: '/monitoring/bottlenecks',
       name: ROUTE_NAMES.bottleneckMonitoring,
-      component: PlaceholderView,
+      component: () => import('@/views/BottleneckMonitoringView.vue'),
       meta: { title: '병목 모니터링', requiresAuth: true },
     },
     {

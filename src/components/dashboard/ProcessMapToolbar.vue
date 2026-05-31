@@ -7,7 +7,6 @@ import {
 } from '@/constants/processRisk';
 
 interface Props {
-  totalToolGroupCount: number;
   activeGrades: Set<ProcessRiskGrade>;
 }
 
@@ -24,7 +23,6 @@ function isGradeActive(grade: ProcessRiskGrade): boolean {
 
 <template>
   <div class="process-map-toolbar">
-    <div class="process-map-toolbar__label">Tool Group 상태 · 전체 {{ totalToolGroupCount }}개 · 가동률 기준</div>
     <div class="process-map-toolbar__filters" role="group" aria-label="위험도 필터">
       <button
         v-for="grade in PROCESS_RISK_GRADES"
@@ -42,25 +40,12 @@ function isGradeActive(grade: ProcessRiskGrade): boolean {
 </template>
 
 <style scoped>
-.process-map-toolbar,
-.process-map-toolbar__filters {
+.process-map-toolbar {
   display: flex;
 }
 
-.process-map-toolbar {
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  margin-bottom: var(--space-1);
-}
-
-.process-map-toolbar__label {
-  color: var(--color-fg-muted);
-  font-size: var(--font-size-sm);
-  white-space: nowrap;
-}
-
 .process-map-toolbar__filters {
+  display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: var(--space-1);

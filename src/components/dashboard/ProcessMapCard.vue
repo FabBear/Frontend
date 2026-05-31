@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 
-import { type ProcessRiskGrade, getAreaToolGroupCount } from '@/constants/processRisk';
+import { type ProcessRiskGrade } from '@/constants/processRisk';
 
 import type { ProcessAreaData } from '@/types/dashboard';
 
@@ -11,6 +11,7 @@ import ProcessToolGroupRow from '@/components/dashboard/ProcessToolGroupRow.vue'
 
 interface Props {
   areas: ProcessAreaData[];
+  selectedAreaName?: string | null;
 }
 
 const props = defineProps<Props>();
@@ -20,9 +21,9 @@ const emit = defineEmits<{
 }>();
 
 const activeGrades = ref<Set<ProcessRiskGrade>>(new Set(['dc', 'dr']));
-const selectedAreaName = ref<string | null>(null);
+const localSelectedAreaName = ref<string | null>(null);
 
-const totalToolGroupCount = computed(() => props.areas.reduce((sum, area) => sum + getAreaToolGroupCount(area), 0));
+const currentSelectedAreaName = computed(() => props.selectedAreaName ?? localSelectedAreaName.value);
 
 function handleToggleGrade(grade: ProcessRiskGrade) {
   const next = new Set(activeGrades.value);
@@ -36,28 +37,39 @@ function handleToggleGrade(grade: ProcessRiskGrade) {
 }
 
 function handleSelectArea(area: ProcessAreaData) {
-  selectedAreaName.value = selectedAreaName.value === area.name ? null : area.name;
+  localSelectedAreaName.value = localSelectedAreaName.value === area.name ? null : area.name;
   emit('selectArea', area.name);
 }
 </script>
 
 <template>
   <section class="process-map" aria-labelledby="pm-title">
-    <header class="process-map__section-header">
-      <h2 id="pm-title" class="process-map__title">공정 상태맵</h2>
-    </header>
-
     <div class="process-map__card">
-      <ProcessMapToolbar
-        :total-tool-group-count="totalToolGroupCount"
-        :active-grades="activeGrades"
-        @toggle-grade="handleToggleGrade"
-      />
+      <div class="process-map__card-header">
+        <h2 id="pm-title" class="process-map__title">공정 상태맵</h2>
+        <div class="process-map__legend" aria-label="가동률 범례">
+          <span class="process-map__legend-item">
+            <i class="process-map__legend-dot process-map__legend-dot--low" aria-hidden="true" />정상 (&lt;70%)
+          </span>
+          <span class="process-map__legend-item">
+            <i class="process-map__legend-dot process-map__legend-dot--medium" aria-hidden="true" />주의 (70~85%)
+          </span>
+          <span class="process-map__legend-item">
+            <i class="process-map__legend-dot process-map__legend-dot--high" aria-hidden="true" />위험 (≥85%)
+          </span>
+        </div>
+      </div>
+
+      <ProcessMapToolbar :active-grades="activeGrades" @toggle-grade="handleToggleGrade" />
 
       <div class="process-map__scroll">
-        <ProcessFlowRow :areas="areas" :selected-area-name="selectedAreaName" @select-area="handleSelectArea" />
+        <ProcessFlowRow :areas="areas" :selected-area-name="currentSelectedAreaName" @select-area="handleSelectArea" />
         <div class="process-map__separator" />
-        <ProcessToolGroupRow :areas="areas" :active-grades="activeGrades" :selected-area-name="selectedAreaName" />
+        <ProcessToolGroupRow
+          :areas="areas"
+          :active-grades="activeGrades"
+          :selected-area-name="currentSelectedAreaName"
+        />
       </div>
     </div>
   </section>
@@ -65,17 +77,14 @@ function handleSelectArea(area: ProcessAreaData) {
 
 <style scoped>
 .process-map {
-  display: grid;
-  grid-template-rows: auto 1fr;
   height: 100%;
   min-width: 0;
-  gap: var(--space-2);
 }
 
 .process-map__card {
   --pm-column-width: 10rem;
   display: grid;
-  gap: var(--space-3);
+  gap: var(--space-2);
   height: 100%;
   min-height: 0;
   min-width: 0;
@@ -88,20 +97,56 @@ function handleSelectArea(area: ProcessAreaData) {
   box-shadow: var(--shadow-sm);
 }
 
-.process-map__section-header {
+.process-map__card-header {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-2);
-  margin-bottom: var(--space-1);
+  gap: var(--space-3);
+  flex-wrap: wrap;
 }
 
 .process-map__title {
   color: var(--color-fg-strong);
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-base);
   font-weight: var(--font-weight-bold);
   line-height: var(--line-height-tight);
+  white-space: nowrap;
+}
+
+.process-map__legend {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.process-map__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+}
+
+.process-map__legend-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  flex-shrink: 0;
+}
+
+.process-map__legend-dot--low {
+  background: var(--color-risk-low);
+}
+
+.process-map__legend-dot--medium {
+  background: var(--color-risk-medium);
+}
+
+.process-map__legend-dot--high {
+  background: var(--color-risk-high);
 }
 
 .process-map__scroll {

@@ -32,11 +32,11 @@ const navSections: NavSection[] = [
     title: '사용자 서비스',
     items: [
       { label: '대시보드', to: '/dashboard', icon: LayoutDashboard },
-      { label: '병목 모니터링', to: '/monitoring/bottlenecks', icon: Activity, badge: '3' },
+      { label: '병목 모니터링', to: '/monitoring/bottlenecks', icon: Activity },
       { label: 'MES 모니터링', to: '/monitoring/mes', icon: ServerCog },
       { label: '장비 모니터링', to: '/monitoring/machines', icon: Wrench },
       { label: '3D FAB 뷰', to: '/monitoring/fab-3d', icon: Factory },
-      { label: '병목 대응 센터', to: '/response/bottleneck-center', icon: Gauge },
+      { label: '병목 대응 센터', to: '/response/bottleneck-center', icon: Gauge, badge: '3' },
       { label: '원인 분석 리포트', to: '/reports/cause', icon: FileSearch },
       { label: '대응 이력', to: '/reports/action-history', icon: History },
     ],

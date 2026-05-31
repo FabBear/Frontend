@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { computed } from 'vue';
+
 import { getProcessAreaNameKo } from '@/constants/processArea';
 import { getAreaMaxUtilization, getProcessStepTone, isBottleneckUtilization } from '@/constants/processRisk';
 
@@ -15,33 +17,42 @@ const emit = defineEmits<{
   selectArea: [area: ProcessAreaData];
 }>();
 
-function getStepStyle(area: ProcessAreaData) {
-  const colors = getProcessStepTone(getAreaMaxUtilization(area));
-  const isSelected = props.selectedAreaName === area.name;
-  return {
-    ...colors,
-    outline: isSelected ? `var(--border-width-thick) solid ${colors.color}` : 'none',
-    outlineOffset: isSelected ? 'var(--space-1)' : '0',
-  };
-}
+const processedAreas = computed(() =>
+  props.areas.map((area) => {
+    const maxUtil = getAreaMaxUtilization(area);
+    const colors = getProcessStepTone(maxUtil);
+    const isSelected = props.selectedAreaName === area.name;
+    return {
+      area,
+      maxUtil,
+      isBottleneck: isBottleneckUtilization(maxUtil),
+      nameKo: getProcessAreaNameKo(area.name),
+      stepStyle: {
+        ...colors,
+        outline: isSelected ? `var(--border-width-thick) solid ${colors.color}` : 'none',
+        outlineOffset: isSelected ? 'var(--space-1)' : '0',
+      },
+    };
+  })
+);
 </script>
 
 <template>
   <div class="process-flow-row">
     <div class="process-flow-row__io">IN<br /><span>입고</span></div>
     <div class="process-flow-row__arrow">→</div>
-    <template v-for="(area, index) in areas" :key="area.name">
+    <template v-for="(item, index) in processedAreas" :key="item.area.name">
       <button
         class="process-flow-row__step"
         type="button"
-        :style="getStepStyle(area)"
-        :aria-label="`${area.name} (${getProcessAreaNameKo(area.name)}) 가동률 ${(getAreaMaxUtilization(area) * 100).toFixed(0)}%`"
-        @click="emit('selectArea', area)"
+        :style="item.stepStyle"
+        :aria-label="`${item.area.name} (${item.nameKo}) 가동률 ${(item.maxUtil * 100).toFixed(0)}%`"
+        @click="emit('selectArea', item.area)"
       >
-        {{ area.name }}{{ isBottleneckUtilization(getAreaMaxUtilization(area)) ? ' ⚠' : '' }}<br />
-        <span>{{ getProcessAreaNameKo(area.name) }} · {{ (getAreaMaxUtilization(area) * 100).toFixed(0) }}%</span>
+        {{ item.area.name }}{{ item.isBottleneck ? ' ⚠' : '' }}<br />
+        <span>{{ item.nameKo }} · {{ (item.maxUtil * 100).toFixed(0) }}%</span>
       </button>
-      <div v-if="index < areas.length - 1" class="process-flow-row__arrow">→</div>
+      <div v-if="index < processedAreas.length - 1" class="process-flow-row__arrow">→</div>
     </template>
     <div class="process-flow-row__arrow">→</div>
     <div class="process-flow-row__io">OUT<br /><span>출고</span></div>

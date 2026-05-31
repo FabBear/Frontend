@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
+import { KPI_TARGETS } from '@/constants/kpiTargets';
+
 import type { FabKpiSnapshot } from '@/types/dashboard';
 
 import { formatNumber, formatRatioPercent } from '@/utils/format';
@@ -29,7 +31,7 @@ const kpiCards = computed<KpiCard[]>(() => [
     delta: props.kpi.rtfDelta * 100,
     deltaUnit: '%p',
     isPositiveGood: true,
-    note: '실적 3,468 / 계획 3,680',
+    note: `실적 ${formatNumber(props.kpi.throughput24h)} / 계획 ${formatNumber(KPI_TARGETS.throughputPlan)}`,
   },
   {
     key: 'throughput',
@@ -54,7 +56,7 @@ const kpiCards = computed<KpiCard[]>(() => [
     delta: props.kpi.wipDelta,
     deltaUnit: ' lots',
     isPositiveGood: false,
-    note: '목표 ≤ 3,500 · 전체 대기 Lot 합산',
+    note: `목표 ≤ ${formatNumber(KPI_TARGETS.wipCount)} · 전체 대기 Lot 합산`,
   },
 ]);
 

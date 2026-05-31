@@ -32,7 +32,7 @@ function handleSelectArea(areaCode: string) {
 
 <template>
   <div class="dashboard-view">
-    <p v-if="isLoading" class="dashboard-view__state">대시보드 데이터를 불러오는 중입니다.</p>
+    <p v-if="isLoading && !dashboardData" class="dashboard-view__state">대시보드 데이터를 불러오는 중입니다.</p>
     <p v-else-if="errorMessage" class="dashboard-view__state dashboard-view__state--error">{{ errorMessage }}</p>
 
     <template v-if="dashboardData">

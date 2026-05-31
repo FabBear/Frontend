@@ -46,36 +46,22 @@ function getHeaderColor(area: ProcessAreaData) {
           }}
         </div>
 
+        <div v-if="area.gBE.length > 0" class="process-tool-group-row__subheader">FE</div>
+        <div
+          v-for="toolGroup in area.gFE"
+          v-show="isVisible(toolGroup)"
+          :key="toolGroup.name"
+          class="process-tool-group-row__item"
+        >
+          <span
+            :class="`process-tool-group-row__dot process-tool-group-row__dot--${getProcessRiskGrade(toolGroup.util)}`"
+          />
+          {{ toolGroup.name }}
+        </div>
         <template v-if="area.gBE.length > 0">
-          <div class="process-tool-group-row__subheader">FE</div>
-          <div
-            v-for="toolGroup in area.gFE"
-            v-show="isVisible(toolGroup)"
-            :key="toolGroup.name"
-            class="process-tool-group-row__item"
-          >
-            <span
-              :class="`process-tool-group-row__dot process-tool-group-row__dot--${getProcessRiskGrade(toolGroup.util)}`"
-            />
-            {{ toolGroup.name }}
-          </div>
           <div class="process-tool-group-row__subheader">BE</div>
           <div
             v-for="toolGroup in area.gBE"
-            v-show="isVisible(toolGroup)"
-            :key="toolGroup.name"
-            class="process-tool-group-row__item"
-          >
-            <span
-              :class="`process-tool-group-row__dot process-tool-group-row__dot--${getProcessRiskGrade(toolGroup.util)}`"
-            />
-            {{ toolGroup.name }}
-          </div>
-        </template>
-
-        <template v-else>
-          <div
-            v-for="toolGroup in area.gFE"
             v-show="isVisible(toolGroup)"
             :key="toolGroup.name"
             class="process-tool-group-row__item"

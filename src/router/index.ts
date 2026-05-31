@@ -33,8 +33,8 @@ const router = createRouter({
     },
     {
       path: '/monitoring/mes',
-      name: 'mesMonitoring',
-      component: PlaceholderView,
+      name: ROUTE_NAMES.mesMonitoring,
+      component: () => import('@/views/MesMonitorView.vue'),
       meta: { title: 'MES 모니터링', requiresAuth: true },
     },
     {

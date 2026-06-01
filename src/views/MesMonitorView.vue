@@ -4,30 +4,26 @@ import { onMounted } from 'vue';
 import { useMesMonitoring } from '@/composables/useMesMonitoring';
 
 import MesConnectionStatus from '@/components/mes/MesConnectionStatus.vue';
-import MesKpiCardGrid from '@/components/mes/MesKpiCardGrid.vue';
 import MesTabNav from '@/components/mes/MesTabNav.vue';
-import ToolGroupDetailPanel from '@/components/mes/ToolGroupDetailPanel.vue';
-import ToolGroupListPanel from '@/components/mes/ToolGroupListPanel.vue';
 import MesAllProcessTab from '@/components/mes/tabs/MesAllProcessTab.vue';
 import MesProcessTab from '@/components/mes/tabs/MesProcessTab.vue';
+import MesToolGroupTab from '@/components/mes/tabs/MesToolGroupTab.vue';
 
 const {
   data,
   activeTab,
-  toolGroupSearch,
-  toolGroupRiskFilter,
+  tgAreaFilter,
   selectedToolGroupId,
   selectedToolGroup,
   selectedTools,
-  toolSummaryCards,
   toolViewMode,
   isLoading,
   errorMessage,
   detailErrorMessage,
-  filteredToolGroups,
   loadMesMonitoringData,
   selectToolGroup,
   setActiveTab,
+  navigateToProcess,
 } = useMesMonitoring();
 
 onMounted(() => {
@@ -53,31 +49,21 @@ onMounted(() => {
     <template v-else-if="data">
       <MesAllProcessTab v-if="activeTab === 'all'" :data="data" />
 
-      <MesProcessTab v-else-if="activeTab === 'process'" :data="data" />
+      <MesProcessTab v-else-if="activeTab === 'process'" :data="data" @navigate-to-process="navigateToProcess" />
 
-      <section v-else-if="activeTab === 'toolGroup'" class="mes-monitor-view__panel">
-        <h2>Tool Group별 KPI</h2>
-        <p class="mes-monitor-view__placeholder">TG 분포/Top N/전체 KPI 테이블은 Task 1-4-D에서 구현합니다.</p>
-      </section>
-
-      <section v-else class="mes-monitor-view__tool-layout">
-        <MesKpiCardGrid :cards="toolSummaryCards" />
-        <div class="mes-monitor-view__tool-body">
-          <ToolGroupListPanel
-            v-model:search="toolGroupSearch"
-            v-model:risk-filter="toolGroupRiskFilter"
-            :tool-groups="filteredToolGroups"
-            :selected-tool-group-id="selectedToolGroupId"
-            @select="selectToolGroup"
-          />
-          <ToolGroupDetailPanel
-            v-model:tool-view-mode="toolViewMode"
-            :tool-group="selectedToolGroup"
-            :tools="selectedTools"
-            :error-message="detailErrorMessage"
-          />
-        </div>
-      </section>
+      <MesToolGroupTab
+        v-else-if="activeTab === 'toolGroup'"
+        :data="data"
+        :selected-tool-group-id="selectedToolGroupId"
+        :selected-tool-group="selectedToolGroup"
+        :selected-tools="selectedTools"
+        :tool-view-mode="toolViewMode"
+        :tg-area-filter="tgAreaFilter"
+        :detail-error-message="detailErrorMessage"
+        @update:tool-view-mode="toolViewMode = $event"
+        @update:tg-area-filter="tgAreaFilter = $event"
+        @select-tool-group="selectToolGroup"
+      />
     </template>
   </div>
 </template>

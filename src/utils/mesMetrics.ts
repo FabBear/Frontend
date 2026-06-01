@@ -1,6 +1,8 @@
 import { MES_QUALITY_FACTOR } from '@/constants/mes';
 import { RISK_LEVEL_META, type RiskLevel } from '@/constants/riskLevel';
 
+import type { MesToolMetric, MesToolStatusSummary } from '@/types/mes';
+
 export function calculateMesOeeEstimate(utilizationRate: number, setupRatio: number): number {
   return utilizationRate * Math.max(1 - setupRatio, 0.7) * MES_QUALITY_FACTOR;
 }
@@ -32,4 +34,14 @@ export function getMesQtimeColor(avgQtimeMin: number | null): string {
 
 export function getMesQueueColor(queueLotCount: number): string {
   return queueLotCount > 0 ? 'var(--color-status-warning)' : 'var(--color-fg-strong)';
+}
+
+export function createMesToolStatusSummary(tools: MesToolMetric[]): MesToolStatusSummary {
+  return tools.reduce<MesToolStatusSummary>(
+    (summary, tool) => {
+      summary[tool.status] += 1;
+      return summary;
+    },
+    { RUN: 0, IDLE: 0, SETUP: 0, DOWN: 0 }
+  );
 }

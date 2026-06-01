@@ -28,7 +28,10 @@ export function formatPercentPoint(value: number): string {
 }
 
 export function formatQtimeDays(value: number | null): string {
-  return value === null ? '-' : `${(value / 60 / 24).toFixed(1)}일`;
+  if (value === null) return '-';
+  if (value < 60) return `${Math.round(value)}분`;
+  if (value < 60 * 24) return `${(value / 60).toFixed(1)}시간`;
+  return `${(value / 60 / 24).toFixed(1)}일`;
 }
 
 export function formatMetricValue(value: number, valueFormat: MetricValueFormat): string {

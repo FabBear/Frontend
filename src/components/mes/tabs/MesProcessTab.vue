@@ -16,6 +16,11 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+
+const emit = defineEmits<{
+  navigateToProcess: [areaCode: string];
+}>();
+
 type ProcessViewMode = 'card' | 'table';
 
 const processViewMode = ref<ProcessViewMode>('table');
@@ -27,22 +32,23 @@ const sortedProcesses = computed(() =>
 );
 
 const utilizationChart = computed(() => ({
-  labels: sortedProcesses.value.map((process) => process.areaName),
+  labels: sortedProcesses.value.map((process) => process.areaNameKo),
   avgValues: sortedProcesses.value.map((process) => process.avgUtilizationRate),
   maxValues: sortedProcesses.value.map((process) => process.maxUtilizationRate),
   maxColors: sortedProcesses.value.map((process) => getMesUtilizationColor(process.maxUtilizationRate)),
 }));
 
 const qtimeChart = computed(() => {
-  const values = sortedProcesses.value.map((process) =>
-    process.avgQtimeMin == null ? 0 : Number((process.avgQtimeMin / 60 / 24).toFixed(1))
-  );
+  const toDay = (min: number | null) => (min == null ? 0 : Number((min / 60 / 24).toFixed(1)));
+  const avgValues = sortedProcesses.value.map((p) => toDay(p.avgQtimeMin));
+  const maxValues = sortedProcesses.value.map((p) => toDay(p.maxQtimeMin));
 
   return {
-    labels: sortedProcesses.value.map((process) => process.areaName),
-    values,
-    colors: sortedProcesses.value.map((process) => getMesQtimeColor(process.avgQtimeMin)),
-    max: Math.max(12, Math.ceil(Math.max(...values) + 2)),
+    labels: sortedProcesses.value.map((p) => p.areaNameKo),
+    avgValues,
+    maxValues,
+    maxColors: sortedProcesses.value.map((p) => getMesQtimeColor(p.maxQtimeMin)),
+    max: Math.max(12, Math.ceil(Math.max(...maxValues) + 2)),
   };
 });
 </script>
@@ -84,26 +90,35 @@ const qtimeChart = computed(() => {
         value-mode="ratio"
         :min="0"
         :max="100"
-        :height="220"
+        :height="300"
         :target-line="{ name: 'Critical 90%', value: 0.9, colorToken: '--color-risk-critical' }"
         bar-category-gap="40%"
       />
       <MesTrendChart
-        title="공정별 Q-time"
+        title="공정별 Q-time (최대 / 평균)"
         subtitle="대기일 · 목표선 10일"
         :labels="qtimeChart.labels"
         :series="[
           {
-            name: 'Q-time',
-            values: qtimeChart.values,
-            colorToken: '--color-chart-blue',
+            name: '최대 Q-time',
+            values: qtimeChart.maxValues,
+            colorToken: '--color-chart-violet',
             showInLegend: false,
             showLabel: true,
           },
+          {
+            name: '평균 Q-time',
+            values: qtimeChart.avgValues,
+            colorToken: '--color-chart-blue',
+            opacity: 0.7,
+            showInLegend: false,
+            showLabel: false,
+          },
         ]"
-        :bar-colors="qtimeChart.colors"
-        :target-line="{ name: '목표 10일', value: 10, colorToken: '--color-status-danger' }"
+        :bar-colors="qtimeChart.maxColors"
+        :target-line="{ name: '', value: 10, colorToken: '--color-status-danger' }"
         :color-legend="[
+          { label: '평균 Q-time', colorToken: '--color-chart-blue' },
           { label: '< 5일 정상', colorToken: '--color-status-success' },
           { label: '5~10일 주의', colorToken: '--color-status-warning' },
           { label: '> 10일 위험', colorToken: '--color-status-danger' },
@@ -113,7 +128,7 @@ const qtimeChart = computed(() => {
         value-suffix="일"
         :min="0"
         :max="qtimeChart.max"
-        :height="220"
+        :height="300"
       />
     </div>
 
@@ -141,8 +156,17 @@ const qtimeChart = computed(() => {
         </div>
       </header>
 
-      <MesProcessKpiTable v-if="processViewMode === 'table'" :process-summaries="sortedProcesses" />
-      <MesProcessKpiCards v-else :process-summaries="sortedProcesses" :tool-groups="data.toolGroups" />
+      <MesProcessKpiTable
+        v-if="processViewMode === 'table'"
+        :process-summaries="sortedProcesses"
+        @select-process="emit('navigateToProcess', $event)"
+      />
+      <MesProcessKpiCards
+        v-else
+        :process-summaries="sortedProcesses"
+        :tool-groups="data.toolGroups"
+        @select-process="emit('navigateToProcess', $event)"
+      />
     </section>
   </section>
 </template>

@@ -41,14 +41,18 @@ const emit = defineEmits<{
 const tgSearch = ref('');
 const tgRiskFilter = ref<MesRiskGrade | 'ALL'>('ALL');
 
-const toolStatusSummaries = computed<Record<string, MesToolStatusSummary>>(() =>
-  props.data.toolGroups.reduce<Record<string, MesToolStatusSummary>>((summaries, toolGroup) => {
-    summaries[toolGroup.tgId] = createMesToolStatusSummary(
-      props.data.tools.filter((tool) => tool.tgId === toolGroup.tgId)
-    );
+const toolStatusSummaries = computed<Record<string, MesToolStatusSummary>>(() => {
+  const toolsByTgId = props.data.tools.reduce<Record<string, MesToolMetric[]>>((groups, tool) => {
+    groups[tool.tgId] ??= [];
+    groups[tool.tgId].push(tool);
+    return groups;
+  }, {});
+
+  return props.data.toolGroups.reduce<Record<string, MesToolStatusSummary>>((summaries, toolGroup) => {
+    summaries[toolGroup.tgId] = createMesToolStatusSummary(toolsByTgId[toolGroup.tgId] ?? []);
     return summaries;
-  }, {})
-);
+  }, {});
+});
 
 const areaOptions = computed(() =>
   [...props.data.processSummaries]

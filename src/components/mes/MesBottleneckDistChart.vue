@@ -104,7 +104,6 @@ const chartData = computed(() => {
     SIDES.map((side) => {
       return (
         groupMap.get(`${process.code}:${side}`) ?? {
-          key: `${process.code}:${side}`,
           processCode: process.code,
           processName: process.name,
           side,

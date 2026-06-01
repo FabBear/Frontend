@@ -35,8 +35,8 @@ function getRowKey(row: BaseTableRow, rowIndex: number) {
 }
 
 function isSelected(row: BaseTableRow) {
-  if (props.selectedRowKey === null) return false;
-  return getRowKey(row, -1) === props.selectedRowKey;
+  if (props.selectedRowKey == null) return false;
+  return row[props.rowKey] === props.selectedRowKey;
 }
 </script>
 

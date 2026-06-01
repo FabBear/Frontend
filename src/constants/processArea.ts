@@ -22,3 +22,8 @@ export function getProcessAreaNameKo(areaName: string): string {
 
   return PROCESS_AREA_NAME_KO[normalizedAreaName] ?? areaName;
 }
+
+export function getProcessAreaSortOrder(areaCode: string): number {
+  const index = PROCESS_AREA_ORDER.indexOf(areaCode);
+  return index === -1 ? 999 : index;
+}

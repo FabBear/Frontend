@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 
-import { PROCESS_AREA_ORDER } from '@/constants/processArea';
+import { getProcessAreaSortOrder } from '@/constants/processArea';
 import { RISK_LEVEL_META, type RiskLevel } from '@/constants/riskLevel';
 
 import type { MesProcessSummary, MesRiskGrade, MesToolGroupMetric } from '@/types/mes';
@@ -26,11 +26,9 @@ const LEGEND = [
 ] as const;
 
 const areas = computed(() => {
-  const sorted = [...props.processSummaries].sort((a, b) => {
-    const indexA = PROCESS_AREA_ORDER.indexOf(a.areaCode);
-    const indexB = PROCESS_AREA_ORDER.indexOf(b.areaCode);
-    return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
-  });
+  const sorted = [...props.processSummaries].sort(
+    (a, b) => getProcessAreaSortOrder(a.areaCode) - getProcessAreaSortOrder(b.areaCode)
+  );
 
   return sorted.map((ps) => ({
     process: ps,

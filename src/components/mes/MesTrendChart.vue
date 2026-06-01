@@ -43,6 +43,7 @@ interface Props {
   colorLegend?: { label: string; colorToken: string }[];
   showLabel?: boolean;
   barCategoryGap?: string;
+  fillHeight?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -60,6 +61,7 @@ const props = withDefaults(defineProps<Props>(), {
   colorLegend: undefined,
   showLabel: false,
   barCategoryGap: '20%',
+  fillHeight: false,
 });
 
 function normalizeValue(value: number) {
@@ -163,12 +165,15 @@ const chartOption = computed(() => {
 </script>
 
 <template>
-  <section class="mes-trend-chart">
+  <section class="mes-trend-chart" :class="{ 'mes-trend-chart--fill': fillHeight }">
     <header class="mes-trend-chart__header">
       <h3>{{ title }}</h3>
       <span v-if="subtitle">{{ subtitle }}</span>
     </header>
-    <VChart class="mes-trend-chart__chart" :style="{ height: `${height}px` }" :option="chartOption" autoresize />
+    <div v-if="fillHeight" class="mes-trend-chart__chart-wrap">
+      <VChart class="mes-trend-chart__chart" :option="chartOption" autoresize />
+    </div>
+    <VChart v-else class="mes-trend-chart__chart" :style="{ height: `${height}px` }" :option="chartOption" autoresize />
     <footer v-if="colorLegend" class="mes-trend-chart__color-legend">
       <span v-for="item in colorLegend" :key="item.label" class="mes-trend-chart__color-legend-item">
         <i :style="{ backgroundColor: resolveCssVar(item.colorToken) }" />
@@ -184,6 +189,26 @@ const chartOption = computed(() => {
   border-radius: var(--radius-lg);
   background: var(--color-bg-card);
   padding: var(--space-3);
+}
+
+.mes-trend-chart--fill {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.mes-trend-chart--fill .mes-trend-chart__chart-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.mes-trend-chart--fill .mes-trend-chart__chart {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .mes-trend-chart__header {

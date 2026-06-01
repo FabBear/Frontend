@@ -19,6 +19,8 @@ interface Props {
 
 const props = defineProps<Props>();
 
+const DEFAULT_RISK_COUNTS: Record<MesRiskGrade, number> = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
+
 const riskCountsByArea = computed(() => {
   const map = new Map<string, Record<MesRiskGrade, number>>();
   for (const tg of props.toolGroups) {
@@ -31,7 +33,11 @@ const riskCountsByArea = computed(() => {
 });
 
 function getRiskCounts(process: MesProcessSummary) {
-  return riskCountsByArea.value.get(process.areaCode) ?? { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
+  return riskCountsByArea.value.get(process.areaCode) ?? DEFAULT_RISK_COUNTS;
+}
+
+function getProgressWidth(value: number) {
+  return `${Math.min(Math.max(toRatioPercentNumber(value), 0), 100)}%`;
 }
 
 function getProcessRiskMeta(process: MesProcessSummary) {
@@ -71,7 +77,7 @@ function getOee(process: MesProcessSummary) {
             <div
               class="mes-process-kpi-cards__progress-fill"
               :style="{
-                width: `${toRatioPercentNumber(process.maxUtilizationRate)}%`,
+                width: getProgressWidth(process.maxUtilizationRate),
                 backgroundColor: getMesUtilizationColor(process.maxUtilizationRate),
               }"
             />
@@ -85,7 +91,7 @@ function getOee(process: MesProcessSummary) {
           <div class="mes-process-kpi-cards__progress-track">
             <div
               class="mes-process-kpi-cards__progress-fill"
-              :style="{ width: `${toRatioPercentNumber(process.avgUtilizationRate)}%` }"
+              :style="{ width: getProgressWidth(process.avgUtilizationRate) }"
             />
           </div>
           <strong>{{ formatRatioPercent(process.avgUtilizationRate) }}</strong>

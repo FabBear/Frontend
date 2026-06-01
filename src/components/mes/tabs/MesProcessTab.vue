@@ -35,7 +35,7 @@ const utilizationChart = computed(() => ({
 
 const qtimeChart = computed(() => {
   const values = sortedProcesses.value.map((process) =>
-    process.avgQtimeMin === null ? 0 : Number((process.avgQtimeMin / 60 / 24).toFixed(1))
+    process.avgQtimeMin == null ? 0 : Number((process.avgQtimeMin / 60 / 24).toFixed(1))
   );
 
   return {
@@ -85,7 +85,7 @@ const qtimeChart = computed(() => {
         :min="0"
         :max="100"
         :height="220"
-        :target-line="{ name: 'Critical 90%', value: 90, colorToken: '--color-risk-critical' }"
+        :target-line="{ name: 'Critical 90%', value: 0.9, colorToken: '--color-risk-critical' }"
         bar-category-gap="40%"
       />
       <MesTrendChart

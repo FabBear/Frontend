@@ -127,7 +127,9 @@ const chartOption = computed(() => {
         itemStyle:
           props.barColors?.[index] && (props.series.length === 1 || seriesIndex === 0)
             ? { color: resolveCssVar(props.barColors[index]) }
-            : { opacity: item.opacity },
+            : item.opacity !== undefined
+              ? { opacity: item.opacity }
+              : undefined,
       })),
       label: {
         show: (item.showLabel ?? props.showLabel) && props.chartType === 'bar',
@@ -148,7 +150,11 @@ const chartOption = computed(() => {
               symbol: 'none',
               label: { color: axisColor, fontSize: chartFontSize, formatter: props.targetLine.name },
               lineStyle: { color: targetLineColor, type: 'dashed' },
-              data: [isHorizontal ? { xAxis: props.targetLine.value } : { yAxis: props.targetLine.value }],
+              data: [
+                isHorizontal
+                  ? { xAxis: normalizeValue(props.targetLine.value) }
+                  : { yAxis: normalizeValue(props.targetLine.value) },
+              ],
             }
           : undefined,
     })),

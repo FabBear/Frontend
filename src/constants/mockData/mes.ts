@@ -115,26 +115,30 @@ export const MOCK_MES_TOOL_GROUP_METRICS: MesToolGroupMetric[] = MOCK_PM_DATA.fl
 
 export const MOCK_MES_PROCESS_SUMMARIES: MesProcessSummary[] = MOCK_PM_DATA.map((area) => {
   const toolGroups = MOCK_MES_TOOL_GROUP_METRICS.filter((toolGroup) => toolGroup.areaCode === area.name);
+  const toolGroupCount = toolGroups.length;
   const totalUtilization = toolGroups.reduce((sum, toolGroup) => sum + toolGroup.utilizationRate, 0);
-  const maxUtilizationRate = Math.max(...toolGroups.map((toolGroup) => toolGroup.utilizationRate));
+  const maxUtilizationRate =
+    toolGroupCount > 0 ? Math.max(...toolGroups.map((toolGroup) => toolGroup.utilizationRate)) : 0;
   const wipCount = toolGroups.reduce((sum, toolGroup) => sum + toolGroup.wipCount, 0);
-  const setupRatio = toolGroups.reduce((sum, toolGroup) => sum + toolGroup.setupRatio, 0) / toolGroups.length;
-  const avgQtimeMin = estimateQtimeMin(maxUtilizationRate, wipCount / Math.max(toolGroups.length, 1));
+  const setupRatio =
+    toolGroupCount > 0 ? toolGroups.reduce((sum, toolGroup) => sum + toolGroup.setupRatio, 0) / toolGroupCount : 0;
+  const avgQtimeMin = estimateQtimeMin(maxUtilizationRate, wipCount / Math.max(toolGroupCount, 1));
 
   return {
     areaId: createAreaId(area.name),
     areaCode: area.name,
     areaName: area.name,
     areaNameKo: getProcessAreaNameKo(area.name),
-    toolGroupCount: toolGroups.length,
+    toolGroupCount,
     toolCount: toolGroups.reduce((sum, toolGroup) => sum + toolGroup.toolCount, 0),
-    avgUtilizationRate: totalUtilization / toolGroups.length,
+    avgUtilizationRate: toolGroupCount > 0 ? totalUtilization / toolGroupCount : 0,
     maxUtilizationRate,
     wipCount,
     avgQtimeMin,
     setupRatio,
     bottleneckToolGroupCount: toolGroups.filter((toolGroup) => toolGroup.utilizationRate >= 0.85).length,
-    avgAvailableToolRatio: toolGroups.reduce((sum, tg) => sum + tg.availableToolRatio, 0) / toolGroups.length,
+    avgAvailableToolRatio:
+      toolGroupCount > 0 ? toolGroups.reduce((sum, tg) => sum + tg.availableToolRatio, 0) / toolGroupCount : 0,
     riskGrade: getRiskGrade(maxUtilizationRate),
   };
 });

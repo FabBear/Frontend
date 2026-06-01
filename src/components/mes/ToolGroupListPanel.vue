@@ -4,15 +4,26 @@ import { toMesRiskLevel } from '@/composables/useMesMonitoring';
 import { MES_RISK_FILTERS } from '@/constants/mes';
 import { RISK_LEVEL_META } from '@/constants/riskLevel';
 
-import type { MesRiskGrade, MesToolGroupMetric } from '@/types/mes';
+import type { MesRiskGrade, MesToolGroupMetric, MesToolStatusSummary as MesToolStatusSummaryModel } from '@/types/mes';
+
+import MesToolStatusSummaryView from '@/components/mes/MesToolStatusSummary.vue';
 
 import { formatNumber, formatRatioPercent } from '@/utils/format';
+import { getMesUtilizationColor } from '@/utils/mesMetrics';
+
+interface AreaOption {
+  areaCode: string;
+  areaNameKo: string;
+}
 
 interface Props {
   toolGroups: MesToolGroupMetric[];
   selectedToolGroupId: string | null;
   search: string;
   riskFilter: MesRiskGrade | 'ALL';
+  areaFilter: string;
+  areaOptions: AreaOption[];
+  statusSummaries: Record<string, MesToolStatusSummaryModel>;
 }
 
 defineProps<Props>();
@@ -20,6 +31,7 @@ defineProps<Props>();
 const emit = defineEmits<{
   'update:search': [value: string];
   'update:riskFilter': [value: MesRiskGrade | 'ALL'];
+  'update:areaFilter': [value: string];
   select: [tgId: string];
 }>();
 
@@ -42,6 +54,17 @@ function getRiskFilterColor(value: MesRiskGrade | 'ALL') {
         placeholder="TG 이름 검색..."
         @input="emit('update:search', ($event.target as HTMLInputElement).value)"
       />
+      <select
+        class="tool-group-list-panel__area-select"
+        :value="areaFilter"
+        aria-label="공정 필터"
+        @change="emit('update:areaFilter', ($event.target as HTMLSelectElement).value)"
+      >
+        <option value="ALL">전체 공정</option>
+        <option v-for="area in areaOptions" :key="area.areaCode" :value="area.areaCode">
+          {{ area.areaNameKo }}
+        </option>
+      </select>
       <div class="tool-group-list-panel__filters" role="group" aria-label="위험도 필터">
         <button
           v-for="filter in MES_RISK_FILTERS"
@@ -66,24 +89,25 @@ function getRiskFilterColor(value: MesRiskGrade | 'ALL') {
         type="button"
         @click="emit('select', toolGroup.tgId)"
       >
-        <span
-          class="tool-group-list-panel__dot"
-          :style="{ backgroundColor: RISK_LEVEL_META[toMesRiskLevel(toolGroup.riskGrade)].color }"
-          aria-hidden="true"
-        />
-        <span class="tool-group-list-panel__item-body">
-          <strong>{{ toolGroup.tgName }}</strong>
-          <small
-            >{{ toolGroup.areaNameKo }} · {{ toolGroup.toolCount }}대 · 대기
-            {{ formatNumber(toolGroup.wipCount) }} Lot</small
+        <div class="tool-group-list-panel__item-top">
+          <span
+            class="tool-group-list-panel__dot"
+            :style="{ backgroundColor: RISK_LEVEL_META[toMesRiskLevel(toolGroup.riskGrade)].color }"
+            aria-hidden="true"
+          />
+          <strong class="tool-group-list-panel__name">{{ toolGroup.tgName }}</strong>
+          <span
+            class="tool-group-list-panel__util"
+            :style="{ color: getMesUtilizationColor(toolGroup.utilizationRate) }"
           >
-        </span>
-        <span
-          class="tool-group-list-panel__util"
-          :style="{ color: RISK_LEVEL_META[toMesRiskLevel(toolGroup.riskGrade)].color }"
-        >
-          {{ formatRatioPercent(toolGroup.utilizationRate) }}
-        </span>
+            {{ formatRatioPercent(toolGroup.utilizationRate) }}
+          </span>
+        </div>
+        <small class="tool-group-list-panel__sub">
+          {{ toolGroup.areaNameKo }} / {{ toolGroup.sourceAreaNameKo }} · 총 {{ toolGroup.toolCount }}대 · WIP
+          {{ formatNumber(toolGroup.wipCount) }} Lot
+        </small>
+        <MesToolStatusSummaryView :summary="statusSummaries[toolGroup.tgId]" compact hide-zero />
       </button>
       <p v-if="toolGroups.length === 0" class="tool-group-list-panel__empty">검색 결과 없음</p>
     </div>
@@ -94,7 +118,7 @@ function getRiskFilterColor(value: MesRiskGrade | 'ALL') {
 .tool-group-list-panel {
   display: grid;
   grid-template-rows: auto 1fr;
-  width: 256px;
+  width: 320px;
   flex-shrink: 0;
   overflow: hidden;
   border: var(--border-width-default) solid var(--color-border-default);
@@ -121,6 +145,17 @@ function getRiskFilterColor(value: MesRiskGrade | 'ALL') {
 }
 
 .tool-group-list-panel__search {
+  width: 100%;
+  margin-bottom: var(--space-2);
+  border: var(--border-width-default) solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-card);
+  padding: 5px 9px;
+  color: var(--color-fg-strong);
+  font-size: var(--font-size-xs);
+}
+
+.tool-group-list-panel__area-select {
   width: 100%;
   margin-bottom: var(--space-2);
   border: var(--border-width-default) solid var(--color-border-default);
@@ -161,14 +196,13 @@ function getRiskFilterColor(value: MesRiskGrade | 'ALL') {
 }
 
 .tool-group-list-panel__item {
-  display: flex;
+  display: grid;
+  gap: var(--space-1);
   width: 100%;
-  align-items: center;
-  gap: var(--space-2);
   border: var(--border-width-default) solid transparent;
   border-radius: var(--radius-md);
   background: transparent;
-  padding: 7px 8px;
+  padding: var(--space-2) var(--space-2);
   cursor: pointer;
   text-align: left;
 }
@@ -179,6 +213,13 @@ function getRiskFilterColor(value: MesRiskGrade | 'ALL') {
   background: var(--color-action-primary-soft);
 }
 
+.tool-group-list-panel__item-top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
 .tool-group-list-panel__dot {
   width: 8px;
   height: 8px;
@@ -186,13 +227,9 @@ function getRiskFilterColor(value: MesRiskGrade | 'ALL') {
   flex-shrink: 0;
 }
 
-.tool-group-list-panel__item-body {
-  min-width: 0;
+.tool-group-list-panel__name {
   flex: 1;
-}
-
-.tool-group-list-panel__item-body strong {
-  display: block;
+  min-width: 0;
   overflow: hidden;
   color: var(--color-fg-strong);
   font-size: var(--font-size-xs);
@@ -201,15 +238,15 @@ function getRiskFilterColor(value: MesRiskGrade | 'ALL') {
   white-space: nowrap;
 }
 
-.tool-group-list-panel__item-body small {
-  color: var(--color-fg-muted);
-  font-size: var(--font-size-xs);
-}
-
 .tool-group-list-panel__util {
   flex-shrink: 0;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold);
+}
+
+.tool-group-list-panel__sub {
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-xs);
 }
 
 .tool-group-list-panel__empty {

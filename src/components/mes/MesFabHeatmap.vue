@@ -95,7 +95,7 @@ function hideTooltip() {
         <strong :style="{ color: getMesUtilizationColor(item.process.maxUtilizationRate) }">
           {{ item.process.areaCode }}
         </strong>
-        <small>{{ item.toolGroups.length }}개 TG</small>
+        <small>{{ item.process.areaNameKo }} · {{ item.toolGroups.length }}개 TG</small>
       </div>
     </div>
 
@@ -113,7 +113,8 @@ function hideTooltip() {
     >
       <strong>{{ hoveredToolGroup.tgName }}</strong>
       <span>
-        {{ hoveredToolGroup.areaNameKo }} · {{ RISK_LEVEL_META[toRiskLevel(hoveredToolGroup.riskGrade)].label }}
+        {{ hoveredToolGroup.areaNameKo }} / {{ hoveredToolGroup.sourceAreaNameKo }} ·
+        {{ RISK_LEVEL_META[toRiskLevel(hoveredToolGroup.riskGrade)].label }}
       </span>
       <dl>
         <div>

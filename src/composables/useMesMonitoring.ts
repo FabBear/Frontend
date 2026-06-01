@@ -1,20 +1,11 @@
-import { computed, ref, shallowRef } from 'vue';
+import { computed, ref, shallowRef, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { fetchMesMonitoringData, fetchMesToolsByToolGroup } from '@/services/mesService';
 
 import type { RiskLevel } from '@/constants/riskLevel';
 
-import type {
-  MesKpiCard,
-  MesMonitoringData,
-  MesRiskGrade,
-  MesToolMetric,
-  MesToolViewMode,
-  MesViewMode,
-} from '@/types/mes';
-
-import { formatNumber, formatRatioPercent } from '@/utils/format';
-import { average, calculateMesOeeEstimate } from '@/utils/mesMetrics';
+import type { MesMonitoringData, MesRiskGrade, MesToolMetric, MesToolViewMode, MesViewMode } from '@/types/mes';
 
 const RISK_GRADE_TO_LEVEL: Record<MesRiskGrade, RiskLevel> = {
   CRITICAL: 'critical',
@@ -28,76 +19,69 @@ export function toMesRiskLevel(riskGrade: MesRiskGrade): RiskLevel {
 }
 
 export function useMesMonitoring() {
+  const route = useRoute();
+  const router = useRouter();
+
   const data = shallowRef<MesMonitoringData | null>(null);
-  const activeTab = ref<MesViewMode>('all');
-  const toolGroupSearch = ref('');
-  const toolGroupRiskFilter = ref<MesRiskGrade | 'ALL'>('ALL');
-  const selectedToolGroupId = ref<string | null>(null);
   const selectedTools = shallowRef<MesToolMetric[]>([]);
   const toolViewMode = ref<MesToolViewMode>('card');
   const isLoading = ref(false);
   const errorMessage = ref<string | null>(null);
   const detailErrorMessage = ref<string | null>(null);
 
+  const activeTab = computed<MesViewMode>({
+    get() {
+      const tab = route.query.tab as string;
+      return tab === 'process' || tab === 'toolGroup' ? tab : 'all';
+    },
+    set(tab: MesViewMode) {
+      router.push({ query: { ...route.query, tab: tab === 'all' ? undefined : tab } });
+    },
+  });
+
+  const tgAreaFilter = computed<string>({
+    get() {
+      return (route.query.area as string) || 'ALL';
+    },
+    set(area: string) {
+      router.replace({ query: { ...route.query, area: area === 'ALL' ? undefined : area } });
+    },
+  });
+
+  const selectedToolGroupId = computed<string | null>({
+    get() {
+      return (route.query.tg as string) || null;
+    },
+    set(tgId: string | null) {
+      router.replace({ query: { ...route.query, tg: tgId ?? undefined } });
+    },
+  });
+
   const toolGroups = computed(() => data.value?.toolGroups ?? []);
   const selectedToolGroup = computed(
-    () => toolGroups.value.find((toolGroup) => toolGroup.tgId === selectedToolGroupId.value) ?? null
+    () => toolGroups.value.find((tg) => tg.tgId === selectedToolGroupId.value) ?? null
   );
-  const toolSummaryCards = computed<MesKpiCard[]>(() => {
-    const tools = data.value?.tools ?? [];
-    const totalToolCount = tools.length;
-    const dangerToolCount = tools.filter((tool) => tool.utilizationRate >= 0.85).length;
-    const warningToolCount = tools.filter((tool) => tool.utilizationRate >= 0.7 && tool.utilizationRate < 0.85).length;
-    const avgUtilization = average(tools.map((tool) => tool.utilizationRate));
-    const avgOee = average(tools.map((tool) => calculateMesOeeEstimate(tool.utilizationRate, tool.setupRatio)));
 
-    return [
-      {
-        key: 'tool-total',
-        title: '전체 Tool 수',
-        value: `${formatNumber(totalToolCount)}대`,
-        subtitle: 'MES 수집 장비 합계',
-        tone: 'info',
-      },
-      {
-        key: 'tool-danger',
-        title: '위험 장비',
-        value: `${formatNumber(dangerToolCount)}대`,
-        subtitle: '가동률 85% 이상',
-        tone: 'danger',
-      },
-      {
-        key: 'tool-warning',
-        title: '주의 장비',
-        value: `${formatNumber(warningToolCount)}대`,
-        subtitle: '가동률 70~85%',
-        tone: 'warning',
-      },
-      {
-        key: 'tool-avg-util',
-        title: '평균 가동률',
-        value: formatRatioPercent(avgUtilization),
-        subtitle: '전체 장비 평균',
-      },
-      {
-        key: 'tool-avg-oee',
-        title: '평균 OEE',
-        value: formatRatioPercent(avgOee),
-        subtitle: '추정 OEE',
-        tone: 'success',
-      },
-    ];
-  });
-
-  const filteredToolGroups = computed(() => {
-    const search = toolGroupSearch.value.trim().toLowerCase();
-
-    return toolGroups.value.filter((toolGroup) => {
-      if (search && !toolGroup.tgName.toLowerCase().includes(search)) return false;
-      if (toolGroupRiskFilter.value !== 'ALL' && toolGroup.riskGrade !== toolGroupRiskFilter.value) return false;
-      return true;
-    });
-  });
+  watch(
+    selectedToolGroupId,
+    async (tgId) => {
+      if (!tgId) {
+        selectedTools.value = [];
+        return;
+      }
+      detailErrorMessage.value = null;
+      try {
+        const tools = await fetchMesToolsByToolGroup(tgId);
+        if (selectedToolGroupId.value === tgId) selectedTools.value = tools;
+      } catch {
+        if (selectedToolGroupId.value === tgId) {
+          selectedTools.value = [];
+          detailErrorMessage.value = 'Tool 상세 데이터를 불러오지 못했습니다.';
+        }
+      }
+    },
+    { immediate: true }
+  );
 
   async function loadMesMonitoringData() {
     isLoading.value = true;
@@ -112,42 +96,41 @@ export function useMesMonitoring() {
     }
   }
 
-  async function selectToolGroup(tgId: string) {
+  function selectToolGroup(tgId: string) {
     selectedToolGroupId.value = tgId;
-    detailErrorMessage.value = null;
-    try {
-      const tools = await fetchMesToolsByToolGroup(tgId);
-      if (selectedToolGroupId.value === tgId) {
-        selectedTools.value = tools;
-      }
-    } catch {
-      if (selectedToolGroupId.value === tgId) {
-        selectedTools.value = [];
-        detailErrorMessage.value = 'Tool 상세 데이터를 불러오지 못했습니다.';
-      }
-    }
   }
 
   function setActiveTab(tab: MesViewMode) {
     activeTab.value = tab;
   }
 
+  function navigateToProcess(areaCode: string) {
+    const firstTg = [...(data.value?.toolGroups ?? [])]
+      .filter((tg) => tg.areaCode === areaCode)
+      .sort((a, b) => b.utilizationRate - a.utilizationRate)[0];
+    router.push({
+      query: {
+        tab: 'toolGroup',
+        area: areaCode,
+        ...(firstTg ? { tg: firstTg.tgId } : {}),
+      },
+    });
+  }
+
   return {
     data,
     activeTab,
-    toolGroupSearch,
-    toolGroupRiskFilter,
+    tgAreaFilter,
     selectedToolGroupId,
     selectedToolGroup,
     selectedTools,
-    toolSummaryCards,
     toolViewMode,
     isLoading,
     errorMessage,
     detailErrorMessage,
-    filteredToolGroups,
     loadMesMonitoringData,
     selectToolGroup,
     setActiveTab,
+    navigateToProcess,
   };
 }

@@ -1,9 +1,10 @@
 import type { RiskLevel } from '@/constants/riskLevel';
 
-export type MesViewMode = 'all' | 'process' | 'toolGroup' | 'tool';
+export type MesViewMode = 'all' | 'process' | 'toolGroup';
 export type MesRiskGrade = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
 export type MesToolStatus = 'RUN' | 'IDLE' | 'SETUP' | 'DOWN';
 export type MesToolViewMode = 'card' | 'table';
+export type MesToolStatusSummary = Record<MesToolStatus, number>;
 
 export interface MesSnapshot {
   measuredAt: string;
@@ -22,12 +23,14 @@ export interface MesProcessSummary {
   areaCode: string;
   areaName: string;
   areaNameKo: string;
+  sourceAreaCodes: string[];
   toolGroupCount: number;
   toolCount: number;
   avgUtilizationRate: number;
   maxUtilizationRate: number;
   wipCount: number;
   avgQtimeMin: number | null;
+  maxQtimeMin: number | null;
   setupRatio: number;
   bottleneckToolGroupCount: number;
   avgAvailableToolRatio: number;
@@ -42,6 +45,8 @@ export interface MesToolGroupMetric {
   areaCode: string;
   areaName: string;
   areaNameKo: string;
+  sourceAreaCode: string;
+  sourceAreaNameKo: string;
   toolCount: number;
   utilizationRate: number;
   availableToolRatio: number;

@@ -3,8 +3,7 @@ import type { MesRiskGrade, MesTabOption, MesToolStatus } from '@/types/mes';
 export const MES_TABS: MesTabOption[] = [
   { value: 'all', label: '공정 전체' },
   { value: 'process', label: '공정별' },
-  { value: 'toolGroup', label: 'Tool Group별' },
-  { value: 'tool', label: 'Tool별' },
+  { value: 'toolGroup', label: 'TG / Tool' },
 ];
 
 export const MES_RISK_FILTERS: { value: MesRiskGrade | 'ALL'; label: string }[] = [

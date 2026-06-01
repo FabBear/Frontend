@@ -19,6 +19,10 @@ interface Props {
 
 const props = defineProps<Props>();
 
+const emit = defineEmits<{
+  selectProcess: [areaCode: string];
+}>();
+
 const DEFAULT_RISK_COUNTS: Record<MesRiskGrade, number> = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
 
 const riskCountsByArea = computed(() => {
@@ -47,6 +51,14 @@ function getProcessRiskMeta(process: MesProcessSummary) {
 function getOee(process: MesProcessSummary) {
   return calculateMesOeeEstimate(process.avgUtilizationRate, process.setupRatio);
 }
+
+const MAX_QTIME_DISPLAY_DAYS = 15;
+
+function getQtimeBarWidth(qtimeMin: number | null): string {
+  if (qtimeMin === null) return '0%';
+  const days = qtimeMin / 60 / 24;
+  return `${Math.min((days / MAX_QTIME_DISPLAY_DAYS) * 100, 100)}%`;
+}
 </script>
 
 <template>
@@ -56,11 +68,13 @@ function getOee(process: MesProcessSummary) {
       :key="process.areaId"
       class="mes-process-kpi-cards__card"
       :style="{ borderLeftColor: getProcessRiskMeta(process).color }"
+      title="클릭하면 TG/Tool 탭에서 해당 공정으로 필터링합니다"
+      @click="emit('selectProcess', process.areaCode)"
     >
       <header class="mes-process-kpi-cards__header">
         <div>
-          <h3>{{ process.areaName }}</h3>
-          <p>{{ process.areaNameKo }} · TG {{ formatNumber(process.toolGroupCount) }}개</p>
+          <h3>{{ process.areaNameKo }}</h3>
+          <p>{{ process.sourceAreaCodes.join(', ') }} · TG {{ formatNumber(process.toolGroupCount) }}개</p>
         </div>
         <span
           class="mes-process-kpi-cards__chip"
@@ -96,6 +110,36 @@ function getOee(process: MesProcessSummary) {
           </div>
           <strong>{{ formatRatioPercent(process.avgUtilizationRate) }}</strong>
         </div>
+        <div class="mes-process-kpi-cards__bar-divider" />
+        <div class="mes-process-kpi-cards__bar-row">
+          <span>Q-time 최대</span>
+          <div class="mes-process-kpi-cards__progress-track">
+            <div
+              class="mes-process-kpi-cards__progress-fill"
+              :style="{
+                width: getQtimeBarWidth(process.maxQtimeMin),
+                backgroundColor: getMesQtimeColor(process.maxQtimeMin),
+              }"
+            />
+          </div>
+          <strong :style="{ color: getMesQtimeColor(process.maxQtimeMin) }">
+            {{ formatQtimeDays(process.maxQtimeMin) }}
+          </strong>
+        </div>
+        <div class="mes-process-kpi-cards__bar-row">
+          <span>Q-time 평균</span>
+          <div class="mes-process-kpi-cards__progress-track">
+            <div
+              class="mes-process-kpi-cards__progress-fill"
+              :style="{
+                width: getQtimeBarWidth(process.avgQtimeMin),
+                backgroundColor: getMesQtimeColor(process.avgQtimeMin),
+                opacity: 0.6,
+              }"
+            />
+          </div>
+          <strong>{{ formatQtimeDays(process.avgQtimeMin) }}</strong>
+        </div>
       </section>
 
       <dl class="mes-process-kpi-cards__metrics">
@@ -104,11 +148,7 @@ function getOee(process: MesProcessSummary) {
           <dd>{{ formatRatioPercent(getOee(process)) }}</dd>
         </div>
         <div>
-          <dt>Q-time</dt>
-          <dd :style="{ color: getMesQtimeColor(process.avgQtimeMin) }">{{ formatQtimeDays(process.avgQtimeMin) }}</dd>
-        </div>
-        <div>
-          <dt>대기 Lot</dt>
+          <dt>WIP Lot</dt>
           <dd>{{ formatNumber(process.wipCount) }}</dd>
         </div>
         <div>
@@ -142,6 +182,7 @@ function getOee(process: MesProcessSummary) {
 .mes-process-kpi-cards__card {
   display: grid;
   gap: var(--space-2);
+  cursor: pointer;
   border-left: 3px solid;
   border-top: var(--border-width-default) solid var(--color-border-default);
   border-right: var(--border-width-default) solid var(--color-border-default);
@@ -149,6 +190,10 @@ function getOee(process: MesProcessSummary) {
   border-radius: var(--radius-lg);
   background: var(--color-bg-card);
   padding: var(--space-3);
+}
+
+.mes-process-kpi-cards__card:hover {
+  background: var(--color-bg-subtle);
 }
 
 .mes-process-kpi-cards__header {
@@ -194,6 +239,12 @@ function getOee(process: MesProcessSummary) {
   grid-template-columns: 5.5em 1fr auto;
   align-items: center;
   gap: var(--space-2);
+}
+
+.mes-process-kpi-cards__bar-divider {
+  height: 1px;
+  background: var(--color-border-subtle);
+  margin: var(--space-1) 0;
 }
 
 .mes-process-kpi-cards__bar-row span {

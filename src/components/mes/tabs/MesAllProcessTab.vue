@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
+import { getProcessAreaSortOrder } from '@/constants/processArea';
+
 import type { MesMonitoringData } from '@/types/mes';
 
 import MesBottleneckDistChart from '@/components/mes/MesBottleneckDistChart.vue';
@@ -8,23 +10,24 @@ import MesFabHeatmap from '@/components/mes/MesFabHeatmap.vue';
 import MesKpiCardGrid from '@/components/mes/MesKpiCardGrid.vue';
 import MesTrendChart from '@/components/mes/MesTrendChart.vue';
 
-import { getMesUtilizationColor } from '@/utils/mesMetrics';
-
 interface Props {
   data: MesMonitoringData;
 }
 
 const props = defineProps<Props>();
 
-const processWipSeries = computed(() => {
-  const items = [...props.data.processSummaries]
-    .filter((process) => process.wipCount > 0)
-    .sort((a, b) => b.wipCount - a.wipCount);
+const processWipChart = computed(() => {
+  const sorted = [...props.data.processSummaries]
+    .filter((p) => p.areaCode !== 'DEF_MET')
+    .sort((a, b) => getProcessAreaSortOrder(a.areaCode) - getProcessAreaSortOrder(b.areaCode));
+
+  const values = sorted.map((p) => p.wipCount);
+  const max = Math.max(10, Math.ceil(Math.max(...values) * 1.15));
 
   return {
-    labels: items.map((process) => process.areaName),
-    values: items.map((process) => process.wipCount),
-    colors: items.map((process) => getMesUtilizationColor(process.maxUtilizationRate)),
+    labels: sorted.map((p) => p.areaNameKo),
+    values,
+    max,
   };
 });
 </script>
@@ -45,21 +48,34 @@ const processWipSeries = computed(() => {
       />
       <MesTrendChart
         title="WIP 추이 (전체 FAB)"
-        subtitle="대기 Lot 합계"
+        subtitle="WIP Lot 합계"
         :labels="data.days"
         :series="[{ name: 'WIP', values: data.wipTrend, colorToken: '--color-status-info' }]"
         :show-legend="false"
       />
       <MesTrendChart
         title="공정별 대기 Lot"
-        subtitle="최근 스냅샷"
-        :labels="processWipSeries.labels"
-        :series="[{ name: '대기 Lot', values: processWipSeries.values }]"
+        subtitle="Def_Met 제외 · 공정 순서"
+        class="mes-all-process-tab__large-chart"
+        fill-height
+        :labels="processWipChart.labels"
+        :series="[
+          {
+            name: '대기 Lot',
+            values: processWipChart.values,
+            colorToken: '--color-chart-blue',
+            showInLegend: false,
+            showLabel: true,
+          },
+        ]"
         chart-type="bar"
+        orientation="horizontal"
         :show-legend="false"
-        :bar-colors="processWipSeries.colors"
+        :min="0"
+        :max="processWipChart.max"
+        :height="180"
       />
-      <MesBottleneckDistChart :tool-groups="data.toolGroups" />
+      <MesBottleneckDistChart class="mes-all-process-tab__large-chart" :tool-groups="data.toolGroups" />
     </div>
 
     <MesFabHeatmap :process-summaries="data.processSummaries" :tool-groups="data.toolGroups" />
@@ -76,12 +92,24 @@ const processWipSeries = computed(() => {
 .mes-all-process-tab__charts {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: 260px 360px;
   gap: var(--space-3);
+}
+
+.mes-all-process-tab__charts > * {
+  height: 100%;
+  min-height: 0;
+}
+
+.mes-all-process-tab__large-chart {
+  height: 100%;
 }
 
 @media (max-width: 1100px) {
   .mes-all-process-tab__charts {
     grid-template-columns: 1fr;
+    grid-template-rows: none;
+    grid-auto-rows: 320px;
   }
 }
 </style>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { MesToolMetric } from '@/types/mes';
 
+import MesMetricBar from '@/components/mes/MesMetricBar.vue';
 import MesToolStatusBadge from '@/components/mes/MesToolStatusBadge.vue';
 
 import { formatMesDispatchAt, formatQtimeDays, formatRatioPercent } from '@/utils/format';
@@ -25,23 +26,14 @@ defineProps<Props>();
         <strong>{{ tool.toolCode }}</strong>
         <MesToolStatusBadge :status="tool.status" />
       </header>
-      <div class="mes-tool-card-grid__util">
-        <div>
-          <span>가동률</span>
-          <strong :style="{ color: getMesUtilizationColor(tool.utilizationRate) }">
-            {{ formatRatioPercent(tool.utilizationRate) }}
-          </strong>
-        </div>
-        <span class="mes-tool-card-grid__bar">
-          <span
-            class="mes-tool-card-grid__bar-fill"
-            :style="{
-              width: `${Math.round(tool.utilizationRate * 100)}%`,
-              backgroundColor: getMesUtilizationColor(tool.utilizationRate),
-            }"
-          />
-        </span>
-      </div>
+      <MesMetricBar
+        class="mes-tool-card-grid__util"
+        label="가동률"
+        :value="tool.utilizationRate"
+        :color="getMesUtilizationColor(tool.utilizationRate)"
+      >
+        {{ formatRatioPercent(tool.utilizationRate) }}
+      </MesMetricBar>
       <dl>
         <div>
           <dt>OEE</dt>
@@ -96,38 +88,12 @@ defineProps<Props>();
   word-break: break-all;
 }
 
-.mes-tool-card-grid__util {
-  display: grid;
-  gap: var(--space-1);
-  margin-bottom: var(--space-2);
-}
-
-.mes-tool-card-grid__util div {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  color: var(--color-fg-muted);
-  font-size: var(--font-size-xs);
-}
-
-.mes-tool-card-grid__util strong,
 .mes-tool-card-grid__card dd {
   font-weight: var(--font-weight-semibold);
 }
 
-.mes-tool-card-grid__bar {
-  display: block;
-  overflow: hidden;
-  height: 5px;
-  border-radius: var(--radius-pill);
-  background: var(--color-border-subtle);
-}
-
-.mes-tool-card-grid__bar-fill {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
+.mes-tool-card-grid__util {
+  margin-bottom: var(--space-2);
 }
 
 .mes-tool-card-grid__card dt,

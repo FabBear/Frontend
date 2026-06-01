@@ -68,14 +68,6 @@ function estimateQtimeMin(utilizationRate: number, wipPerToolGroup: number) {
   return Math.round(days * 24 * 60 * 10) / 10;
 }
 
-function estimateDeliveryRate(qtimeDays: number) {
-  if (qtimeDays < 8) return 0.991;
-  if (qtimeDays < 10) return 0.974;
-  if (qtimeDays < 12) return 0.946;
-  if (qtimeDays < 15) return 0.882;
-  return 0.745;
-}
-
 function getToolGroupMeta(toolGroup: ProcessToolGroup) {
   const known = KNOWN_TG_META[toolGroup.name];
   if (known) return known;
@@ -142,7 +134,7 @@ export const MOCK_MES_PROCESS_SUMMARIES: MesProcessSummary[] = MOCK_PM_DATA.map(
     avgQtimeMin,
     setupRatio,
     bottleneckToolGroupCount: toolGroups.filter((toolGroup) => toolGroup.utilizationRate >= 0.85).length,
-    deliveryRate: estimateDeliveryRate(avgQtimeMin / 60 / 24),
+    avgAvailableToolRatio: toolGroups.reduce((sum, tg) => sum + tg.availableToolRatio, 0) / toolGroups.length,
     riskGrade: getRiskGrade(maxUtilizationRate),
   };
 });

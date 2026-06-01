@@ -30,7 +30,7 @@ export interface MesProcessSummary {
   avgQtimeMin: number | null;
   setupRatio: number;
   bottleneckToolGroupCount: number;
-  deliveryRate: number;
+  avgAvailableToolRatio: number;
   riskGrade: MesRiskGrade;
 }
 

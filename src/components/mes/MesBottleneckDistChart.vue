@@ -7,7 +7,7 @@ import { use } from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
 import VChart from 'vue-echarts';
 
-import { PROCESS_AREA_ORDER } from '@/constants/processArea';
+import { getProcessAreaSortOrder } from '@/constants/processArea';
 import { RISK_LEVEL_META } from '@/constants/riskLevel';
 
 import type { MesToolGroupMetric } from '@/types/mes';
@@ -33,9 +33,7 @@ const chartData = computed(() => {
   }
 
   const areas = [...areaMap.values()].sort((a, b) => {
-    const indexA = PROCESS_AREA_ORDER.indexOf(a.code);
-    const indexB = PROCESS_AREA_ORDER.indexOf(b.code);
-    return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
+    return getProcessAreaSortOrder(a.code) - getProcessAreaSortOrder(b.code);
   });
 
   return {

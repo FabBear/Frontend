@@ -1,38 +1,58 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import { toMesRiskLevel } from '@/composables/useMesMonitoring';
 
+import { MES_TOOL_STATUS_META } from '@/constants/mes';
 import { RISK_LEVEL_META } from '@/constants/riskLevel';
 
-import type { MesToolGroupMetric, MesToolMetric, MesToolViewMode } from '@/types/mes';
+import type { MesToolGroupMetric, MesToolMetric, MesToolStatus, MesToolViewMode } from '@/types/mes';
 
 import MesToolCardGrid from '@/components/mes/MesToolCardGrid.vue';
+import MesToolGroupKpiGrid from '@/components/mes/MesToolGroupKpiGrid.vue';
 import MesToolTable from '@/components/mes/MesToolTable.vue';
 
-import { formatNumber, formatQtimeDays, formatRatioPercent } from '@/utils/format';
-import { calculateMesOeeEstimate, getMesQtimeColor, getMesQueueColor } from '@/utils/mesMetrics';
+import { formatRatioPercent } from '@/utils/format';
 
-interface Props {
+const props = defineProps<{
   toolGroup: MesToolGroupMetric | null;
   tools: MesToolMetric[];
   toolViewMode: MesToolViewMode;
   errorMessage?: string | null;
-}
-
-const props = defineProps<Props>();
+}>();
 
 const emit = defineEmits<{
   'update:toolViewMode': [value: MesToolViewMode];
 }>();
 
+const TOOL_STATUS_FILTERS: Array<{ value: MesToolStatus | 'ALL'; label: string }> = [
+  { value: 'ALL', label: '전체' },
+  { value: 'RUN', label: MES_TOOL_STATUS_META.RUN.label },
+  { value: 'IDLE', label: MES_TOOL_STATUS_META.IDLE.label },
+  { value: 'SETUP', label: MES_TOOL_STATUS_META.SETUP.label },
+  { value: 'DOWN', label: MES_TOOL_STATUS_META.DOWN.label },
+];
+
+const toolStatusFilter = ref<MesToolStatus | 'ALL'>('ALL');
 const riskMeta = computed(() => (props.toolGroup ? RISK_LEVEL_META[toMesRiskLevel(props.toolGroup.riskGrade)] : null));
-const oeeEstimate = computed(() =>
-  props.toolGroup ? calculateMesOeeEstimate(props.toolGroup.utilizationRate, props.toolGroup.setupRatio) : 0
-);
 const utilizationPercent = computed(() =>
   props.toolGroup ? `${Math.round(props.toolGroup.utilizationRate * 100)}%` : '0%'
 );
+const filteredTools = computed(() =>
+  toolStatusFilter.value === 'ALL' ? props.tools : props.tools.filter((tool) => tool.status === toolStatusFilter.value)
+);
+
+watch(
+  () => props.toolGroup?.tgId,
+  () => {
+    toolStatusFilter.value = 'ALL';
+  }
+);
+
+function getStatusFilterStyle(status: MesToolStatus | 'ALL') {
+  if (status === 'ALL' || toolStatusFilter.value === status) return {};
+  return { color: MES_TOOL_STATUS_META[status].color };
+}
 </script>
 
 <template>
@@ -62,7 +82,8 @@ const utilizationPercent = computed(() =>
             }}</span>
           </div>
           <p>
-            공정: <b>{{ toolGroup.areaNameKo }}</b> · 장비 수: <b>{{ toolGroup.toolCount }}대</b> · 가동률:
+            공정: <b>{{ toolGroup.areaName }}</b> / {{ toolGroup.sourceAreaNameKo }} · 장비 수:
+            <b>{{ toolGroup.toolCount }}대</b> · 가동률:
             <b :style="{ color: riskMeta?.color }">{{ formatRatioPercent(toolGroup.utilizationRate) }}</b>
           </p>
         </div>
@@ -75,55 +96,51 @@ const utilizationPercent = computed(() =>
         </div>
       </header>
 
-      <div class="tool-group-detail-panel__kpis">
-        <div class="tool-group-detail-panel__kpi">
-          <span>평균 가동률</span>
-          <strong :style="{ color: riskMeta?.color }">{{ formatRatioPercent(toolGroup.utilizationRate) }}</strong>
-        </div>
-        <div class="tool-group-detail-panel__kpi">
-          <span>OEE 추정</span>
-          <strong class="tool-group-detail-panel__kpi-value--info">{{ formatRatioPercent(oeeEstimate) }}</strong>
-        </div>
-        <div class="tool-group-detail-panel__kpi">
-          <span>Q-time 추정</span>
-          <strong :style="{ color: getMesQtimeColor(toolGroup.avgQtimeMin) }">{{
-            formatQtimeDays(toolGroup.avgQtimeMin)
-          }}</strong>
-        </div>
-        <div class="tool-group-detail-panel__kpi">
-          <span>대기 Lot</span>
-          <strong :style="{ color: getMesQueueColor(toolGroup.wipCount) }"
-            >{{ formatNumber(toolGroup.wipCount) }}개</strong
-          >
-        </div>
-      </div>
+      <MesToolGroupKpiGrid :tool-group="toolGroup" :risk-color="riskMeta?.color ?? 'var(--color-fg-strong)'" />
 
       <section class="tool-group-detail-panel__tools">
         <header class="tool-group-detail-panel__tools-header">
           <div>
             <h3>개별 Tool KPI</h3>
-            <span>{{ tools.length }}대</span>
+            <span>{{ filteredTools.length }} / {{ tools.length }}대</span>
           </div>
-          <div class="tool-group-detail-panel__view-toggle" role="group" aria-label="Tool 보기 방식">
-            <button
-              type="button"
-              :class="{ 'tool-group-detail-panel__view-button--active': toolViewMode === 'card' }"
-              @click="emit('update:toolViewMode', 'card')"
-            >
-              카드 뷰
-            </button>
-            <button
-              type="button"
-              :class="{ 'tool-group-detail-panel__view-button--active': toolViewMode === 'table' }"
-              @click="emit('update:toolViewMode', 'table')"
-            >
-              테이블 뷰
-            </button>
+          <div class="tool-group-detail-panel__tools-controls">
+            <div class="tool-group-detail-panel__status-filter" role="group" aria-label="Tool 상태 필터">
+              <button
+                v-for="filter in TOOL_STATUS_FILTERS"
+                :key="filter.value"
+                type="button"
+                :class="{ 'tool-group-detail-panel__status-button--active': toolStatusFilter === filter.value }"
+                :style="getStatusFilterStyle(filter.value)"
+                @click="toolStatusFilter = filter.value"
+              >
+                {{ filter.label }}
+              </button>
+            </div>
+            <div class="tool-group-detail-panel__view-toggle" role="group" aria-label="Tool 보기 방식">
+              <button
+                type="button"
+                :class="{ 'tool-group-detail-panel__view-button--active': toolViewMode === 'card' }"
+                @click="emit('update:toolViewMode', 'card')"
+              >
+                카드 뷰
+              </button>
+              <button
+                type="button"
+                :class="{ 'tool-group-detail-panel__view-button--active': toolViewMode === 'table' }"
+                @click="emit('update:toolViewMode', 'table')"
+              >
+                테이블 뷰
+              </button>
+            </div>
           </div>
         </header>
 
-        <MesToolCardGrid v-if="toolViewMode === 'card'" :tools="tools" />
-        <MesToolTable v-else :tools="tools" />
+        <p v-if="filteredTools.length === 0" class="tool-group-detail-panel__tools-empty">
+          선택한 상태의 Tool이 없습니다.
+        </p>
+        <MesToolCardGrid v-else-if="toolViewMode === 'card'" :tools="filteredTools" />
+        <MesToolTable v-else :tools="filteredTools" />
       </section>
     </template>
   </section>
@@ -230,35 +247,6 @@ const utilizationPercent = computed(() =>
   border-radius: inherit;
 }
 
-.tool-group-detail-panel__kpis {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--space-2);
-}
-
-.tool-group-detail-panel__kpi {
-  border: var(--border-width-default) solid var(--color-border-default);
-  border-radius: var(--radius-lg);
-  background: var(--color-bg-card);
-  padding: var(--space-3);
-}
-
-.tool-group-detail-panel__kpi span {
-  color: var(--color-fg-muted);
-  font-size: var(--font-size-xs);
-}
-
-.tool-group-detail-panel__kpi strong {
-  display: block;
-  margin-top: var(--space-1);
-  color: var(--color-fg-strong);
-  font-size: var(--font-size-lg);
-}
-
-.tool-group-detail-panel__kpi-value--info {
-  color: var(--color-status-info) !important;
-}
-
 .tool-group-detail-panel__tools-header {
   display: flex;
   align-items: center;
@@ -277,11 +265,29 @@ const utilizationPercent = computed(() =>
   font-size: var(--font-size-xs);
 }
 
+.tool-group-detail-panel__tools-empty {
+  border: var(--border-width-default) dashed var(--color-border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-5);
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+
+.tool-group-detail-panel__tools-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.tool-group-detail-panel__status-filter,
 .tool-group-detail-panel__view-toggle {
   display: flex;
   gap: var(--space-1);
 }
 
+.tool-group-detail-panel__status-filter button,
 .tool-group-detail-panel__view-toggle button {
   border: var(--border-width-default) solid var(--color-border-default);
   border-radius: var(--radius-md);
@@ -292,6 +298,7 @@ const utilizationPercent = computed(() =>
   font-size: var(--font-size-xs);
 }
 
+.tool-group-detail-panel__status-button--active,
 .tool-group-detail-panel__view-button--active {
   border-color: var(--color-action-primary-border) !important;
   background: var(--color-action-primary-soft) !important;

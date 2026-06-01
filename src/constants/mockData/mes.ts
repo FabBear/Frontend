@@ -1,8 +1,15 @@
-import { MES_DAYS } from '@/constants/mes';
-import { MOCK_PM_DATA } from '@/constants/mockData/dashboard';
-import { getProcessAreaNameKo } from '@/constants/processArea';
+import {
+  MES_CSV_FAB_LATEST,
+  MES_CSV_MEASURED_AT,
+  MES_CSV_SNAPSHOT_TIME_MIN,
+  MES_CSV_TOOL_GROUP_ROWS,
+  MES_CSV_TOOL_ROWS,
+  MES_CSV_TREND_LABELS,
+  MES_CSV_UTILIZATION_SERIES_ROWS,
+  MES_CSV_WIP_TREND,
+} from '@/constants/mockData/mesCsvSnapshot';
+import { getMesSemiconductorProcessCode, getProcessAreaNameKo } from '@/constants/processArea';
 
-import type { ProcessToolGroup } from '@/types/dashboard';
 import type {
   MesKpiCard,
   MesMonitoringData,
@@ -14,46 +21,23 @@ import type {
   MesTrendSeries,
 } from '@/types/mes';
 
-import { calculateMesOeeEstimate } from '@/utils/mesMetrics';
+import { formatNumber, formatRatioPercent } from '@/utils/format';
+import { average } from '@/utils/mesMetrics';
 
-const MEASURED_AT = '2026-05-22T01:00:00Z';
-
-const KNOWN_TG_META: Record<string, { toolCount: number; setupRatio: number; bottleneckProb: number }> = {
-  LithoMet_BE_18: { toolCount: 13, setupRatio: 0, bottleneckProb: 0.9963 },
-  Litho_REG_BE_63: { toolCount: 8, setupRatio: 0, bottleneckProb: 0.9967 },
-  Litho_BE_110: { toolCount: 28, setupRatio: 0, bottleneckProb: 0.9963 },
-  Litho_FE_92: { toolCount: 33, setupRatio: 0, bottleneckProb: 0.9861 },
-  DE_FE_72: { toolCount: 9, setupRatio: 0, bottleneckProb: 0.999 },
-  DE_BE_67: { toolCount: 10, setupRatio: 0, bottleneckProb: 0.9973 },
-  LithoTrack_FE_115: { toolCount: 51, setupRatio: 0.0508, bottleneckProb: 0.0298 },
-  LithoTrack_FE_95: { toolCount: 49, setupRatio: 0.0899, bottleneckProb: 0.0076 },
-};
-
-export const MOCK_MES_UTILIZATION_SERIES: MesTrendSeries[] = [
-  { name: 'DE_FE_72', colorToken: '--color-risk-critical', values: [0.612, 0.713, 0.789, 0.836, 0.871, 0.897] },
-  { name: 'Litho_BE_110', colorToken: '--color-risk-high', values: [0.71, 0.745, 0.793, 0.831, 0.86, 0.884] },
-  { name: 'DE_BE_67', colorToken: '--color-risk-medium', values: [0.68, 0.728, 0.769, 0.81, 0.845, 0.882] },
-  { name: 'Litho_REG_BE_63', colorToken: '--color-status-info', values: [0.651, 0.71, 0.752, 0.793, 0.817, 0.875] },
-];
-
-export const MOCK_MES_SETUP_SERIES: MesTrendSeries[] = [
-  { name: 'LithoMet_BE_18', colorToken: '--color-status-info', values: [0, 0, 0, 0, 0, 0] },
-  { name: 'Litho_FE_92', colorToken: '--color-status-success', values: [0.012, 0.018, 0.023, 0.027, 0.03, 0.031] },
-  { name: 'DE_FE_72', colorToken: '--color-risk-critical', values: [0, 0, 0, 0, 0, 0] },
-];
-
-export const MOCK_MES_WIP_TREND = [312, 1840, 2450, 2980, 3520, 3794];
+const MES_QUALITY_FACTOR_LABEL = '추정 OEE';
+const SIMULATION_DAY = Math.round(MES_CSV_SNAPSHOT_TIME_MIN / 1440);
+const UTILIZATION_COLORS = ['--color-risk-critical', '--color-risk-high', '--color-risk-medium', '--color-status-info'];
 
 function createAreaId(areaCode: string) {
-  return `area-${areaCode.toLowerCase().replaceAll('/', '-').replaceAll(' ', '-')}`;
+  return `area-${areaCode.toLowerCase().replaceAll('_', '-').replaceAll('/', '-')}`;
 }
 
 function createToolGroupId(tgCode: string) {
-  return `tg-${tgCode.toLowerCase().replaceAll('_', '-')}`;
+  return `tg-${tgCode.toLowerCase().replaceAll('_', '-').replaceAll('#', '-')}`;
 }
 
 function createToolId(toolCode: string) {
-  return `tool-${toolCode.toLowerCase().replaceAll('_', '-')}`;
+  return `tool-${toolCode.toLowerCase().replaceAll('_', '-').replaceAll('#', '-')}`;
 }
 
 function getRiskGrade(utilizationRate: number): MesRiskGrade {
@@ -63,195 +47,191 @@ function getRiskGrade(utilizationRate: number): MesRiskGrade {
   return 'LOW';
 }
 
-function estimateQtimeMin(utilizationRate: number, wipPerToolGroup: number) {
-  const days = utilizationRate * 8 + wipPerToolGroup / 420;
-  return Math.round(days * 24 * 60 * 10) / 10;
-}
-
-function getToolGroupMeta(toolGroup: ProcessToolGroup) {
-  const known = KNOWN_TG_META[toolGroup.name];
-  if (known) return known;
-
-  const nameWeight = toolGroup.name.length % 9;
-  const toolCount = Math.max(1, 2 + ((toolGroup.name.charCodeAt(0) + nameWeight) % 18));
-  const setupRatio = Math.min(0.09, nameWeight * 0.006);
-  const bottleneckProb = Math.min(0.98, toolGroup.util * 0.45 + (toolGroup.wipCount > 0 ? 0.06 : 0.001));
-
-  return { toolCount, setupRatio, bottleneckProb };
-}
-
-function getWaitRatio(toolGroup: ProcessToolGroup) {
-  return Math.round(Math.min(40, toolGroup.util * 18 + toolGroup.wipCount / 32) * 10) / 10;
-}
-
-export const MOCK_MES_TOOL_GROUP_METRICS: MesToolGroupMetric[] = MOCK_PM_DATA.flatMap((area) => {
-  const areaId = createAreaId(area.name);
-  const areaNameKo = getProcessAreaNameKo(area.name);
-
-  return [...area.gFE, ...area.gBE].map((toolGroup) => {
-    const meta = getToolGroupMeta(toolGroup);
-
-    return {
-      tgId: createToolGroupId(toolGroup.name),
-      tgCode: toolGroup.name,
-      tgName: toolGroup.name,
-      areaId,
-      areaCode: area.name,
-      areaName: area.name,
-      areaNameKo,
-      toolCount: meta.toolCount,
-      utilizationRate: toolGroup.util,
-      availableToolRatio: Math.max(0.3, 1 - toolGroup.util * 0.22),
-      wipCount: toolGroup.wipCount,
-      avgQtimeMin: estimateQtimeMin(toolGroup.util, toolGroup.wipCount),
-      setupRatio: meta.setupRatio,
-      waitRatio: getWaitRatio(toolGroup),
-      bottleneckProb: meta.bottleneckProb,
-      riskGrade: getRiskGrade(toolGroup.util),
-      measuredAt: MEASURED_AT,
-    };
-  });
-});
-
-export const MOCK_MES_PROCESS_SUMMARIES: MesProcessSummary[] = MOCK_PM_DATA.map((area) => {
-  const toolGroups = MOCK_MES_TOOL_GROUP_METRICS.filter((toolGroup) => toolGroup.areaCode === area.name);
-  const toolGroupCount = toolGroups.length;
-  const totalUtilization = toolGroups.reduce((sum, toolGroup) => sum + toolGroup.utilizationRate, 0);
-  const maxUtilizationRate =
-    toolGroupCount > 0 ? Math.max(...toolGroups.map((toolGroup) => toolGroup.utilizationRate)) : 0;
-  const wipCount = toolGroups.reduce((sum, toolGroup) => sum + toolGroup.wipCount, 0);
-  const setupRatio =
-    toolGroupCount > 0 ? toolGroups.reduce((sum, toolGroup) => sum + toolGroup.setupRatio, 0) / toolGroupCount : 0;
-  const avgQtimeMin = estimateQtimeMin(maxUtilizationRate, wipCount / Math.max(toolGroupCount, 1));
-
-  return {
-    areaId: createAreaId(area.name),
-    areaCode: area.name,
-    areaName: area.name,
-    areaNameKo: getProcessAreaNameKo(area.name),
-    toolGroupCount,
-    toolCount: toolGroups.reduce((sum, toolGroup) => sum + toolGroup.toolCount, 0),
-    avgUtilizationRate: toolGroupCount > 0 ? totalUtilization / toolGroupCount : 0,
-    maxUtilizationRate,
+export const MOCK_MES_TOOL_GROUP_METRICS: MesToolGroupMetric[] = MES_CSV_TOOL_GROUP_ROWS.map(
+  ([
+    tgCode,
+    sourceAreaCode,
+    toolCount,
+    utilizationRate,
+    availableToolRatio,
     wipCount,
     avgQtimeMin,
     setupRatio,
-    bottleneckToolGroupCount: toolGroups.filter((toolGroup) => toolGroup.utilizationRate >= 0.85).length,
-    avgAvailableToolRatio:
-      toolGroupCount > 0 ? toolGroups.reduce((sum, tg) => sum + tg.availableToolRatio, 0) / toolGroupCount : 0,
-    riskGrade: getRiskGrade(maxUtilizationRate),
-  };
-});
-
-function createToolStatus(index: number, utilizationRate: number): MesToolStatus {
-  if (index % 17 === 0) return 'DOWN';
-  if (utilizationRate < 0.2) return 'IDLE';
-  if (index % 11 === 0) return 'SETUP';
-  return 'RUN';
-}
-
-export const MOCK_MES_TOOL_METRICS: MesToolMetric[] = MOCK_MES_TOOL_GROUP_METRICS.flatMap((toolGroup) =>
-  Array.from({ length: toolGroup.toolCount }, (_, index) => {
-    const toolIndex = index + 1;
-    const hash = (toolGroup.tgName.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0) + toolIndex * 13) % 100;
-    const utilizationOffset = ((hash % 20) - 10) * 0.004;
-    const status = createToolStatus(toolIndex, toolGroup.utilizationRate);
-    const utilizationRate =
-      status === 'DOWN' ? 0 : Math.min(0.999, Math.max(0.01, toolGroup.utilizationRate + utilizationOffset));
-    const queueLotCount =
-      status === 'DOWN'
-        ? 0
-        : Math.round(toolGroup.wipCount * (toolIndex === 1 ? 0.5 : toolIndex === 2 ? 0.3 : toolIndex === 3 ? 0.2 : 0));
-    const avgQtimeMin = estimateQtimeMin(utilizationRate, queueLotCount);
-    const toolCode = `${toolGroup.tgCode}#${toolIndex}`;
+    waitRatio,
+    bottleneckProb,
+  ]) => {
+    const areaCode = getMesSemiconductorProcessCode(sourceAreaCode, tgCode);
 
     return {
-      toolId: createToolId(toolCode),
-      toolCode,
-      toolName: toolCode,
-      tgId: toolGroup.tgId,
-      tgCode: toolGroup.tgCode,
+      tgId: createToolGroupId(tgCode),
+      tgCode,
+      tgName: tgCode,
+      areaId: createAreaId(areaCode),
+      areaCode,
+      areaName: areaCode,
+      areaNameKo: getProcessAreaNameKo(areaCode),
+      sourceAreaCode,
+      sourceAreaNameKo: getProcessAreaNameKo(sourceAreaCode),
+      toolCount,
       utilizationRate,
-      oeeEstimate: status === 'DOWN' ? null : calculateMesOeeEstimate(utilizationRate, toolGroup.setupRatio),
+      availableToolRatio,
+      wipCount,
       avgQtimeMin,
-      queueLotCount,
-      setupRatio: toolGroup.setupRatio,
-      downRatio: status === 'DOWN' ? 1 : 0,
-      status,
-      lastDispatchAt: `Day ${(24 + (hash % 90) / 100).toFixed(2)}`,
-      measuredAt: MEASURED_AT,
+      setupRatio,
+      waitRatio,
+      bottleneckProb,
+      riskGrade: getRiskGrade(utilizationRate),
+      measuredAt: MES_CSV_MEASURED_AT,
     };
+  }
+);
+
+const TOOL_GROUP_BY_CODE = new Map(MOCK_MES_TOOL_GROUP_METRICS.map((toolGroup) => [toolGroup.tgCode, toolGroup]));
+
+export const MOCK_MES_TOOL_METRICS: MesToolMetric[] = MES_CSV_TOOL_ROWS.map(
+  ([toolCode, tgCode, utilizationRate, oeeEstimate, avgQtimeMin, queueLotCount, setupRatio, downRatio, status]) => ({
+    toolId: createToolId(toolCode),
+    toolCode,
+    toolName: toolCode,
+    tgId: createToolGroupId(tgCode),
+    tgCode,
+    utilizationRate,
+    oeeEstimate,
+    avgQtimeMin,
+    queueLotCount,
+    setupRatio,
+    downRatio,
+    status: status as MesToolStatus,
+    lastDispatchAt: null,
+    measuredAt: MES_CSV_MEASURED_AT,
   })
 );
+
+const PROCESS_GROUPS = MOCK_MES_TOOL_GROUP_METRICS.reduce<Record<string, MesToolGroupMetric[]>>((groups, toolGroup) => {
+  groups[toolGroup.areaCode] ??= [];
+  groups[toolGroup.areaCode].push(toolGroup);
+  return groups;
+}, {});
+
+export const MOCK_MES_PROCESS_SUMMARIES: MesProcessSummary[] = Object.entries(PROCESS_GROUPS).map(
+  ([areaCode, toolGroups]) => {
+    const maxUtilizationRate = Math.max(...toolGroups.map((toolGroup) => toolGroup.utilizationRate));
+    const totalToolCount = toolGroups.reduce((sum, toolGroup) => sum + toolGroup.toolCount, 0);
+
+    return {
+      areaId: createAreaId(areaCode),
+      areaCode,
+      areaName: areaCode,
+      areaNameKo: getProcessAreaNameKo(areaCode),
+      sourceAreaCodes: [...new Set(toolGroups.map((toolGroup) => toolGroup.sourceAreaCode))],
+      toolGroupCount: toolGroups.length,
+      toolCount: totalToolCount,
+      avgUtilizationRate: average(toolGroups.map((toolGroup) => toolGroup.utilizationRate)),
+      maxUtilizationRate,
+      wipCount: toolGroups.reduce((sum, toolGroup) => sum + toolGroup.wipCount, 0),
+      avgQtimeMin: average(toolGroups.map((toolGroup) => toolGroup.avgQtimeMin ?? 0)),
+      maxQtimeMin: toolGroups.reduce<number | null>((max, tg) => {
+        if (tg.avgQtimeMin === null) return max;
+        return max === null ? tg.avgQtimeMin : Math.max(max, tg.avgQtimeMin);
+      }, null),
+      setupRatio: average(toolGroups.map((toolGroup) => toolGroup.setupRatio)),
+      bottleneckToolGroupCount: toolGroups.filter((toolGroup) => toolGroup.utilizationRate >= 0.85).length,
+      avgAvailableToolRatio: average(toolGroups.map((toolGroup) => toolGroup.availableToolRatio)),
+      riskGrade: getRiskGrade(maxUtilizationRate),
+    };
+  }
+);
+
+export const MOCK_MES_UTILIZATION_SERIES: MesTrendSeries[] = MES_CSV_UTILIZATION_SERIES_ROWS.map(
+  ([name, values], index) => ({
+    name,
+    colorToken: UTILIZATION_COLORS[index % UTILIZATION_COLORS.length],
+    values,
+  })
+);
+
+export const MOCK_MES_WIP_TREND = [...MES_CSV_WIP_TREND];
+export const MOCK_MES_SETUP_SERIES: MesTrendSeries[] = MOCK_MES_UTILIZATION_SERIES.map((series) => ({
+  name: series.name,
+  colorToken: series.colorToken,
+  values: series.values.map((value) => {
+    const setupRatio = TOOL_GROUP_BY_CODE.get(series.name)?.setupRatio ?? 0;
+    return value > 0 ? setupRatio : 0;
+  }),
+}));
+
+const statusCounts = MOCK_MES_TOOL_METRICS.reduce(
+  (summary, tool) => {
+    summary[tool.status] += 1;
+    return summary;
+  },
+  { RUN: 0, IDLE: 0, SETUP: 0, DOWN: 0 } as Record<MesToolStatus, number>
+);
+const avgTopUtilization = average(
+  [...MOCK_MES_TOOL_GROUP_METRICS]
+    .sort((a, b) => b.utilizationRate - a.utilizationRate)
+    .slice(0, 10)
+    .map((toolGroup) => toolGroup.utilizationRate)
+);
+const avgOeeEstimate = average(MOCK_MES_TOOL_METRICS.map((tool) => tool.oeeEstimate ?? 0));
+const bottleneckToolGroupCount = MOCK_MES_TOOL_GROUP_METRICS.filter(
+  (toolGroup) => toolGroup.utilizationRate >= 0.85
+).length;
 
 export const MOCK_MES_KPI_CARDS: MesKpiCard[] = [
   {
     key: 'wip',
     title: '현재 WIP',
-    value: '3,794',
-    subtitle: '대기 Lot · Day 25',
-    delta: 274,
-    deltaUnit: ' lots',
-    isPositiveGood: false,
+    value: formatNumber(MES_CSV_FAB_LATEST.wip),
+    subtitle: `WIP Lot · Day ${SIMULATION_DAY}`,
     tone: 'info',
   },
   {
     key: 'utilization',
     title: '평균 가동률',
-    value: '72.4%',
-    subtitle: '상위 병목 TG 기준',
-    delta: 1.2,
-    deltaUnit: '%p',
+    value: formatRatioPercent(avgTopUtilization),
+    subtitle: '상위 TG 10개 기준',
     isPositiveGood: false,
     tone: 'warning',
   },
   {
     key: 'qtime',
     title: '평균 Q-time',
-    value: '10.55일',
-    subtitle: '목표 10일 초과',
-    delta: 0.38,
-    deltaUnit: '일',
+    value: `${(MES_CSV_FAB_LATEST.q_time_min / 60 / 24).toFixed(1)}일`,
+    subtitle: 'FAB 평균 대기 시간',
     isPositiveGood: false,
     tone: 'danger',
   },
   {
     key: 'bottleneck',
-    title: '병목 TG 수',
-    value: '25개',
+    title: '고가동 TG 수',
+    value: `${formatNumber(bottleneckToolGroupCount)}개`,
     subtitle: '가동률 ≥85% TG',
-    note: 'Critical 2 · High 23',
     tone: 'danger',
   },
   {
-    key: 'throughput',
-    title: 'Throughput',
-    value: '3,468',
-    subtitle: 'Lots / 24h',
-    delta: 22,
-    deltaUnit: ' lots',
-    isPositiveGood: true,
+    key: 'tool-state',
+    title: 'Tool 상태',
+    value: `${formatNumber(statusCounts.RUN)}대`,
+    subtitle: `대기 ${formatNumber(statusCounts.IDLE)} · 정비 ${formatNumber(statusCounts.DOWN)}`,
     tone: 'success',
   },
   {
-    key: 'rtf',
-    title: 'RTF',
-    value: '87.3%',
-    subtitle: '실적 / 계획 목표',
-    delta: -0.4,
-    deltaUnit: '%p',
-    isPositiveGood: true,
-    tone: 'warning',
+    key: 'oee',
+    title: '평균 OEE',
+    value: formatRatioPercent(avgOeeEstimate),
+    subtitle: MES_QUALITY_FACTOR_LABEL,
+    tone: 'success',
   },
 ];
 
 export const MOCK_MES_MONITORING_DATA: MesMonitoringData = {
   snapshot: {
-    measuredAt: MEASURED_AT,
-    simulationDay: 25,
+    measuredAt: MES_CSV_MEASURED_AT,
+    simulationDay: SIMULATION_DAY,
     isConnected: true,
   },
-  days: MES_DAYS,
+  days: [...MES_CSV_TREND_LABELS],
   kpiCards: MOCK_MES_KPI_CARDS,
   utilizationSeries: MOCK_MES_UTILIZATION_SERIES,
   wipTrend: MOCK_MES_WIP_TREND,

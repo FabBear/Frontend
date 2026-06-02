@@ -23,6 +23,7 @@ export function useDashboardData() {
   });
 
   async function loadDashboardData() {
+    if (isLoading.value) return;
     isLoading.value = true;
     sectionErrors.value = {};
     try {
@@ -41,12 +42,49 @@ export function useDashboardData() {
     if (isLoading.value) return;
     try {
       const { data, errors, isMockAlerts: mock } = await fetchDashboardData();
-      dashboardData.value = data;
-      sectionErrors.value = errors;
-      isMockAlerts.value = mock;
+      mergePolledDashboardData(data, errors);
+      if (data.alerts !== null) {
+        isMockAlerts.value = mock;
+      }
     } catch {
       // 폴링 실패 시 마지막 데이터 유지 — 일시적 네트워크 오류로 화면을 비우지 않음
     }
+  }
+
+  function mergePolledDashboardData(data: DashboardSectionData, errors: DashboardSectionErrors) {
+    const nextData = { ...dashboardData.value };
+    const nextErrors = { ...sectionErrors.value };
+
+    if (data.kpi !== null) {
+      nextData.kpi = data.kpi;
+      delete nextErrors.kpi;
+    } else if (errors.kpi && nextData.kpi === null) {
+      nextErrors.kpi = errors.kpi;
+    }
+
+    if (data.alerts !== null) {
+      nextData.alerts = data.alerts;
+      delete nextErrors.alerts;
+    } else if (errors.alerts && nextData.alerts === null) {
+      nextErrors.alerts = errors.alerts;
+    }
+
+    if (data.processAreas !== null) {
+      nextData.processAreas = data.processAreas;
+      delete nextErrors.processAreas;
+    } else if (errors.processAreas && nextData.processAreas === null) {
+      nextErrors.processAreas = errors.processAreas;
+    }
+
+    if (data.trends !== null) {
+      nextData.trends = data.trends;
+      delete nextErrors.trends;
+    } else if (errors.trends && nextData.trends === null) {
+      nextErrors.trends = errors.trends;
+    }
+
+    dashboardData.value = nextData;
+    sectionErrors.value = nextErrors;
   }
 
   let pollTimer: ReturnType<typeof setInterval> | null = null;

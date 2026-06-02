@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { computed } from 'vue';
+
 import { PROCESS_RISK_GRADES, type ProcessRiskGrade, getProcessRiskGrade } from '@/constants/processRisk';
 
 import type { DashboardProcessAreaData, DashboardProcessToolGroupData } from '@/types/dashboard';
@@ -15,7 +17,26 @@ interface ToolGroupSection {
   items: DashboardProcessToolGroupData[];
 }
 
+interface ProcessedArea {
+  area: DashboardProcessAreaData;
+  visibleGroups: DashboardProcessToolGroupData[];
+  sections: ToolGroupSection[];
+}
+
 const props = defineProps<Props>();
+
+const processedAreas = computed<ProcessedArea[]>(() =>
+  props.areas.map((area) => {
+    const visibleGroups = getVisibleToolGroups(area);
+    const sections = getToolGroupSections(visibleGroups);
+
+    return {
+      area,
+      visibleGroups,
+      sections,
+    };
+  })
+);
 
 function isVisible(toolGroup: DashboardProcessToolGroupData): boolean {
   return props.activeGrades.has(getToolGroupProcessRiskGrade(toolGroup));
@@ -38,8 +59,7 @@ function getVisibleToolGroups(area: DashboardProcessAreaData): DashboardProcessT
   });
 }
 
-function getVisibleToolGroupSections(area: DashboardProcessAreaData): ToolGroupSection[] {
-  const groups = getVisibleToolGroups(area);
+function getToolGroupSections(groups: DashboardProcessToolGroupData[]): ToolGroupSection[] {
   const sections = [
     { key: 'FE' as const, label: 'FE', items: groups.filter((toolGroup) => getToolGroupSide(toolGroup) === 'FE') },
     { key: 'BE' as const, label: 'BE', items: groups.filter((toolGroup) => getToolGroupSide(toolGroup) === 'BE') },
@@ -86,17 +106,13 @@ function getToolGroupSide(toolGroup: DashboardProcessToolGroupData): 'FE' | 'BE'
   <div class="process-tool-group-row">
     <div class="process-tool-group-row__spacer" />
     <div class="process-tool-group-row__gap" />
-    <template v-for="(area, index) in areas" :key="area.areaId">
-      <div class="process-tool-group-row__column" :style="getColumnStyle(area)">
+    <template v-for="(item, index) in processedAreas" :key="item.area.areaId">
+      <div class="process-tool-group-row__column" :style="getColumnStyle(item.area)">
         <div class="process-tool-group-row__header">
-          {{ getVisibleToolGroups(area).length }}/{{ area.totalTgCount }} TG
+          {{ item.visibleGroups.length }}/{{ item.area.totalTgCount }} TG
         </div>
 
-        <section
-          v-for="section in getVisibleToolGroupSections(area)"
-          :key="section.key"
-          class="process-tool-group-row__section"
-        >
+        <section v-for="section in item.sections" :key="section.key" class="process-tool-group-row__section">
           <p class="process-tool-group-row__subheader">
             {{ section.label }} <span>{{ section.items.length }}</span>
           </p>
@@ -112,9 +128,9 @@ function getToolGroupSide(toolGroup: DashboardProcessToolGroupData): 'FE' | 'BE'
             {{ toolGroup.tgName }}
           </div>
         </section>
-        <p v-if="getVisibleToolGroups(area).length === 0" class="process-tool-group-row__empty">해당 등급 없음</p>
+        <p v-if="item.visibleGroups.length === 0" class="process-tool-group-row__empty">해당 등급 없음</p>
       </div>
-      <div v-if="index < areas.length - 1" class="process-tool-group-row__gap" />
+      <div v-if="index < processedAreas.length - 1" class="process-tool-group-row__gap" />
     </template>
   </div>
 </template>
@@ -175,8 +191,7 @@ function getToolGroupSide(toolGroup: DashboardProcessToolGroupData): 'FE' | 'BE'
   text-align: center;
 }
 
-.process-tool-group-row__subheader span,
-.process-tool-group-row__family-label span {
+.process-tool-group-row__subheader span {
   color: var(--color-fg-muted);
   font-weight: var(--font-weight-medium);
 }

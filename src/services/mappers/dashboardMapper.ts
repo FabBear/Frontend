@@ -22,6 +22,15 @@ import type {
   DashboardTrendsResponse,
 } from '@/types/dashboardApi';
 
+const SEOUL_TREND_LABEL_FORMATTER = new Intl.DateTimeFormat('ko-KR', {
+  timeZone: 'Asia/Seoul',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+});
+
 export function mapDashboardData(data: DashboardApiData): DashboardData {
   return {
     kpi: mapKpi(data.kpi),
@@ -205,10 +214,13 @@ function formatIntervalLabel(intervalMin: number): string {
 function formatTrendLabel(value: string, intervalMin: number): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
+  const parts = SEOUL_TREND_LABEL_FORMATTER.formatToParts(date);
+  const getPart = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? '';
+
   if (intervalMin >= 1440) {
-    return `${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
+    return `${getPart('month')}.${getPart('day')}`;
   }
-  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  return `${getPart('hour')}:${getPart('minute')}`;
 }
 
 function minutesToHours(value: number): number {

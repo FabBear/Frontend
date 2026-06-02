@@ -8,7 +8,7 @@ import type { BottleneckAlertItem } from '@/types/dashboard';
 import BaseBadge from '@/components/base/BaseBadge.vue';
 import BaseButton from '@/components/base/BaseButton.vue';
 
-import { formatKoTime, formatNumber } from '@/utils/format';
+import { formatKoTime, formatNumber, formatRatioPercent } from '@/utils/format';
 
 interface Props {
   alert: BottleneckAlertItem;
@@ -42,12 +42,16 @@ function handleAnalyzeCause() {
     <header class="bottleneck-alert-card__header">
       <div class="bottleneck-alert-card__title">
         <BaseBadge :variant="alert.riskLevel">{{ riskLabel }}</BaseBadge>
-        <strong>{{ alert.tgCode }} Tool Group</strong>
+        <strong>{{ alert.tgName }}</strong>
       </div>
       <time class="bottleneck-alert-card__time" :datetime="alert.detectedAt">{{ detectedTime }}</time>
     </header>
 
     <dl class="bottleneck-alert-card__details">
+      <dt>공정</dt>
+      <dd>{{ alert.areaName }}</dd>
+      <dt>병목 확률</dt>
+      <dd :style="delayStyle">{{ formatRatioPercent(alert.bottleneckProb) }}</dd>
       <dt>예상 지연</dt>
       <dd :style="delayStyle">{{ alert.estDelayHours.toFixed(1) }}시간</dd>
       <dt>영향 Lot</dt>
@@ -68,12 +72,12 @@ function handleAnalyzeCause() {
 <style scoped>
 .bottleneck-alert-card {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--space-2);
   border: var(--border-width-default) solid var(--color-border-default);
   border-left: 4px solid;
   border-radius: var(--radius-lg);
   background: var(--color-bg-card);
-  padding: var(--space-3) 14px;
+  padding: var(--space-2) 14px;
   box-shadow: var(--shadow-sm);
 }
 
@@ -110,7 +114,7 @@ function handleAnalyzeCause() {
 
 .bottleneck-alert-card__details {
   display: grid;
-  grid-template-columns: minmax(72px, 0.8fr) minmax(0, 1.2fr);
+  grid-template-columns: max-content 1fr max-content 1fr;
   gap: var(--space-1) var(--space-2);
   margin: 0;
   font-size: var(--font-size-sm);
@@ -124,6 +128,10 @@ function handleAnalyzeCause() {
   margin: 0;
   color: var(--color-fg);
   font-weight: var(--font-weight-semibold);
+}
+
+.bottleneck-alert-card__details dd:last-child {
+  grid-column: 2 / -1;
 }
 
 .bottleneck-alert-card__actions {

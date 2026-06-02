@@ -1,24 +1,34 @@
 import type { RiskLevel } from '@/constants/riskLevel';
 
 export interface FabKpiSnapshot {
-  rtf: number;
-  rtfDelta: number;
-  throughput24h: number;
-  throughputDelta: number;
-  avgQtimeDays: number;
-  qtimeDelta: number;
-  wipCount: number;
-  wipDelta: number;
+  rtf: number | null;
+  rtfDelta: number | null;
+  throughput24h: number | null;
+  throughputDelta: number | null;
+  throughputUnit: string;
+  avgQtimeMin: number | null;
+  qtimeDelta: number | null;
+  qtimeUnit: string;
+  wipCount: number | null;
+  wipDelta: number | null;
+  wipTarget: number | null;
+  wipUnit: string;
   updatedAt: string;
 }
 
 export interface BottleneckAlertItem {
   caseId: string;
-  tgCode: string;
+  tgId: string;
+  tgName: string;
+  areaName: string;
+  riskGrade: string;
   riskLevel: RiskLevel;
+  bottleneckProb: number;
   estDelayHours: number;
   affectedLotCount: number;
   mainCause: string;
+  status: string;
+  currentStepName: string;
   detectedAt: string;
 }
 
@@ -52,6 +62,27 @@ export interface ProcessAreaData {
   gBE: ProcessToolGroup[];
 }
 
+export interface DashboardProcessAreaData {
+  areaId: string;
+  areaCode: string;
+  areaName: string;
+  totalTgCount: number;
+  bottleneckTgCount: number;
+  tgSummary: Record<string, number>;
+  toolGroups: DashboardProcessToolGroupData[];
+}
+
+export interface DashboardProcessToolGroupData {
+  tgId: string;
+  tgCode: string;
+  tgName: string;
+  riskGrade: string;
+  riskLevel: RiskLevel;
+  utilizationRate: number;
+  bottleneckProb: number;
+  wipCount: number;
+}
+
 export interface KpiTrendSeries {
   key: string;
   title: string;
@@ -66,6 +97,17 @@ export interface KpiTrendSeries {
 export interface DashboardData {
   kpi: FabKpiSnapshot;
   alerts: BottleneckAlertItem[];
-  processAreas: ProcessAreaData[];
+  processAreas: DashboardProcessAreaData[];
   trends: KpiTrendSeries[];
 }
+
+export interface DashboardSectionData {
+  kpi: FabKpiSnapshot | null;
+  alerts: BottleneckAlertItem[] | null;
+  processAreas: DashboardProcessAreaData[] | null;
+  trends: KpiTrendSeries[] | null;
+}
+
+export type DashboardSectionKey = keyof DashboardSectionData;
+
+export type DashboardSectionErrors = Partial<Record<DashboardSectionKey, string>>;

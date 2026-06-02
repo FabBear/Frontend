@@ -1,12 +1,102 @@
-import { MOCK_BOTTLENECK_ALERTS, MOCK_FAB_KPI, MOCK_KPI_TRENDS, MOCK_PM_DATA } from '@/constants/mockData/dashboard';
+import api from '@/services/api';
+import { mapKpi, mapProcessMap, mapRiskAlerts, mapTrends } from '@/services/mappers/dashboardMapper';
 
-import type { DashboardData } from '@/types/dashboard';
+import {
+  DASHBOARD_ALERTS_PAGE_SIZE,
+  DASHBOARD_TRENDS_DAILY_KEYS,
+  DASHBOARD_TRENDS_DAILY_RANGE,
+  DASHBOARD_TRENDS_HOURLY_KEYS,
+  DASHBOARD_TRENDS_HOURLY_RANGE,
+  TREND_META,
+} from '@/constants/dashboard';
+import { MOCK_BOTTLENECK_ALERTS } from '@/constants/mockData/dashboard';
 
-export async function fetchDashboardData(): Promise<DashboardData> {
+import type {
+  BottleneckAlertItem,
+  DashboardProcessAreaData,
+  DashboardSectionData,
+  DashboardSectionErrors,
+  FabKpiSnapshot,
+  KpiTrendSeries,
+} from '@/types/dashboard';
+import type {
+  DashboardKpiResponse,
+  DashboardProcessMapResponse,
+  DashboardRiskAlertsResponse,
+  DashboardTrendsResponse,
+} from '@/types/dashboardApi';
+
+interface DashboardLoadResult {
+  data: DashboardSectionData;
+  errors: DashboardSectionErrors;
+  isMockAlerts: boolean;
+}
+
+export async function fetchDashboardKpi(): Promise<FabKpiSnapshot> {
+  const { data } = await api.get<DashboardKpiResponse>('/v1/dashboard/kpi');
+  return mapKpi(data);
+}
+
+export async function fetchDashboardRiskAlerts(): Promise<BottleneckAlertItem[]> {
+  const { data } = await api.get<DashboardRiskAlertsResponse>('/v1/dashboard/risk-alerts', {
+    params: { page: 0, size: DASHBOARD_ALERTS_PAGE_SIZE },
+  });
+  return mapRiskAlerts(data);
+}
+
+export async function fetchDashboardProcessMap(): Promise<DashboardProcessAreaData[]> {
+  const { data } = await api.get<DashboardProcessMapResponse>('/v1/dashboard/process-map');
+  return mapProcessMap(data);
+}
+
+export async function fetchDashboardTrends(): Promise<KpiTrendSeries[]> {
+  // throughput은 일 단위로 집계되므로 7d 범위로 별도 조회
+  const [hourly, daily] = await Promise.all([
+    api.get<DashboardTrendsResponse>('/v1/dashboard/trends', {
+      params: { range: DASHBOARD_TRENDS_HOURLY_RANGE, kpi: DASHBOARD_TRENDS_HOURLY_KEYS.join(',') },
+    }),
+    api.get<DashboardTrendsResponse>('/v1/dashboard/trends', {
+      params: { range: DASHBOARD_TRENDS_DAILY_RANGE, kpi: DASHBOARD_TRENDS_DAILY_KEYS.join(',') },
+    }),
+  ]);
+
+  // 7d 응답에서 daily 키만 취함 (백엔드가 전체 KPI를 반환할 수 있으므로 필터)
+  const dailyTrends = mapTrends(daily.data).filter((t) =>
+    DASHBOARD_TRENDS_DAILY_KEYS.includes(t.key as (typeof DASHBOARD_TRENDS_DAILY_KEYS)[number])
+  );
+
+  return sortDashboardTrends([...mapTrends(hourly.data), ...dailyTrends]);
+}
+
+function sortDashboardTrends(trends: KpiTrendSeries[]): KpiTrendSeries[] {
+  const order = Object.keys(TREND_META);
+  return [...trends].sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
+}
+
+export async function fetchDashboardData(): Promise<DashboardLoadResult> {
+  const [kpi, alerts, processMap, trends] = await Promise.allSettled([
+    fetchDashboardKpi(),
+    fetchDashboardRiskAlerts(),
+    fetchDashboardProcessMap(),
+    fetchDashboardTrends(),
+  ]);
+
+  const alertItems = alerts.status === 'fulfilled' ? alerts.value : null;
+  const isMockAlerts = alertItems !== null && alertItems.length === 0;
+
   return {
-    kpi: MOCK_FAB_KPI,
-    alerts: MOCK_BOTTLENECK_ALERTS,
-    processAreas: MOCK_PM_DATA,
-    trends: MOCK_KPI_TRENDS,
+    data: {
+      kpi: kpi.status === 'fulfilled' ? kpi.value : null,
+      alerts: isMockAlerts ? MOCK_BOTTLENECK_ALERTS : alertItems,
+      processAreas: processMap.status === 'fulfilled' ? processMap.value : null,
+      trends: trends.status === 'fulfilled' ? trends.value : null,
+    },
+    errors: {
+      ...(kpi.status === 'rejected' ? { kpi: 'KPI 데이터를 불러오지 못했습니다.' } : {}),
+      ...(alerts.status === 'rejected' ? { alerts: '병목 위험 알림을 불러오지 못했습니다.' } : {}),
+      ...(processMap.status === 'rejected' ? { processAreas: '공정 상태맵을 불러오지 못했습니다.' } : {}),
+      ...(trends.status === 'rejected' ? { trends: 'KPI 추이 데이터를 불러오지 못했습니다.' } : {}),
+    },
+    isMockAlerts,
   };
 }

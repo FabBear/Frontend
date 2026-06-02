@@ -11,7 +11,7 @@ import KpiSparklineChart from '@/components/dashboard/KpiSparklineChart.vue';
 import ProcessMapCard from '@/components/dashboard/ProcessMapCard.vue';
 
 const router = useRouter();
-const { dashboardData, isLoading, errorMessage } = useDashboardData();
+const { dashboardData, isLoading, isMockAlerts, errorMessage, sectionErrors, hasLoadedAnySection } = useDashboardData();
 
 function handleShowSolutions(caseId: string) {
   router.push({ name: ROUTE_NAMES.bottleneckCenter, query: { caseId, tab: 'solutions' } });
@@ -32,23 +32,42 @@ function handleSelectArea(areaCode: string) {
 
 <template>
   <div class="dashboard-view">
-    <p v-if="isLoading && !dashboardData" class="dashboard-view__state">대시보드 데이터를 불러오는 중입니다.</p>
+    <p v-if="isLoading && !hasLoadedAnySection" class="dashboard-view__state">대시보드 데이터를 불러오는 중입니다.</p>
     <p v-else-if="errorMessage" class="dashboard-view__state dashboard-view__state--error">{{ errorMessage }}</p>
 
-    <template v-if="dashboardData">
-      <DashboardKpiSummary :kpi="dashboardData.kpi" />
+    <template v-if="hasLoadedAnySection">
+      <DashboardKpiSummary v-if="dashboardData.kpi" :kpi="dashboardData.kpi" />
+      <p v-else-if="sectionErrors.kpi" class="dashboard-view__state dashboard-view__state--error">
+        {{ sectionErrors.kpi }}
+      </p>
 
-      <div class="dashboard-view__main">
+      <div
+        v-if="dashboardData.alerts || dashboardData.processAreas || sectionErrors.alerts || sectionErrors.processAreas"
+        class="dashboard-view__main"
+      >
         <BottleneckAlertList
+          v-if="dashboardData.alerts"
           :alerts="dashboardData.alerts"
+          :is-mock="isMockAlerts"
           @open-center="handleOpenCenter"
           @show-solutions="handleShowSolutions"
           @analyze-cause="handleAnalyzeCause"
         />
-        <ProcessMapCard :areas="dashboardData.processAreas" @select-area="handleSelectArea" />
+        <p v-else-if="sectionErrors.alerts" class="dashboard-view__state dashboard-view__state--error">
+          {{ sectionErrors.alerts }}
+        </p>
+
+        <ProcessMapCard
+          v-if="dashboardData.processAreas"
+          :areas="dashboardData.processAreas"
+          @select-area="handleSelectArea"
+        />
+        <p v-else-if="sectionErrors.processAreas" class="dashboard-view__state dashboard-view__state--error">
+          {{ sectionErrors.processAreas }}
+        </p>
       </div>
 
-      <div class="dashboard-view__charts" aria-label="차트 추이 영역">
+      <div v-if="dashboardData.trends" class="dashboard-view__charts" aria-label="차트 추이 영역">
         <section v-for="trend in dashboardData.trends" :key="trend.key" class="dashboard-view__chart-card">
           <header class="dashboard-view__chart-header">
             <div class="dashboard-view__chart-title-row">
@@ -67,6 +86,9 @@ function handleSelectArea(areaCode: string) {
           </div>
         </section>
       </div>
+      <p v-else-if="sectionErrors.trends" class="dashboard-view__state dashboard-view__state--error">
+        {{ sectionErrors.trends }}
+      </p>
     </template>
   </div>
 </template>
@@ -75,14 +97,14 @@ function handleSelectArea(areaCode: string) {
 .dashboard-view {
   display: grid;
   min-width: 0;
-  gap: 14px;
+  gap: var(--space-3);
 }
 
 .dashboard-view__main {
   display: grid;
   grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
   align-items: stretch;
-  gap: 14px;
+  gap: var(--space-3);
   min-width: 0;
 }
 

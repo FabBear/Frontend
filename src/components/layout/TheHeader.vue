@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { Bell, Bot, UserRound } from '@lucide/vue';
+import { computed } from 'vue';
+
+import { Bell, Bot, LogOut, UserRound } from '@lucide/vue';
 
 import type { AuthUser } from '@/types/auth';
 
@@ -12,7 +14,7 @@ interface Props {
   notificationOpen?: boolean;
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   notificationOpen: false,
 });
 
@@ -20,6 +22,21 @@ const emit = defineEmits<{
   toggleNotifications: [];
   logout: [];
 }>();
+
+const roleLabel = computed(() => {
+  if (!props.user) return '미인증';
+  return props.user.roles.includes('ADMIN') ? '관리자' : '엔지니어';
+});
+
+const userPrimaryLabel = computed(() => {
+  if (!props.user) return '미인증 사용자';
+  return `${props.user.userName} · ${props.user.loginId}`;
+});
+
+const userSecondaryLabel = computed(() => {
+  if (!props.user) return 'Fab 미선택';
+  return `${props.user.fabName ?? props.user.fabId} · ${roleLabel.value}`;
+});
 </script>
 
 <template>
@@ -53,17 +70,21 @@ const emit = defineEmits<{
           <UserRound v-else :size="15" aria-hidden="true" />
         </span>
         <div class="the-header__info">
-          <strong>{{ user?.userName ?? '미인증 사용자' }}</strong>
-          <span>{{ user?.fabName ?? 'Fab 미선택' }}</span>
+          <strong>{{ userPrimaryLabel }}</strong>
+          <span>{{ userSecondaryLabel }}</span>
         </div>
       </div>
-      <BaseButton variant="ghost" size="sm" @click="emit('logout')">로그아웃</BaseButton>
+      <button class="the-header__icon-button" type="button" aria-label="로그아웃" @click="emit('logout')">
+        <LogOut :size="17" aria-hidden="true" />
+      </button>
     </div>
   </header>
 </template>
 
 <style scoped>
 .the-header {
+  --header-control-height: 40px;
+
   display: flex;
   height: var(--layout-header-height);
   align-items: center;
@@ -101,13 +122,19 @@ const emit = defineEmits<{
   gap: var(--space-3);
 }
 
-.the-header__notification-button {
+.the-header__actions :deep(.base-button--sm) {
+  min-height: var(--header-control-height);
+  padding: 0 12px;
+}
+
+.the-header__notification-button,
+.the-header__icon-button {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-width: 36px;
-  height: 32px;
+  height: var(--header-control-height);
   border: var(--border-width-default) solid var(--color-border-default);
   border-radius: var(--radius-md);
   background: var(--color-bg-surface);
@@ -117,7 +144,8 @@ const emit = defineEmits<{
 }
 
 .the-header__notification-button--active,
-.the-header__notification-button:hover {
+.the-header__notification-button:hover,
+.the-header__icon-button:hover {
   border-color: var(--color-action-primary-border);
   color: var(--color-action-primary);
 }
@@ -136,18 +164,20 @@ const emit = defineEmits<{
 .the-header__user {
   display: flex;
   align-items: center;
-  min-width: 0;
+  height: var(--header-control-height);
   gap: var(--space-2);
   border: var(--border-width-default) solid var(--color-border-subtle);
-  border-radius: var(--radius-pill);
-  padding: 4px 12px 4px 4px;
+  border-radius: var(--radius-md);
+  padding: 0 12px 0 6px;
   font-size: var(--font-size-xs);
 }
 
 .the-header__info {
   display: grid;
+  align-content: center;
   min-width: 0;
-  line-height: 1.2;
+  row-gap: 2px;
+  line-height: 1.25;
 }
 
 .the-header__info strong,
@@ -163,8 +193,8 @@ const emit = defineEmits<{
 
 .the-header__avatar {
   display: grid;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   place-items: center;
   border-radius: var(--radius-pill);
   background: var(--color-action-primary);
@@ -177,8 +207,8 @@ const emit = defineEmits<{
     gap: var(--space-2);
   }
 
-  .the-header__info span {
-    display: none;
+  .the-header__user {
+    min-width: 180px;
   }
 }
 </style>

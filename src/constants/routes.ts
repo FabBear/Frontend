@@ -5,4 +5,5 @@ export const ROUTE_NAMES = {
   mesMonitoring: 'mesMonitoring',
   bottleneckCenter: 'bottleneckCenter',
   causeReport: 'causeReport',
+  notFound: 'notFound',
 } as const;

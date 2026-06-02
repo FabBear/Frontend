@@ -21,15 +21,16 @@ export interface AuthUser {
   userId: string;
   loginId: string;
   userName: string;
-  department: string;
+  department?: string;
   fabId: string;
   fabCode: string;
-  fabName: string;
+  fabName?: string;
   roles: UserRole[];
-  lastLoginAt: string;
+  lastLoginAt?: string;
 }
 
-export interface LoginResponse {
+// 백엔드 LoginResponse와 구분 — 스토어가 내부적으로 반환하는 프론트 전용 타입
+export interface AuthLoginResult {
   user: AuthUser;
 }
 

@@ -27,8 +27,8 @@ function handleToggleNotifications() {
   isNotificationOpen.value = !isNotificationOpen.value;
 }
 
-function handleLogout() {
-  authStore.logout();
+async function handleLogout() {
+  await authStore.logout();
   router.push('/login');
 }
 </script>

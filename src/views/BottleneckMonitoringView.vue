@@ -79,7 +79,7 @@ watch(
     </p>
 
     <template v-if="!errorMessage">
-      <ProcessMapCard :areas="processMapAreas" :selected-area-name="selectedAreaCode" @select-area="handleSelectArea" />
+      <ProcessMapCard :areas="processMapAreas" :selected-area-code="selectedAreaCode" @select-area="handleSelectArea" />
 
       <section class="bottleneck-monitoring-view__tg-panel" aria-labelledby="tg-panel-title">
         <header class="bottleneck-monitoring-view__panel-header">

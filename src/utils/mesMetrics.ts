@@ -1,4 +1,5 @@
 import { MES_QUALITY_FACTOR } from '@/constants/mes';
+import { PROCESS_RISK_THRESHOLDS } from '@/constants/processRisk';
 import { RISK_LEVEL_META, type RiskLevel } from '@/constants/riskLevel';
 
 import type { MesToolMetric, MesToolStatusSummary } from '@/types/mes';
@@ -13,9 +14,9 @@ export function average(values: number[]): number {
 }
 
 export function getMesUtilizationRiskLevel(utilizationRate: number): RiskLevel {
-  if (utilizationRate >= 0.9) return 'critical';
-  if (utilizationRate >= 0.85) return 'high';
-  if (utilizationRate >= 0.7) return 'medium';
+  if (utilizationRate >= PROCESS_RISK_THRESHOLDS.critical) return 'critical';
+  if (utilizationRate >= PROCESS_RISK_THRESHOLDS.high) return 'high';
+  if (utilizationRate >= PROCESS_RISK_THRESHOLDS.medium) return 'medium';
   return 'low';
 }
 

@@ -121,11 +121,21 @@ const router = createRouter({
       component: PlaceholderView,
       meta: { title: '운영 로그', requiresAuth: true, requiresAdmin: true },
     },
+    {
+      path: '/:pathMatch(.*)*',
+      name: ROUTE_NAMES.notFound,
+      component: () => import('@/views/NotFoundView.vue'),
+      meta: { layout: 'empty', title: '페이지를 찾을 수 없습니다' },
+    },
   ],
 });
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const authStore = useAuthStore();
+
+  if (!authStore.authChecked) {
+    await authStore.restoreSession();
+  }
 
   if (to.name === ROUTE_NAMES.login && authStore.isLoggedIn) {
     return { name: ROUTE_NAMES.dashboard };

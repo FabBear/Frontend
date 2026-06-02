@@ -221,7 +221,7 @@ function handleSubmit() {
     130deg,
     color-mix(in srgb, var(--color-brand-red) 76%, var(--color-status-warning)),
     var(--color-brand-red) 48%,
-    color-mix(in srgb, var(--color-brand-red) 80%, black)
+    color-mix(in srgb, var(--color-brand-red) 55%, var(--color-brand-brown))
   );
   border-radius: var(--radius-pill);
 }
@@ -231,7 +231,7 @@ function handleSubmit() {
   background: linear-gradient(
     130deg,
     color-mix(in srgb, var(--color-brand-red) 86%, var(--color-status-warning)),
-    color-mix(in srgb, var(--color-brand-red) 88%, black)
+    color-mix(in srgb, var(--color-brand-red) 63%, var(--color-brand-brown))
   );
 }
 </style>

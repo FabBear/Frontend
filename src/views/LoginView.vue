@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { useAuthStore } from '@/stores/auth';
 
-import { MOCK_AUTH_ACCOUNTS, MOCK_AUTH_FABS } from '@/constants/mockData/auth';
+import { MOCK_AUTH_ACCOUNTS } from '@/constants/mockData/auth';
 
-import type { LoginRequest, MockAuthAccount } from '@/types/auth';
+import type { AuthFab, LoginRequest, MockAuthAccount } from '@/types/auth';
 
 import LoginBrandPanel from '@/components/auth/LoginBrandPanel.vue';
 import LoginForm from '@/components/auth/LoginForm.vue';
@@ -16,7 +16,27 @@ const route = useRoute();
 const authStore = useAuthStore();
 const loginError = ref('');
 const isLoading = ref(false);
+const fabs = ref<AuthFab[]>([]);
 const loginFormRef = ref<InstanceType<typeof LoginForm> | null>(null);
+
+function resolveSafeRedirect(rawRedirect: unknown): string {
+  if (typeof rawRedirect !== 'string') return '/dashboard';
+
+  const redirect = rawRedirect.trim();
+  const hasProtocol = /^[a-zA-Z][a-zA-Z\d+.-]*:/.test(redirect);
+  const isInternalPath = redirect.startsWith('/') && !redirect.startsWith('//') && !redirect.includes('\\');
+
+  if (!isInternalPath || hasProtocol) return '/dashboard';
+  return redirect;
+}
+
+onMounted(async () => {
+  try {
+    fabs.value = await authStore.fetchFabs();
+  } catch {
+    loginError.value = 'Fab 목록을 불러오지 못했습니다. 페이지를 새로고침해 주세요.';
+  }
+});
 
 function fillDemo(account: MockAuthAccount) {
   loginFormRef.value?.fill(account.loginId, account.password, account.fabId);
@@ -28,7 +48,7 @@ async function handleLogin(payload: LoginRequest) {
 
   try {
     await authStore.login(payload);
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/dashboard';
+    const redirect = resolveSafeRedirect(route.query.redirect);
     router.push(redirect);
   } catch (error) {
     loginError.value = error instanceof Error ? error.message : '로그인 중 알 수 없는 오류가 발생했습니다.';
@@ -44,13 +64,14 @@ async function handleLogin(payload: LoginRequest) {
 
     <div class="login-view__right">
       <section class="login-view__panel" aria-labelledby="login-title">
-        <LoginForm ref="loginFormRef" :fabs="MOCK_AUTH_FABS" :loading="isLoading" @submit="handleLogin" />
+        <LoginForm ref="loginFormRef" :fabs="fabs" :loading="isLoading" @submit="handleLogin" />
 
         <p v-if="loginError" class="login-view__error" role="alert">
           {{ loginError }}
         </p>
       </section>
 
+      <!-- TODO: 프로덕션 배포 전 제거 — 데모 계정 자동완성 버튼 -->
       <div class="login-view__demo">
         <p>Demo 계정</p>
         <dl>

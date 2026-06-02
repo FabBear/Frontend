@@ -7,7 +7,7 @@ import { use } from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
 import VChart from 'vue-echarts';
 
-import { getProcessAreaSortOrder } from '@/constants/processArea';
+import { getProcessAreaAxisLabel, getProcessAreaSortOrder } from '@/constants/processArea';
 import { RISK_LEVEL_META } from '@/constants/riskLevel';
 
 import type { MesToolGroupMetric } from '@/types/mes';
@@ -49,27 +49,12 @@ const RISK_KEYS = [
   { key: 'LOW', metaKey: 'low' },
 ] as const;
 
-const PROCESS_AXIS_LABEL: Record<string, string> = {
-  OXIDATION: 'Oxid.',
-  LITHOGRAPHY: 'Litho',
-  ETCH: 'Etch',
-  DEPOSITION: 'Depo',
-  ION_IMPLANT: 'Implant',
-  METALLIZATION: 'Metal',
-  INSPECTION_PACKAGING: 'Inspect',
-  BUFFER: 'Buffer',
-};
-
 const props = defineProps<{ toolGroups: MesToolGroupMetric[] }>();
 
 function getToolGroupSide(tgName: string): MesToolGroupSide {
   if (tgName.includes('_FE_') || tgName.endsWith('_FE')) return 'FE';
   if (tgName.includes('_BE_') || tgName.endsWith('_BE')) return 'BE';
   return '기타';
-}
-
-function getProcessAxisLabel(process: { code: string; name: string }) {
-  return `${PROCESS_AXIS_LABEL[process.code] ?? process.code}\n${process.name}`;
 }
 
 const chartData = computed(() => {
@@ -147,7 +132,7 @@ const chartData = computed(() => {
   });
 
   return {
-    names: processes.map((process) => getProcessAxisLabel(process)),
+    names: processes.map((process) => getProcessAreaAxisLabel(process.code, process.name)),
     segments,
     max: maxTotal,
   };

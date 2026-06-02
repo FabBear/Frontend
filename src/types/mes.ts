@@ -104,3 +104,90 @@ export interface MesTabOption {
   value: MesViewMode;
   label: string;
 }
+
+export interface MesRealtimePayload {
+  simulationTime: string;
+  fab: MesRealtimeFab | null;
+  summary: MesRealtimeSummary | null;
+  areas: MesRealtimeArea[];
+  toolGroups: MesRealtimeToolGroup[];
+  tools: MesRealtimeTool[];
+  trends: MesRealtimeTrends | null;
+}
+
+export interface MesRealtimeFab {
+  fabId: string;
+  fabCode: string;
+  fabName: string;
+  measuredAt: string;
+  utilizationRate: number | null;
+  wipCount: number | null;
+  avgQtimeMin: number | null;
+  rtf: number | null;
+  tatMin: number | null;
+  throughput24h: number | null;
+  deliveryCompliance: number | null;
+}
+
+export interface MesRealtimeSummary {
+  totalWipCount: number | null;
+  avgUtilizationRate: number | null;
+  tatMin: number | null;
+  bottleneckTgCount: number | null;
+  throughput24h: number | null;
+  deliveryCompliance: number | null;
+}
+
+export interface MesRealtimeArea {
+  areaId: string;
+  areaCode: string;
+  areaName: string;
+  toolGroupCount: number;
+  bottleneckTgCount: number;
+  avgUtilizationRate: number | null;
+  wipCount: number | null;
+}
+
+export interface MesRealtimeToolGroup {
+  tgId: string;
+  tgCode: string;
+  tgName: string;
+  areaId: string;
+  areaCode: string;
+  areaName: string;
+  measuredAt: string;
+  utilizationRate: number | null;
+  wipCount: number | null;
+  availableToolRatio: number | null;
+  avgQtimeMin: number | null;
+  setupRatio: number | null;
+  waitRatio: number | null;
+  bottleneckProb: number | null;
+  riskGrade: MesRiskGrade | null;
+}
+
+export interface MesRealtimeTool {
+  toolId: string;
+  toolCode: string;
+  toolName: string;
+  tgId: string;
+  measuredAt: string;
+  utilizationRate: number | null;
+  oeeEstimate: number | null;
+  avgQtimeMin: number | null;
+  queueLotCount: number | null;
+  setupRatio: number | null;
+  downRatio: number | null;
+  status?: MesToolStatus | null;
+}
+
+export interface MesRealtimeTrendPoint {
+  time: string;
+  value: number | null;
+}
+
+export interface MesRealtimeTrends {
+  utilization: MesRealtimeTrendPoint[];
+  wip: MesRealtimeTrendPoint[];
+  setupRatio: MesRealtimeTrendPoint[];
+}

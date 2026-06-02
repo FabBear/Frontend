@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { onMounted, onUnmounted } from 'vue';
 
 import { useMesMonitoring } from '@/composables/useMesMonitoring';
 
@@ -20,14 +20,20 @@ const {
   isLoading,
   errorMessage,
   detailErrorMessage,
-  loadMesMonitoringData,
+  startMesMonitoring,
+  disconnectMesStream,
   selectToolGroup,
   setActiveTab,
   navigateToProcess,
+  navigateToToolGroup,
 } = useMesMonitoring();
 
 onMounted(() => {
-  void loadMesMonitoringData();
+  void startMesMonitoring();
+});
+
+onUnmounted(() => {
+  disconnectMesStream();
 });
 </script>
 
@@ -47,7 +53,7 @@ onMounted(() => {
     <p v-else-if="errorMessage" class="mes-monitor-view__state mes-monitor-view__state--error">{{ errorMessage }}</p>
 
     <template v-else-if="data">
-      <MesAllProcessTab v-if="activeTab === 'all'" :data="data" />
+      <MesAllProcessTab v-if="activeTab === 'all'" :data="data" @select-tool-group="navigateToToolGroup" />
 
       <MesProcessTab v-else-if="activeTab === 'process'" :data="data" @navigate-to-process="navigateToProcess" />
 

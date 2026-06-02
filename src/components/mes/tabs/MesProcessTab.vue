@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 
-import { getProcessAreaSortOrder } from '@/constants/processArea';
+import { getProcessAreaAxisLabel, getProcessAreaSortOrder } from '@/constants/processArea';
 
 import type { MesMonitoringData } from '@/types/mes';
 
@@ -31,12 +31,18 @@ const sortedProcesses = computed(() =>
   )
 );
 
-const utilizationChart = computed(() => ({
-  labels: sortedProcesses.value.map((process) => process.areaNameKo),
-  avgValues: sortedProcesses.value.map((process) => process.avgUtilizationRate),
-  maxValues: sortedProcesses.value.map((process) => process.maxUtilizationRate),
-  maxColors: sortedProcesses.value.map((process) => getMesUtilizationColor(process.maxUtilizationRate)),
-}));
+const utilizationChart = computed(() => {
+  const maxValues = sortedProcesses.value.map((p) => p.maxUtilizationRate);
+  const maxPct = maxValues.length > 0 ? Math.ceil(Math.max(...maxValues) * 100) : 100;
+
+  return {
+    labels: sortedProcesses.value.map((p) => getProcessAreaAxisLabel(p.areaCode, p.areaNameKo)),
+    avgValues: sortedProcesses.value.map((p) => p.avgUtilizationRate),
+    maxValues,
+    maxColors: sortedProcesses.value.map((p) => getMesUtilizationColor(p.maxUtilizationRate)),
+    max: Math.min(100, maxPct + 5),
+  };
+});
 
 const qtimeChart = computed(() => {
   const toDay = (min: number | null) => (min == null ? 0 : Number((min / 60 / 24).toFixed(1)));
@@ -44,7 +50,7 @@ const qtimeChart = computed(() => {
   const maxValues = sortedProcesses.value.map((p) => toDay(p.maxQtimeMin));
 
   return {
-    labels: sortedProcesses.value.map((p) => p.areaNameKo),
+    labels: sortedProcesses.value.map((p) => getProcessAreaAxisLabel(p.areaCode, p.areaNameKo)),
     avgValues,
     maxValues,
     maxColors: sortedProcesses.value.map((p) => getMesQtimeColor(p.maxQtimeMin)),
@@ -89,7 +95,7 @@ const qtimeChart = computed(() => {
         orientation="horizontal"
         value-mode="ratio"
         :min="0"
-        :max="100"
+        :max="utilizationChart.max"
         :height="300"
         :target-line="{ name: 'Critical 90%', value: 0.9, colorToken: '--color-risk-critical' }"
         bar-category-gap="40%"

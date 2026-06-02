@@ -31,8 +31,14 @@ function formatDelta() {
   if (props.delta === undefined) return '';
   const prefix = props.delta >= 0 ? '▲' : '▼';
   const abs = Math.abs(props.delta);
-  const formatted = Number.isInteger(abs) ? abs.toFixed(0) : abs.toFixed(1);
+  const formatted = formatDeltaValue(abs);
   return `${prefix} ${formatted}${props.deltaUnit ?? ''}`;
+}
+
+function formatDeltaValue(value: number) {
+  if (Number.isInteger(value)) return value.toFixed(0);
+  if (value > 0 && value < 0.1) return value.toFixed(2);
+  return value.toFixed(1);
 }
 </script>
 

@@ -7,6 +7,7 @@ import { use } from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
 import VChart from 'vue-echarts';
 
+import { resolveCssVar } from '@/utils/chart';
 import { type MetricValueFormat, formatMetricValue } from '@/utils/format';
 
 use([CanvasRenderer, LineChart, GridComponent, MarkLineComponent, TooltipComponent]);
@@ -20,14 +21,6 @@ interface Props {
 }
 
 const props = defineProps<Props>();
-
-function resolveColor(token: string) {
-  if (typeof window === 'undefined') {
-    return token;
-  }
-
-  return getComputedStyle(document.documentElement).getPropertyValue(token).trim();
-}
 
 function withAlpha(color: string, alpha: number): string {
   const normalized = color.trim();
@@ -45,15 +38,21 @@ function withAlpha(color: string, alpha: number): string {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
+function getAxisLabelInterval(labels?: string[]) {
+  const count = labels?.length ?? 0;
+  if (count <= 8) return 0;
+  return 5;
+}
+
 const option = computed(() => {
   const { values, colorToken, xLabels, targetValue } = props;
   const hasAxes = Boolean(xLabels?.length);
-  const color = resolveColor(colorToken);
-  const borderColor = resolveColor('--color-border-default');
-  const gridColor = resolveColor('--color-border-subtle');
-  const mutedColor = resolveColor('--color-fg-muted');
-  const surfaceColor = resolveColor('--color-bg-surface');
-  const textColor = resolveColor('--color-fg');
+  const color = resolveCssVar(colorToken);
+  const borderColor = resolveCssVar('--color-border-default');
+  const gridColor = resolveCssVar('--color-border-subtle');
+  const mutedColor = resolveCssVar('--color-fg-muted');
+  const surfaceColor = resolveCssVar('--color-bg-surface');
+  const textColor = resolveCssVar('--color-fg');
 
   return {
     animation: false,
@@ -73,7 +72,7 @@ const option = computed(() => {
       axisLabel: {
         color: mutedColor,
         fontSize: 11,
-        interval: 5,
+        interval: getAxisLabelInterval(xLabels),
       },
     },
     yAxis: {

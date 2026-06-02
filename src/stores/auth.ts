@@ -48,7 +48,9 @@ export const useAuthStore = defineStore('auth', () => {
 
     try {
       if (fabs.value.length === 0) {
-        await fetchFabs();
+        await fetchFabs().catch((error) => {
+          console.error('[Auth] Fab 목록 로드 실패:', error);
+        });
       }
       return await fetchMe();
     } catch {

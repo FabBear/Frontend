@@ -6,7 +6,7 @@ import { useAuthStore } from '@/stores/auth';
 
 import { MOCK_AUTH_ACCOUNTS } from '@/constants/mockData/auth';
 
-import type { AuthFab, LoginRequest, MockAuthAccount } from '@/types/auth';
+import type { LoginRequest, MockAuthAccount } from '@/types/auth';
 
 import LoginBrandPanel from '@/components/auth/LoginBrandPanel.vue';
 import LoginForm from '@/components/auth/LoginForm.vue';
@@ -16,7 +16,6 @@ const route = useRoute();
 const authStore = useAuthStore();
 const loginError = ref('');
 const isLoading = ref(false);
-const fabs = ref<AuthFab[]>([]);
 const loginFormRef = ref<InstanceType<typeof LoginForm> | null>(null);
 
 function resolveSafeRedirect(rawRedirect: unknown): string {
@@ -32,7 +31,7 @@ function resolveSafeRedirect(rawRedirect: unknown): string {
 
 onMounted(async () => {
   try {
-    fabs.value = await authStore.fetchFabs();
+    await authStore.fetchFabs();
   } catch {
     loginError.value = 'Fab 목록을 불러오지 못했습니다. 페이지를 새로고침해 주세요.';
   }
@@ -64,7 +63,7 @@ async function handleLogin(payload: LoginRequest) {
 
     <div class="login-view__right">
       <section class="login-view__panel" aria-labelledby="login-title">
-        <LoginForm ref="loginFormRef" :fabs="fabs" :loading="isLoading" @submit="handleLogin" />
+        <LoginForm ref="loginFormRef" :fabs="authStore.fabs" :loading="isLoading" @submit="handleLogin" />
 
         <p v-if="loginError" class="login-view__error" role="alert">
           {{ loginError }}

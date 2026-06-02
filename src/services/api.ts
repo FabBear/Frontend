@@ -18,7 +18,7 @@ const api = axios.create({
 
 // 상태 변경 요청 — XSRF-TOKEN 쿠키값을 X-XSRF-TOKEN 헤더로 전달
 api.interceptors.request.use((config) => {
-  if (['post', 'put', 'patch', 'delete'].includes(config.method ?? '')) {
+  if (['post', 'put', 'patch', 'delete'].includes((config.method ?? '').toLowerCase())) {
     const token = getCsrfToken();
     if (token) config.headers['X-XSRF-TOKEN'] = token;
   }

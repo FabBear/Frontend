@@ -7,13 +7,23 @@ const KO_TIME_FORMATTER = new Intl.DateTimeFormat('ko-KR', {
   minute: '2-digit',
   hour12: false,
 });
+const KO_MONTH_DAY_TIME_FORMATTER = new Intl.DateTimeFormat('ko-KR', {
+  timeZone: 'Asia/Seoul',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+});
 
-export function formatNumber(value: number): string {
+export function formatNumber(value: number | null): string {
+  if (value === null) return '-';
   return KO_NUMBER_FORMATTER.format(value);
 }
 
 // 0-1 소수 입력 (utilizationRate, setupRatio, waitRatio 등 API 반환값)
-export function formatRatioPercent(value: number): string {
+export function formatRatioPercent(value: number | null): string {
+  if (value === null) return '-';
   return `${(value * 100).toFixed(1)}%`;
 }
 
@@ -48,6 +58,13 @@ export function formatMetricValue(value: number, valueFormat: MetricValueFormat)
 
 export function formatKoTime(dateTime: string): string {
   return KO_TIME_FORMATTER.format(new Date(dateTime));
+}
+
+export function formatKoMonthDayTime(dateTime: string): string {
+  const parts = KO_MONTH_DAY_TIME_FORMATTER.formatToParts(new Date(dateTime));
+  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? '';
+
+  return `${value('month')}.${value('day')} ${value('hour')}:${value('minute')}`;
 }
 
 export function formatMesDispatchAt(value?: string | null): string {

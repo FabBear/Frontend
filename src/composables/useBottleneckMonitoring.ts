@@ -9,6 +9,7 @@ import {
 } from '@/services/bottleneckMonitoringService';
 
 import { getProcessAreaNameKo } from '@/constants/processArea';
+import { getRiskLevelByUtilization } from '@/constants/processRisk';
 import type { RiskLevel } from '@/constants/riskLevel';
 
 import type {
@@ -19,7 +20,12 @@ import type {
   BottleneckToolGroupDetail,
   BottleneckToolGroupItem,
 } from '@/types/bottleneckMonitoring';
-import type { ProcessAreaData } from '@/types/dashboard';
+import type {
+  DashboardProcessAreaData,
+  DashboardProcessToolGroupData,
+  ProcessAreaData,
+  ProcessToolGroup,
+} from '@/types/dashboard';
 
 const RISK_GRADE_TO_LEVEL: Record<BottleneckRiskGrade, RiskLevel> = {
   CRITICAL: 'critical',
@@ -42,7 +48,7 @@ function getMaxRiskLevel(area: BottleneckAreaSummary): RiskLevel {
 export function useBottleneckMonitoring() {
   const snapshot = shallowRef<BottleneckSnapshot | null>(null);
   const areas = shallowRef<BottleneckAreaSummary[]>([]);
-  const processMapAreas = shallowRef<ProcessAreaData[]>([]);
+  const processMapAreas = shallowRef<DashboardProcessAreaData[]>([]);
   const toolGroups = shallowRef<BottleneckToolGroupItem[]>([]);
   const selectedAreaCode = ref<string | null>(null);
   const selectedToolGroupId = ref<string | null>(null);
@@ -87,7 +93,7 @@ export function useBottleneckMonitoring() {
       ]);
       snapshot.value = snapshotData;
       areas.value = processMapData.areas;
-      processMapAreas.value = processAreasData;
+      processMapAreas.value = processAreasData.map(mapProcessAreaToDashboardArea);
       selectedAreaCode.value = areaOptions.value.some((area) => area.areaCode === initialAreaCode)
         ? initialAreaCode
         : null;
@@ -141,5 +147,43 @@ export function useBottleneckMonitoring() {
     selectArea,
     selectToolGroup,
     toRiskLevel,
+  };
+}
+
+function mapProcessAreaToDashboardArea(area: ProcessAreaData): DashboardProcessAreaData {
+  const toolGroups = [...area.gFE, ...area.gBE].map((toolGroup) => mapProcessToolGroup(area.name, toolGroup));
+  const riskSummary = toolGroups.reduce(
+    (summary, toolGroup) => {
+      summary[toolGroup.riskGrade] = (summary[toolGroup.riskGrade] ?? 0) + 1;
+      return summary;
+    },
+    { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 } as Record<string, number>
+  );
+
+  return {
+    areaId: area.name,
+    areaCode: area.name,
+    areaName: area.name,
+    totalTgCount: toolGroups.length,
+    bottleneckTgCount: toolGroups.filter(
+      (toolGroup) => toolGroup.riskGrade === 'CRITICAL' || toolGroup.riskGrade === 'HIGH'
+    ).length,
+    tgSummary: riskSummary,
+    toolGroups,
+  };
+}
+
+function mapProcessToolGroup(areaName: string, toolGroup: ProcessToolGroup): DashboardProcessToolGroupData {
+  const riskLevel = getRiskLevelByUtilization(toolGroup.util);
+
+  return {
+    tgId: `${areaName}-${toolGroup.name}`,
+    tgCode: toolGroup.name,
+    tgName: toolGroup.name,
+    riskGrade: riskLevel.toUpperCase(),
+    riskLevel,
+    utilizationRate: toolGroup.util,
+    bottleneckProb: toolGroup.util,
+    wipCount: toolGroup.wipCount,
   };
 }

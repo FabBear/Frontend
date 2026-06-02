@@ -23,6 +23,7 @@ function isGradeActive(grade: ProcessRiskGrade): boolean {
 
 <template>
   <div class="process-map-toolbar">
+    <span class="process-map-toolbar__label">표시 등급</span>
     <div class="process-map-toolbar__filters" role="group" aria-label="위험도 필터">
       <button
         v-for="grade in PROCESS_RISK_GRADES"
@@ -42,6 +43,16 @@ function isGradeActive(grade: ProcessRiskGrade): boolean {
 <style scoped>
 .process-map-toolbar {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.process-map-toolbar__label {
+  flex-shrink: 0;
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
 }
 
 .process-map-toolbar__filters {

@@ -3,27 +3,27 @@ import { computed, ref } from 'vue';
 
 import { type ProcessRiskGrade } from '@/constants/processRisk';
 
-import type { ProcessAreaData } from '@/types/dashboard';
+import type { DashboardProcessAreaData } from '@/types/dashboard';
 
 import ProcessFlowRow from '@/components/dashboard/ProcessFlowRow.vue';
 import ProcessMapToolbar from '@/components/dashboard/ProcessMapToolbar.vue';
 import ProcessToolGroupRow from '@/components/dashboard/ProcessToolGroupRow.vue';
 
 interface Props {
-  areas: ProcessAreaData[];
-  selectedAreaName?: string | null;
+  areas: DashboardProcessAreaData[];
+  selectedAreaCode?: string | null;
 }
 
 const props = defineProps<Props>();
 
 const emit = defineEmits<{
-  selectArea: [name: string];
+  selectArea: [areaCode: string];
 }>();
 
 const activeGrades = ref<Set<ProcessRiskGrade>>(new Set(['dc', 'dr']));
-const localSelectedAreaName = ref<string | null>(null);
+const localSelectedAreaCode = ref<string | null>(null);
 
-const currentSelectedAreaName = computed(() => props.selectedAreaName ?? localSelectedAreaName.value);
+const currentSelectedAreaCode = computed(() => props.selectedAreaCode ?? localSelectedAreaCode.value);
 
 function handleToggleGrade(grade: ProcessRiskGrade) {
   const next = new Set(activeGrades.value);
@@ -36,9 +36,9 @@ function handleToggleGrade(grade: ProcessRiskGrade) {
   activeGrades.value = next;
 }
 
-function handleSelectArea(area: ProcessAreaData) {
-  localSelectedAreaName.value = localSelectedAreaName.value === area.name ? null : area.name;
-  emit('selectArea', area.name);
+function handleSelectArea(area: DashboardProcessAreaData) {
+  localSelectedAreaCode.value = localSelectedAreaCode.value === area.areaCode ? null : area.areaCode;
+  emit('selectArea', area.areaCode);
 }
 </script>
 
@@ -47,28 +47,18 @@ function handleSelectArea(area: ProcessAreaData) {
     <div class="process-map__card">
       <div class="process-map__card-header">
         <h2 id="pm-title" class="process-map__title">공정 상태맵</h2>
-        <div class="process-map__legend" aria-label="가동률 범례">
-          <span class="process-map__legend-item">
-            <i class="process-map__legend-dot process-map__legend-dot--low" aria-hidden="true" />정상 (&lt;70%)
-          </span>
-          <span class="process-map__legend-item">
-            <i class="process-map__legend-dot process-map__legend-dot--medium" aria-hidden="true" />주의 (70~85%)
-          </span>
-          <span class="process-map__legend-item">
-            <i class="process-map__legend-dot process-map__legend-dot--high" aria-hidden="true" />위험 (≥85%)
-          </span>
-        </div>
+        <p class="process-map__hint">가동률 기준 · Critical ≥90% · High ≥85% · Medium ≥70%</p>
       </div>
 
       <ProcessMapToolbar :active-grades="activeGrades" @toggle-grade="handleToggleGrade" />
 
       <div class="process-map__scroll">
-        <ProcessFlowRow :areas="areas" :selected-area-name="currentSelectedAreaName" @select-area="handleSelectArea" />
+        <ProcessFlowRow :areas="areas" :selected-area-code="currentSelectedAreaCode" @select-area="handleSelectArea" />
         <div class="process-map__separator" />
         <ProcessToolGroupRow
           :areas="areas"
           :active-grades="activeGrades"
-          :selected-area-name="currentSelectedAreaName"
+          :selected-area-code="currentSelectedAreaCode"
         />
       </div>
     </div>
@@ -83,7 +73,9 @@ function handleSelectArea(area: ProcessAreaData) {
 
 .process-map__card {
   --pm-column-width: 10rem;
+  --pm-step-height: 6rem;
   display: grid;
+  align-content: start;
   gap: var(--space-2);
   height: 100%;
   min-height: 0;
@@ -113,40 +105,10 @@ function handleSelectArea(area: ProcessAreaData) {
   white-space: nowrap;
 }
 
-.process-map__legend {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-}
-
-.process-map__legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
+.process-map__hint {
   color: var(--color-fg-muted);
   font-size: var(--font-size-xs);
-  white-space: nowrap;
-}
-
-.process-map__legend-dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: var(--radius-pill);
-  flex-shrink: 0;
-}
-
-.process-map__legend-dot--low {
-  background: var(--color-risk-low);
-}
-
-.process-map__legend-dot--medium {
-  background: var(--color-risk-medium);
-}
-
-.process-map__legend-dot--high {
-  background: var(--color-risk-high);
+  font-weight: var(--font-weight-medium);
 }
 
 .process-map__scroll {

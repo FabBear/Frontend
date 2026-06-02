@@ -1,32 +1,35 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { getProcessAreaNameKo } from '@/constants/processArea';
-import { getAreaMaxUtilization, getProcessStepTone, isBottleneckUtilization } from '@/constants/processRisk';
+import { getProcessAreaDisplayCode, getProcessAreaNameKo } from '@/constants/processArea';
+import { getProcessStepTone, isBottleneckUtilization } from '@/constants/processRisk';
 
-import type { ProcessAreaData } from '@/types/dashboard';
+import type { DashboardProcessAreaData } from '@/types/dashboard';
 
 interface Props {
-  areas: ProcessAreaData[];
-  selectedAreaName: string | null;
+  areas: DashboardProcessAreaData[];
+  selectedAreaCode: string | null;
 }
 
 const props = defineProps<Props>();
 
 const emit = defineEmits<{
-  selectArea: [area: ProcessAreaData];
+  selectArea: [area: DashboardProcessAreaData];
 }>();
 
 const processedAreas = computed(() =>
   props.areas.map((area) => {
     const maxUtil = getAreaMaxUtilization(area);
     const colors = getProcessStepTone(maxUtil);
-    const isSelected = props.selectedAreaName === area.name;
+    const isSelected = props.selectedAreaCode === area.areaCode;
+    const riskTgCount = area.bottleneckTgCount;
     return {
       area,
       maxUtil,
-      isBottleneck: isBottleneckUtilization(maxUtil),
-      nameKo: getProcessAreaNameKo(area.name),
+      isBottleneck: riskTgCount > 0 || isBottleneckUtilization(maxUtil),
+      displayCode: getProcessAreaDisplayCode(area.areaCode),
+      nameKo: getProcessAreaNameKo(area.areaCode),
+      riskTgCount,
       stepStyle: {
         ...colors,
         outline: isSelected ? `var(--border-width-thick) solid ${colors.color}` : 'none',
@@ -35,22 +38,30 @@ const processedAreas = computed(() =>
     };
   })
 );
+
+function getAreaMaxUtilization(area: DashboardProcessAreaData): number {
+  return area.toolGroups.length ? Math.max(...area.toolGroups.map((toolGroup) => toolGroup.utilizationRate)) : 0;
+}
 </script>
 
 <template>
   <div class="process-flow-row">
     <div class="process-flow-row__io">IN<br /><span>입고</span></div>
     <div class="process-flow-row__arrow">→</div>
-    <template v-for="(item, index) in processedAreas" :key="item.area.name">
+    <template v-for="(item, index) in processedAreas" :key="item.area.areaId">
       <button
         class="process-flow-row__step"
         type="button"
         :style="item.stepStyle"
-        :aria-label="`${item.area.name} (${item.nameKo}) 가동률 ${(item.maxUtil * 100).toFixed(0)}%`"
+        :aria-label="`${item.area.areaCode} (${item.nameKo}) 가동률 ${(item.maxUtil * 100).toFixed(0)}%`"
+        :title="`${item.area.areaCode} · ${item.nameKo}`"
         @click="emit('selectArea', item.area)"
       >
-        {{ item.area.name }}{{ item.isBottleneck ? ' ⚠' : '' }}<br />
-        <span>{{ item.nameKo }} · {{ (item.maxUtil * 100).toFixed(0) }}%</span>
+        <strong>{{ item.nameKo }}</strong>
+        <span
+          >{{ item.displayCode }} <br />
+          {{ (item.maxUtil * 100).toFixed(0) }}%</span
+        >
       </button>
       <div v-if="index < processedAreas.length - 1" class="process-flow-row__arrow">→</div>
     </template>
@@ -62,7 +73,7 @@ const processedAreas = computed(() =>
 <style scoped>
 .process-flow-row {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   min-width: max-content;
 }
 
@@ -83,19 +94,28 @@ const processedAreas = computed(() =>
   font-weight: var(--font-weight-bold);
   line-height: 1.5;
   text-align: center;
+  display: grid;
+  place-content: center;
 }
 
 .process-flow-row__io span,
 .process-flow-row__step span {
+  display: block;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
 }
 
+.process-flow-row__step strong {
+  display: block;
+  color: currentColor;
+  font-size: var(--font-size-sm);
+}
+
 .process-flow-row__arrow {
-  width: var(--space-4);
-  padding-bottom: var(--space-3);
+  width: var(--space-8);
   color: var(--color-fg-muted);
   font-size: var(--font-size-base);
+  line-height: var(--pm-step-height);
   text-align: center;
 }
 
@@ -109,5 +129,17 @@ const processedAreas = computed(() =>
   text-align: center;
   cursor: pointer;
   transition: opacity var(--transition-fast);
+  display: grid;
+  place-content: center;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.process-flow-row__step strong,
+.process-flow-row__step span {
+  max-width: calc(var(--pm-column-width) - var(--space-2));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

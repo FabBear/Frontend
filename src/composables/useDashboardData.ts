@@ -1,34 +1,110 @@
-import { onMounted, ref, shallowRef } from 'vue';
+import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue';
 
 import { fetchDashboardData } from '@/services/dashboardService';
 
-import type { DashboardData } from '@/types/dashboard';
+import { DASHBOARD_POLL_INTERVAL_MS } from '@/constants/dashboard';
+
+import type { DashboardSectionData, DashboardSectionErrors } from '@/types/dashboard';
 
 export function useDashboardData() {
-  const dashboardData = shallowRef<DashboardData | null>(null);
+  const dashboardData = shallowRef<DashboardSectionData>({
+    kpi: null,
+    alerts: null,
+    processAreas: null,
+    trends: null,
+  });
   const isLoading = ref(false);
-  const errorMessage = ref<string | null>(null);
+  const isMockAlerts = ref(false);
+  const sectionErrors = shallowRef<DashboardSectionErrors>({});
+  const hasLoadedAnySection = computed(() => Object.values(dashboardData.value).some((section) => section !== null));
+  const errorMessage = computed(() => {
+    if (hasLoadedAnySection.value) return null;
+    return Object.values(sectionErrors.value)[0] ?? null;
+  });
 
   async function loadDashboardData() {
+    if (isLoading.value) return;
     isLoading.value = true;
-    errorMessage.value = null;
+    sectionErrors.value = {};
     try {
-      dashboardData.value = await fetchDashboardData();
+      const { data, errors, isMockAlerts: mock } = await fetchDashboardData();
+      dashboardData.value = data;
+      sectionErrors.value = errors;
+      isMockAlerts.value = mock;
     } catch {
-      errorMessage.value = '대시보드 데이터를 불러오지 못했습니다.';
+      sectionErrors.value = { kpi: '대시보드 데이터를 불러오지 못했습니다.' };
     } finally {
       isLoading.value = false;
     }
   }
 
+  async function pollDashboardData() {
+    if (isLoading.value) return;
+    try {
+      const { data, errors, isMockAlerts: mock } = await fetchDashboardData();
+      mergePolledDashboardData(data, errors);
+      if (data.alerts !== null) {
+        isMockAlerts.value = mock;
+      }
+    } catch {
+      // 폴링 실패 시 마지막 데이터 유지 — 일시적 네트워크 오류로 화면을 비우지 않음
+    }
+  }
+
+  function mergePolledDashboardData(data: DashboardSectionData, errors: DashboardSectionErrors) {
+    const nextData = { ...dashboardData.value };
+    const nextErrors = { ...sectionErrors.value };
+
+    if (data.kpi !== null) {
+      nextData.kpi = data.kpi;
+      delete nextErrors.kpi;
+    } else if (errors.kpi && nextData.kpi === null) {
+      nextErrors.kpi = errors.kpi;
+    }
+
+    if (data.alerts !== null) {
+      nextData.alerts = data.alerts;
+      delete nextErrors.alerts;
+    } else if (errors.alerts && nextData.alerts === null) {
+      nextErrors.alerts = errors.alerts;
+    }
+
+    if (data.processAreas !== null) {
+      nextData.processAreas = data.processAreas;
+      delete nextErrors.processAreas;
+    } else if (errors.processAreas && nextData.processAreas === null) {
+      nextErrors.processAreas = errors.processAreas;
+    }
+
+    if (data.trends !== null) {
+      nextData.trends = data.trends;
+      delete nextErrors.trends;
+    } else if (errors.trends && nextData.trends === null) {
+      nextErrors.trends = errors.trends;
+    }
+
+    dashboardData.value = nextData;
+    sectionErrors.value = nextErrors;
+  }
+
+  let pollTimer: ReturnType<typeof setInterval> | null = null;
+
   onMounted(() => {
     void loadDashboardData();
+    pollTimer = setInterval(() => void pollDashboardData(), DASHBOARD_POLL_INTERVAL_MS);
+  });
+
+  onUnmounted(() => {
+    if (pollTimer !== null) clearInterval(pollTimer);
   });
 
   return {
     dashboardData,
     isLoading,
+    isMockAlerts,
     errorMessage,
+    sectionErrors,
+    hasLoadedAnySection,
     refreshDashboardData: loadDashboardData,
   };
 }

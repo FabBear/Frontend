@@ -53,6 +53,10 @@ export const PROCESS_AREA_NAME_KO: Record<string, string> = {
   OTHER: '기타',
 };
 
+export const PROCESS_AREA_DISPLAY_CODE: Record<string, string> = {
+  INSPECTION_PACKAGING: 'INSP/PKG',
+};
+
 export const MES_SOURCE_TO_SEMICONDUCTOR_PROCESS: Record<string, string> = {
   DRY_ETCH: 'ETCH',
   WET_ETCH: 'ETCH',
@@ -75,8 +79,12 @@ export function getProcessAreaNameKo(areaName: string): string {
   return PROCESS_AREA_NAME_KO[normalizedAreaName] ?? areaName;
 }
 
+export function getProcessAreaDisplayCode(areaCode: string): string {
+  return PROCESS_AREA_DISPLAY_CODE[areaCode] ?? areaCode;
+}
+
 export function getMesSemiconductorProcessCode(sourceAreaCode: string, toolGroupCode?: string): string {
-  if (toolGroupCode?.startsWith('EPI_')) return 'DEPOSITION';
+  if (toolGroupCode?.startsWith('EPI_')) return 'ION_IMPLANT';
 
   return MES_SOURCE_TO_SEMICONDUCTOR_PROCESS[sourceAreaCode] ?? 'BUFFER';
 }

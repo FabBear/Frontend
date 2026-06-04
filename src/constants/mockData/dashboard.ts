@@ -7,13 +7,7 @@ import {
   getRiskLevelByUtilization,
 } from '@/constants/processRisk';
 
-import type {
-  BottleneckAlertItem,
-  FabKpiSnapshot,
-  KpiTrendSeries,
-  ProcessAreaData,
-  ProcessAreaStatus,
-} from '@/types/dashboard';
+import type { FabKpiSnapshot, KpiTrendSeries, ProcessAreaData, ProcessAreaStatus } from '@/types/dashboard';
 
 export const MOCK_FAB_KPI: FabKpiSnapshot = {
   rtf: 0.942,
@@ -30,54 +24,6 @@ export const MOCK_FAB_KPI: FabKpiSnapshot = {
   wipUnit: 'lots',
   updatedAt: '2026-05-22T01:00:00Z',
 };
-
-export const MOCK_BOTTLENECK_ALERTS: BottleneckAlertItem[] = [
-  {
-    caseId: 'case-de-fe-72',
-    tgId: 'tg-de-fe-72',
-    tgName: 'DE_FE_72',
-    areaName: 'Etch',
-    riskGrade: 'CRITICAL',
-    riskLevel: 'critical',
-    bottleneckProb: 0.92,
-    estDelayHours: 3.2,
-    affectedLotCount: 261,
-    mainCause: 'Q-time 초과 · 가동률 증가',
-    status: 'OPEN',
-    currentStepName: 'Dry Etch',
-    detectedAt: '2026-05-22T01:15:00Z',
-  },
-  {
-    caseId: 'case-de-be-67',
-    tgId: 'tg-de-be-67',
-    tgName: 'DE_BE_67',
-    areaName: 'Etch',
-    riskGrade: 'CRITICAL',
-    riskLevel: 'critical',
-    bottleneckProb: 0.91,
-    estDelayHours: 1.8,
-    affectedLotCount: 198,
-    mainCause: '대기열 포화',
-    status: 'OPEN',
-    currentStepName: 'Dry Etch',
-    detectedAt: '2026-05-22T00:58:00Z',
-  },
-  {
-    caseId: 'case-litho-reg-be-63',
-    tgId: 'tg-litho-reg-be-63',
-    tgName: 'Litho_REG_BE_63',
-    areaName: 'Litho',
-    riskGrade: 'HIGH',
-    riskLevel: 'high',
-    bottleneckProb: 0.87,
-    estDelayHours: 1.4,
-    affectedLotCount: 175,
-    mainCause: '가동률 증가 추세',
-    status: 'OPEN',
-    currentStepName: 'Photo',
-    detectedAt: '2026-05-22T00:47:00Z',
-  },
-];
 
 const HOURS_24 = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
 

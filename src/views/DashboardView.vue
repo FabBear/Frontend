@@ -11,18 +11,14 @@ import KpiSparklineChart from '@/components/dashboard/KpiSparklineChart.vue';
 import ProcessMapCard from '@/components/dashboard/ProcessMapCard.vue';
 
 const router = useRouter();
-const { dashboardData, isLoading, isMockAlerts, errorMessage, sectionErrors, hasLoadedAnySection } = useDashboardData();
+const { dashboardData, isLoading, errorMessage, sectionErrors, hasLoadedAnySection } = useDashboardData();
 
-function handleShowSolutions(caseId: string) {
-  router.push({ name: ROUTE_NAMES.bottleneckCenter, query: { caseId, tab: 'solutions' } });
+function handleOpenBottleneckMonitoring(caseId: string) {
+  router.push({ name: ROUTE_NAMES.bottleneckMonitoring, query: { caseId } });
 }
 
-function handleAnalyzeCause(caseId: string) {
-  router.push({ name: ROUTE_NAMES.causeReport, query: { caseId } });
-}
-
-function handleOpenCenter() {
-  router.push({ name: ROUTE_NAMES.bottleneckCenter });
+function handleOpenBottleneckCenter(caseId: string) {
+  router.push({ name: ROUTE_NAMES.bottleneckCenter, query: { caseId } });
 }
 
 function handleSelectArea(areaCode: string) {
@@ -47,11 +43,10 @@ function handleSelectArea(areaCode: string) {
       >
         <BottleneckAlertList
           v-if="dashboardData.alerts"
+          class="dashboard-view__alerts"
           :alerts="dashboardData.alerts"
-          :is-mock="isMockAlerts"
-          @open-center="handleOpenCenter"
-          @show-solutions="handleShowSolutions"
-          @analyze-cause="handleAnalyzeCause"
+          @open-center="handleOpenBottleneckCenter"
+          @open-monitoring="handleOpenBottleneckMonitoring"
         />
         <p v-else-if="sectionErrors.alerts" class="dashboard-view__state dashboard-view__state--error">
           {{ sectionErrors.alerts }}
@@ -59,6 +54,7 @@ function handleSelectArea(areaCode: string) {
 
         <ProcessMapCard
           v-if="dashboardData.processAreas"
+          class="dashboard-view__process-map"
           :areas="dashboardData.processAreas"
           @select-area="handleSelectArea"
         />
@@ -102,10 +98,21 @@ function handleSelectArea(areaCode: string) {
 
 .dashboard-view__main {
   display: grid;
-  grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-rows: 41rem;
   align-items: stretch;
   gap: var(--space-3);
   min-width: 0;
+}
+
+.dashboard-view__alerts {
+  grid-column: span 1;
+  min-height: 0;
+}
+
+.dashboard-view__process-map {
+  grid-column: span 3;
+  min-height: 0;
 }
 
 .dashboard-view__state {
@@ -124,7 +131,7 @@ function handleSelectArea(areaCode: string) {
 
 .dashboard-view__charts {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-3);
   min-width: 0;
 }
@@ -177,6 +184,17 @@ function handleSelectArea(areaCode: string) {
 @media (max-width: 1440px) {
   .dashboard-view__main {
     grid-template-columns: 1fr;
+  }
+
+  .dashboard-view__alerts,
+  .dashboard-view__process-map {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 1180px) {
+  .dashboard-view__charts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

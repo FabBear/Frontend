@@ -138,7 +138,7 @@ const measuredAtLabel = computed(() => `${formatKoMonthDayTime(props.kpi.updated
 
 .dashboard-kpi-summary__header h2 {
   color: var(--color-fg-strong);
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-lg);
   font-weight: var(--font-weight-bold);
 }
 
@@ -151,8 +151,14 @@ const measuredAtLabel = computed(() => `${formatKoMonthDayTime(props.kpi.updated
 
 .dashboard-kpi-summary__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-3);
+}
+
+@media (max-width: 1180px) {
+  .dashboard-kpi-summary__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 760px) {
@@ -164,6 +170,10 @@ const measuredAtLabel = computed(() => `${formatKoMonthDayTime(props.kpi.updated
 
   .dashboard-kpi-summary__header span {
     white-space: normal;
+  }
+
+  .dashboard-kpi-summary__grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

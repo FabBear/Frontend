@@ -14,7 +14,6 @@ export function useDashboardData() {
     trends: null,
   });
   const isLoading = ref(false);
-  const isMockAlerts = ref(false);
   const sectionErrors = shallowRef<DashboardSectionErrors>({});
   const hasLoadedAnySection = computed(() => Object.values(dashboardData.value).some((section) => section !== null));
   const errorMessage = computed(() => {
@@ -27,10 +26,9 @@ export function useDashboardData() {
     isLoading.value = true;
     sectionErrors.value = {};
     try {
-      const { data, errors, isMockAlerts: mock } = await fetchDashboardData();
+      const { data, errors } = await fetchDashboardData();
       dashboardData.value = data;
       sectionErrors.value = errors;
-      isMockAlerts.value = mock;
     } catch {
       sectionErrors.value = { kpi: '대시보드 데이터를 불러오지 못했습니다.' };
     } finally {
@@ -41,11 +39,8 @@ export function useDashboardData() {
   async function pollDashboardData() {
     if (isLoading.value) return;
     try {
-      const { data, errors, isMockAlerts: mock } = await fetchDashboardData();
+      const { data, errors } = await fetchDashboardData();
       mergePolledDashboardData(data, errors);
-      if (data.alerts !== null) {
-        isMockAlerts.value = mock;
-      }
     } catch {
       // 폴링 실패 시 마지막 데이터 유지 — 일시적 네트워크 오류로 화면을 비우지 않음
     }
@@ -101,7 +96,6 @@ export function useDashboardData() {
   return {
     dashboardData,
     isLoading,
-    isMockAlerts,
     errorMessage,
     sectionErrors,
     hasLoadedAnySection,

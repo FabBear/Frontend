@@ -86,6 +86,7 @@ export interface MesKpiCard {
   isPositiveGood?: boolean;
   note?: string;
   tone?: RiskLevel | 'info' | 'success' | 'warning' | 'danger';
+  onClick?: () => void;
 }
 
 export interface MesMonitoringData {

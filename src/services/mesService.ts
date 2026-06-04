@@ -1,6 +1,5 @@
 import api from '@/services/api';
 
-import { MOCK_MES_MONITORING_DATA } from '@/constants/mockData/mes';
 import { getMesSemiconductorProcessCode, getProcessAreaNameKo } from '@/constants/processArea';
 
 import type {
@@ -17,35 +16,12 @@ import type {
   MesTrendSeries,
 } from '@/types/mes';
 
-import {
-  formatKoMonthDayTime,
-  formatNumber,
-  formatPercentPoint,
-  formatQtimeDays,
-  formatRatioPercent,
-} from '@/utils/format';
+import { formatKoMonthDayTime, formatNumber, formatQtimeDays, formatRatioPercent } from '@/utils/format';
 import { average } from '@/utils/mesMetrics';
 
 const MES_STREAM_PATH = '/v1/monitoring/mes/stream';
 const MES_CURRENT_PATH = '/v1/monitoring/mes/current';
 const UTILIZATION_COLORS = ['--color-chart-blue', '--color-chart-violet', '--color-risk-high'];
-
-function cloneMockMesData(): MesMonitoringData {
-  return {
-    ...MOCK_MES_MONITORING_DATA,
-    snapshot: { ...MOCK_MES_MONITORING_DATA.snapshot },
-    kpiCards: MOCK_MES_MONITORING_DATA.kpiCards.map((card) => ({ ...card })),
-    utilizationSeries: MOCK_MES_MONITORING_DATA.utilizationSeries.map((series) => ({
-      ...series,
-      values: [...series.values],
-    })),
-    wipTrend: [...MOCK_MES_MONITORING_DATA.wipTrend],
-    setupSeries: MOCK_MES_MONITORING_DATA.setupSeries.map((series) => ({ ...series, values: [...series.values] })),
-    processSummaries: MOCK_MES_MONITORING_DATA.processSummaries.map((process) => ({ ...process })),
-    toolGroups: MOCK_MES_MONITORING_DATA.toolGroups.map((toolGroup) => ({ ...toolGroup })),
-    tools: MOCK_MES_MONITORING_DATA.tools.map((tool) => ({ ...tool })),
-  };
-}
 
 function normalizeNumber(value: number | null | undefined): number | null {
   return value == null ? null : value;
@@ -160,34 +136,26 @@ function createProcessSummaries(toolGroups: MesToolGroupMetric[]): MesProcessSum
   });
 }
 
-function createKpiCards(payload: MesRealtimePayload, toolGroups: MesToolGroupMetric[]): MesKpiCard[] {
+function createKpiCards(payload: MesRealtimePayload): MesKpiCard[] {
+  const fab = payload.fab;
   const summary = payload.summary;
-  const measuredAt = payload.fab?.measuredAt ?? payload.simulationTime;
-  const subtitle = `${formatKoMonthDayTime(measuredAt)} 기준`;
 
   return [
     {
-      key: 'wip',
-      title: '현재 WIP',
-      value: formatNumber(summary?.totalWipCount ?? null),
-      subtitle,
-      tone: 'info',
+      key: 'rtf',
+      title: 'RTF',
+      value: formatRatioPercent(fab?.rtf ?? null),
+      subtitle: '재작업 없이 정상 통과한 Lot 비율',
+      isPositiveGood: true,
+      tone: 'success',
     },
     {
       key: 'utilization',
       title: '평균 가동률',
-      value: formatRatioPercent(summary?.avgUtilizationRate ?? null),
+      value: formatRatioPercent(fab?.utilizationRate ?? null),
       subtitle: 'FAB 평균',
       isPositiveGood: false,
       tone: 'warning',
-    },
-    {
-      key: 'tat',
-      title: '평균 TAT',
-      value: formatQtimeDays(summary?.tatMin ?? null),
-      subtitle,
-      isPositiveGood: false,
-      tone: 'danger',
     },
     {
       key: 'bottleneck',
@@ -199,16 +167,24 @@ function createKpiCards(payload: MesRealtimePayload, toolGroups: MesToolGroupMet
     {
       key: 'throughput',
       title: 'Daily Throughput',
-      value: formatNumber(summary?.throughput24h ?? null),
+      value: formatNumber(fab?.throughput24h ?? null),
       subtitle: 'lots/24h',
       tone: 'success',
     },
     {
-      key: 'delivery',
-      title: '납기 준수율',
-      value: summary?.deliveryCompliance != null ? formatPercentPoint(summary.deliveryCompliance) : '-',
-      subtitle: `${toolGroups.length}개 TG 기준`,
-      tone: 'success',
+      key: 'wip',
+      title: '현재 WIP',
+      value: formatNumber(fab?.wipCount ?? null),
+      subtitle: '전체 대기 Lot 합산',
+      tone: 'info',
+    },
+    {
+      key: 'qtime',
+      title: '평균 Q-time',
+      value: formatQtimeDays(fab?.avgQtimeMin ?? null),
+      subtitle: 'FAB 평균 · 장비 대기 시간',
+      isPositiveGood: false,
+      tone: 'danger',
     },
   ];
 }
@@ -252,7 +228,7 @@ export function mapMesPayload(payload: MesRealtimePayload, isConnected = true): 
       isConnected,
     },
     days: trendLabels,
-    kpiCards: createKpiCards(payload, normalizedToolGroups),
+    kpiCards: createKpiCards(payload),
     utilizationSeries: createTrendSeries('FAB 평균 가동률', toTrendValues(payload.trends?.utilization), 0),
     wipTrend: toTrendValues(payload.trends?.wip),
     setupSeries: createTrendSeries('평균 Setup 비율', toTrendValues(payload.trends?.setupRatio), 1),
@@ -267,16 +243,90 @@ export async function fetchMesMonitoringData(): Promise<MesMonitoringData> {
   return mapMesPayload(data, true);
 }
 
-export async function fetchMesMonitoringFallbackData(): Promise<MesMonitoringData> {
-  try {
-    return await fetchMesMonitoringData();
-  } catch {
-    return { ...cloneMockMesData(), snapshot: { ...MOCK_MES_MONITORING_DATA.snapshot, isConnected: false } };
-  }
-}
-
 export function createMesMonitoringEventSource(): EventSource {
   const baseURL = api.defaults.baseURL ?? '/api';
   const url = `${baseURL.replace(/\/$/, '')}${MES_STREAM_PATH}`;
   return new EventSource(url, { withCredentials: true });
+}
+
+type ExportType = 'toolGroups' | 'tools' | 'processSummaries';
+
+export function exportMesCsv(data: MesMonitoringData, type: ExportType): void {
+  const date = new Date().toISOString().slice(0, 10);
+  let headers: string[];
+  let rows: string[][];
+  let filename: string;
+
+  if (type === 'toolGroups') {
+    headers = [
+      'TG명',
+      '공정',
+      '가동률(%)',
+      '위험도',
+      'WIP(Lot)',
+      '병목확률(%)',
+      '평균Q-time(분)',
+      'Setup비율(%)',
+      '가용장비율(%)',
+    ];
+    rows = data.toolGroups.map((tg) => [
+      tg.tgName,
+      tg.areaNameKo,
+      (tg.utilizationRate * 100).toFixed(1),
+      tg.riskGrade,
+      String(tg.wipCount),
+      (tg.bottleneckProb * 100).toFixed(1),
+      tg.avgQtimeMin != null ? tg.avgQtimeMin.toFixed(1) : '',
+      (tg.setupRatio * 100).toFixed(1),
+      (tg.availableToolRatio * 100).toFixed(1),
+    ]);
+    filename = `mes_tg_kpi_${date}.csv`;
+  } else if (type === 'tools') {
+    headers = [
+      '장비코드',
+      'TG',
+      '상태',
+      '가동률(%)',
+      'OEE(%)',
+      '평균Q-time(분)',
+      '대기Lot',
+      'Setup비율(%)',
+      'Down비율(%)',
+    ];
+    rows = data.tools.map((tool) => [
+      tool.toolCode,
+      tool.tgCode,
+      tool.status,
+      (tool.utilizationRate * 100).toFixed(1),
+      tool.oeeEstimate != null ? (tool.oeeEstimate * 100).toFixed(1) : '',
+      tool.avgQtimeMin != null ? tool.avgQtimeMin.toFixed(1) : '',
+      String(tool.queueLotCount),
+      (tool.setupRatio * 100).toFixed(1),
+      (tool.downRatio * 100).toFixed(1),
+    ]);
+    filename = `mes_tool_kpi_${date}.csv`;
+  } else {
+    headers = ['공정명', 'TG수', '평균가동률(%)', '최대가동률(%)', 'WIP(Lot)', '위험도', '병목TG수', 'Setup비율(%)'];
+    rows = data.processSummaries.map((p) => [
+      p.areaNameKo,
+      String(p.toolGroupCount),
+      (p.avgUtilizationRate * 100).toFixed(1),
+      (p.maxUtilizationRate * 100).toFixed(1),
+      String(p.wipCount),
+      p.riskGrade,
+      String(p.bottleneckToolGroupCount),
+      (p.setupRatio * 100).toFixed(1),
+    ]);
+    filename = `mes_process_kpi_${date}.csv`;
+  }
+
+  const csv = [headers, ...rows].map((row) => row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(',')).join('\n');
+
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }

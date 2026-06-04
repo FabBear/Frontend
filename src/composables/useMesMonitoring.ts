@@ -1,7 +1,7 @@
 import { computed, ref, shallowRef, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
-import { createMesMonitoringEventSource, fetchMesMonitoringFallbackData, mapMesPayload } from '@/services/mesService';
+import { createMesMonitoringEventSource, fetchMesMonitoringData, mapMesPayload } from '@/services/mesService';
 
 import type { RiskLevel } from '@/constants/riskLevel';
 
@@ -44,7 +44,11 @@ export function useMesMonitoring() {
       return tab === 'process' || tab === 'toolGroup' ? tab : 'all';
     },
     set(tab: MesViewMode) {
-      router.push({ query: { ...route.query, tab: tab === 'all' ? undefined : tab } });
+      const rest = { ...route.query };
+      delete rest.toolStatus;
+      delete rest.riskFilter;
+      const base = tab === 'toolGroup' ? route.query : rest;
+      router.push({ query: { ...base, tab: tab === 'all' ? undefined : tab } });
     },
   });
 
@@ -54,6 +58,24 @@ export function useMesMonitoring() {
     },
     set(area: string) {
       router.replace({ query: { ...route.query, area: area === 'ALL' ? undefined : area } });
+    },
+  });
+
+  const tgRiskFilter = computed<string>({
+    get() {
+      return (route.query.riskFilter as string) || 'ALL';
+    },
+    set(grade: string) {
+      router.replace({ query: { ...route.query, riskFilter: grade === 'ALL' ? undefined : grade } });
+    },
+  });
+
+  const tgToolStatusFilter = computed<string>({
+    get() {
+      return (route.query.toolStatus as string) || 'ALL';
+    },
+    set(status: string) {
+      router.replace({ query: { ...route.query, toolStatus: status === 'ALL' ? undefined : status } });
     },
   });
 
@@ -85,7 +107,7 @@ export function useMesMonitoring() {
     errorMessage.value = null;
     detailErrorMessage.value = null;
     try {
-      data.value = await fetchMesMonitoringFallbackData();
+      data.value = await fetchMesMonitoringData();
     } catch {
       errorMessage.value = 'MES 모니터링 데이터를 불러오지 못했습니다.';
     } finally {
@@ -174,10 +196,24 @@ export function useMesMonitoring() {
     });
   }
 
+  function navigateToDownTools() {
+    router.push({ query: { tab: 'toolGroup', toolStatus: 'DOWN' } });
+  }
+
+  function navigateToCriticalTgs() {
+    router.push({ query: { tab: 'toolGroup', riskFilter: 'CRITICAL' } });
+  }
+
+  function navigateToHighTgs() {
+    router.push({ query: { tab: 'toolGroup', riskFilter: 'HIGH' } });
+  }
+
   return {
     data,
     activeTab,
     tgAreaFilter,
+    tgRiskFilter,
+    tgToolStatusFilter,
     selectedToolGroupId,
     selectedToolGroup,
     selectedTools,
@@ -194,5 +230,8 @@ export function useMesMonitoring() {
     setActiveTab,
     navigateToProcess,
     navigateToToolGroup,
+    navigateToDownTools,
+    navigateToCriticalTgs,
+    navigateToHighTgs,
   };
 }

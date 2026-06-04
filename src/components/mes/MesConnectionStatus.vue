@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { MesSnapshot } from '@/types/mes';
 
+import { formatKoMonthDayTime } from '@/utils/format';
+
 interface Props {
   snapshot: MesSnapshot | null;
 }
@@ -12,7 +14,7 @@ defineProps<Props>();
   <div class="mes-connection-status" :class="{ 'mes-connection-status--offline': !snapshot?.isConnected }">
     <span class="mes-connection-status__dot" aria-hidden="true" />
     <span>{{ snapshot?.isConnected ? 'MES 연결됨' : 'MES 연결 대기' }}</span>
-    <span v-if="snapshot">· Day {{ snapshot.simulationDay }}</span>
+    <span v-if="snapshot?.measuredAt">· {{ formatKoMonthDayTime(snapshot.measuredAt) }} 기준</span>
   </div>
 </template>
 

@@ -4,7 +4,7 @@ import type { MesToolMetric } from '@/types/mes';
 import MesMetricBar from '@/components/mes/MesMetricBar.vue';
 import MesToolStatusBadge from '@/components/mes/MesToolStatusBadge.vue';
 
-import { formatMesDispatchAt, formatQtimeDays, formatRatioPercent } from '@/utils/format';
+import { formatQtimeDays, formatRatioPercent } from '@/utils/format';
 import { getMesQtimeColor, getMesQueueColor, getMesUtilizationColor } from '@/utils/mesMetrics';
 
 interface Props {
@@ -42,6 +42,12 @@ defineProps<Props>();
           </dd>
         </div>
         <div>
+          <dt>Down</dt>
+          <dd :style="{ color: tool.downRatio > 0.05 ? 'var(--color-status-danger)' : undefined }">
+            {{ formatRatioPercent(tool.downRatio) }}
+          </dd>
+        </div>
+        <div>
           <dt>Q-time</dt>
           <dd :style="{ color: getMesQtimeColor(tool.avgQtimeMin) }">{{ formatQtimeDays(tool.avgQtimeMin) }}</dd>
         </div>
@@ -54,7 +60,6 @@ defineProps<Props>();
           <dd>{{ formatRatioPercent(tool.setupRatio) }}</dd>
         </div>
       </dl>
-      <p>마지막 Dispatch: {{ formatMesDispatchAt(tool.lastDispatchAt) }}</p>
     </article>
   </div>
 </template>

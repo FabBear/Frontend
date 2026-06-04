@@ -15,6 +15,11 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+
+const emit = defineEmits<{
+  selectToolGroup: [tgId: string];
+}>();
+
 const hoveredToolGroup = ref<MesToolGroupMetric | null>(null);
 const tooltipPosition = ref({ x: 0, y: 0 });
 
@@ -85,6 +90,7 @@ function hideTooltip() {
               height: `${Math.max(4, Math.round(tg.utilizationRate * 100))}%`,
               backgroundColor: getMesUtilizationColor(tg.utilizationRate),
             }"
+            @click="emit('selectToolGroup', tg.tgId)"
             @mouseenter="showTooltip($event, tg)"
             @mousemove="updateTooltipPosition"
             @mouseleave="hideTooltip"
@@ -204,7 +210,7 @@ function hideTooltip() {
 .mes-fab-heatmap__bar:hover,
 .mes-fab-heatmap__bar:focus-visible {
   opacity: 0.7;
-  cursor: default;
+  cursor: pointer;
 }
 
 .mes-fab-heatmap__area strong {

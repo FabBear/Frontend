@@ -1,11 +1,18 @@
 import { computed, ref, shallowRef, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
-import { fetchMesMonitoringData, fetchMesToolsByToolGroup } from '@/services/mesService';
+import { createMesMonitoringEventSource, fetchMesMonitoringData, mapMesPayload } from '@/services/mesService';
 
 import type { RiskLevel } from '@/constants/riskLevel';
 
-import type { MesMonitoringData, MesRiskGrade, MesToolMetric, MesToolViewMode, MesViewMode } from '@/types/mes';
+import type {
+  MesMonitoringData,
+  MesRealtimePayload,
+  MesRiskGrade,
+  MesToolMetric,
+  MesToolViewMode,
+  MesViewMode,
+} from '@/types/mes';
 
 const RISK_GRADE_TO_LEVEL: Record<MesRiskGrade, RiskLevel> = {
   CRITICAL: 'critical',
@@ -28,6 +35,8 @@ export function useMesMonitoring() {
   const isLoading = ref(false);
   const errorMessage = ref<string | null>(null);
   const detailErrorMessage = ref<string | null>(null);
+  const isStreamConnected = ref(false);
+  let eventSource: EventSource | null = null;
 
   const activeTab = computed<MesViewMode>({
     get() {
@@ -35,7 +44,11 @@ export function useMesMonitoring() {
       return tab === 'process' || tab === 'toolGroup' ? tab : 'all';
     },
     set(tab: MesViewMode) {
-      router.push({ query: { ...route.query, tab: tab === 'all' ? undefined : tab } });
+      const rest = { ...route.query };
+      delete rest.toolStatus;
+      delete rest.riskFilter;
+      const base = tab === 'toolGroup' ? route.query : rest;
+      router.push({ query: { ...base, tab: tab === 'all' ? undefined : tab } });
     },
   });
 
@@ -45,6 +58,24 @@ export function useMesMonitoring() {
     },
     set(area: string) {
       router.replace({ query: { ...route.query, area: area === 'ALL' ? undefined : area } });
+    },
+  });
+
+  const tgRiskFilter = computed<string>({
+    get() {
+      return (route.query.riskFilter as string) || 'ALL';
+    },
+    set(grade: string) {
+      router.replace({ query: { ...route.query, riskFilter: grade === 'ALL' ? undefined : grade } });
+    },
+  });
+
+  const tgToolStatusFilter = computed<string>({
+    get() {
+      return (route.query.toolStatus as string) || 'ALL';
+    },
+    set(status: string) {
+      router.replace({ query: { ...route.query, toolStatus: status === 'ALL' ? undefined : status } });
     },
   });
 
@@ -63,22 +94,10 @@ export function useMesMonitoring() {
   );
 
   watch(
-    selectedToolGroupId,
-    async (tgId) => {
-      if (!tgId) {
-        selectedTools.value = [];
-        return;
-      }
+    [selectedToolGroupId, () => data.value?.tools],
+    ([tgId]) => {
       detailErrorMessage.value = null;
-      try {
-        const tools = await fetchMesToolsByToolGroup(tgId);
-        if (selectedToolGroupId.value === tgId) selectedTools.value = tools;
-      } catch {
-        if (selectedToolGroupId.value === tgId) {
-          selectedTools.value = [];
-          detailErrorMessage.value = 'Tool 상세 데이터를 불러오지 못했습니다.';
-        }
-      }
+      selectedTools.value = tgId ? (data.value?.tools ?? []).filter((tool) => tool.tgId === tgId) : [];
     },
     { immediate: true }
   );
@@ -94,6 +113,55 @@ export function useMesMonitoring() {
     } finally {
       isLoading.value = false;
     }
+  }
+
+  function applyMesPayload(payload: MesRealtimePayload, isConnected = true) {
+    data.value = mapMesPayload(payload, isConnected);
+    isStreamConnected.value = isConnected;
+    errorMessage.value = null;
+  }
+
+  function connectMesStream() {
+    disconnectMesStream();
+
+    eventSource = createMesMonitoringEventSource();
+
+    eventSource.addEventListener('open', () => {
+      isStreamConnected.value = true;
+      if (data.value) {
+        data.value = { ...data.value, snapshot: { ...data.value.snapshot, isConnected: true } };
+      }
+    });
+
+    eventSource.addEventListener('mes-update', (event) => {
+      try {
+        applyMesPayload(JSON.parse(event.data) as MesRealtimePayload, true);
+      } catch {
+        errorMessage.value = 'MES 실시간 데이터를 해석하지 못했습니다.';
+      }
+    });
+
+    eventSource.addEventListener('ping', () => {
+      isStreamConnected.value = true;
+    });
+
+    eventSource.addEventListener('error', () => {
+      isStreamConnected.value = false;
+      if (data.value) {
+        data.value = { ...data.value, snapshot: { ...data.value.snapshot, isConnected: false } };
+      }
+    });
+  }
+
+  function disconnectMesStream() {
+    eventSource?.close();
+    eventSource = null;
+    isStreamConnected.value = false;
+  }
+
+  async function startMesMonitoring() {
+    await loadMesMonitoringData();
+    connectMesStream();
   }
 
   function selectToolGroup(tgId: string) {
@@ -117,20 +185,53 @@ export function useMesMonitoring() {
     });
   }
 
+  function navigateToToolGroup(tgId: string) {
+    const tg = data.value?.toolGroups.find((t) => t.tgId === tgId);
+    router.push({
+      query: {
+        tab: 'toolGroup',
+        ...(tg ? { area: tg.areaCode } : {}),
+        tg: tgId,
+      },
+    });
+  }
+
+  function navigateToDownTools() {
+    router.push({ query: { tab: 'toolGroup', toolStatus: 'DOWN' } });
+  }
+
+  function navigateToCriticalTgs() {
+    router.push({ query: { tab: 'toolGroup', riskFilter: 'CRITICAL' } });
+  }
+
+  function navigateToHighTgs() {
+    router.push({ query: { tab: 'toolGroup', riskFilter: 'HIGH' } });
+  }
+
   return {
     data,
     activeTab,
     tgAreaFilter,
+    tgRiskFilter,
+    tgToolStatusFilter,
     selectedToolGroupId,
     selectedToolGroup,
     selectedTools,
     toolViewMode,
     isLoading,
+    isStreamConnected,
     errorMessage,
     detailErrorMessage,
     loadMesMonitoringData,
+    startMesMonitoring,
+    connectMesStream,
+    disconnectMesStream,
     selectToolGroup,
     setActiveTab,
     navigateToProcess,
+    navigateToToolGroup,
+    navigateToDownTools,
+    navigateToCriticalTgs,
+    navigateToHighTgs,
   };
 }

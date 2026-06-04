@@ -74,7 +74,7 @@ function getQtimeBarWidth(qtimeMin: number | null): string {
       <header class="mes-process-kpi-cards__header">
         <div>
           <h3>{{ process.areaNameKo }}</h3>
-          <p>{{ process.sourceAreaCodes.join(', ') }} · TG {{ formatNumber(process.toolGroupCount) }}개</p>
+          <p>{{ process.areaCode }} · TG {{ formatNumber(process.toolGroupCount) }}개</p>
         </div>
         <span
           class="mes-process-kpi-cards__chip"

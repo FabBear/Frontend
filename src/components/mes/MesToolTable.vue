@@ -3,7 +3,7 @@ import type { MesToolMetric } from '@/types/mes';
 
 import MesToolStatusBadge from '@/components/mes/MesToolStatusBadge.vue';
 
-import { formatMesDispatchAt, formatQtimeDays, formatRatioPercent } from '@/utils/format';
+import { formatQtimeDays, formatRatioPercent } from '@/utils/format';
 
 interface Props {
   tools: MesToolMetric[];
@@ -21,10 +21,10 @@ defineProps<Props>();
           <th>상태</th>
           <th>가동률</th>
           <th>OEE 추정</th>
+          <th>Down 비율</th>
           <th>Q-time</th>
           <th>대기 Lot</th>
           <th>Setup 비율</th>
-          <th>마지막 Dispatch</th>
         </tr>
       </thead>
       <tbody>
@@ -35,10 +35,12 @@ defineProps<Props>();
           </td>
           <td>{{ formatRatioPercent(tool.utilizationRate) }}</td>
           <td>{{ tool.oeeEstimate === null ? '-' : formatRatioPercent(tool.oeeEstimate) }}</td>
+          <td :style="{ color: tool.downRatio > 0.05 ? 'var(--color-status-danger)' : undefined }">
+            {{ formatRatioPercent(tool.downRatio) }}
+          </td>
           <td>{{ formatQtimeDays(tool.avgQtimeMin) }}</td>
           <td>{{ tool.queueLotCount }}</td>
           <td>{{ formatRatioPercent(tool.setupRatio) }}</td>
-          <td>{{ formatMesDispatchAt(tool.lastDispatchAt) }}</td>
         </tr>
       </tbody>
     </table>

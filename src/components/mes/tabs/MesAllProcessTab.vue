@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { getProcessAreaSortOrder } from '@/constants/processArea';
+import { getProcessAreaAxisLabel, getProcessAreaSortOrder } from '@/constants/processArea';
 
 import type { MesMonitoringData } from '@/types/mes';
 
@@ -16,6 +16,33 @@ interface Props {
 
 const props = defineProps<Props>();
 
+const emit = defineEmits<{
+  selectToolGroup: [tgId: string];
+}>();
+
+const wipChartRange = computed(() => {
+  const values = props.data.wipTrend;
+  if (values.length === 0) return { min: undefined, max: undefined };
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const padding = Math.max(10, Math.ceil((max - min) * 0.15));
+  return {
+    min: Math.max(0, Math.floor(min - padding)),
+    max: Math.ceil(max + padding),
+  };
+});
+
+const utilizationChartRange = computed(() => {
+  const allValues = props.data.utilizationSeries.flatMap((s) => s.values);
+  if (allValues.length === 0) return { min: 0, max: 100 };
+  const minPct = Math.floor(Math.min(...allValues) * 100);
+  const maxPct = Math.ceil(Math.max(...allValues) * 100);
+  return {
+    min: Math.max(0, minPct - 5),
+    max: Math.min(100, maxPct + 5),
+  };
+});
+
 const processWipChart = computed(() => {
   const sorted = [...props.data.processSummaries]
     .filter((p) => p.areaCode !== 'DEF_MET')
@@ -25,7 +52,7 @@ const processWipChart = computed(() => {
   const max = Math.max(10, Math.ceil(Math.max(...values) * 1.15));
 
   return {
-    labels: sorted.map((p) => p.areaNameKo),
+    labels: sorted.map((p) => getProcessAreaAxisLabel(p.areaCode, p.areaNameKo)),
     values,
     max,
   };
@@ -38,19 +65,21 @@ const processWipChart = computed(() => {
 
     <div class="mes-all-process-tab__charts">
       <MesTrendChart
-        title="가동률 트렌드 - 상위 병목 TG"
-        subtitle="MES 스냅샷"
+        title="FAB 평균 가동률 추이"
+        subtitle="전체 FAB 평균"
         :labels="data.days"
         :series="data.utilizationSeries"
         value-mode="ratio"
-        :min="50"
-        :max="100"
+        :min="utilizationChartRange.min"
+        :max="utilizationChartRange.max"
       />
       <MesTrendChart
         title="WIP 추이 (전체 FAB)"
         subtitle="WIP Lot 합계"
         :labels="data.days"
         :series="[{ name: 'WIP', values: data.wipTrend, colorToken: '--color-status-info' }]"
+        :min="wipChartRange.min"
+        :max="wipChartRange.max"
         :show-legend="false"
       />
       <MesTrendChart
@@ -78,7 +107,11 @@ const processWipChart = computed(() => {
       <MesBottleneckDistChart class="mes-all-process-tab__large-chart" :tool-groups="data.toolGroups" />
     </div>
 
-    <MesFabHeatmap :process-summaries="data.processSummaries" :tool-groups="data.toolGroups" />
+    <MesFabHeatmap
+      :process-summaries="data.processSummaries"
+      :tool-groups="data.toolGroups"
+      @select-tool-group="emit('selectToolGroup', $event)"
+    />
   </section>
 </template>
 

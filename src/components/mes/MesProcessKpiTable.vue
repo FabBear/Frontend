@@ -57,7 +57,7 @@ function getRiskMeta(process: MesProcessSummary) {
           >
             <td>
               <strong>{{ process.areaNameKo }}</strong>
-              <span>{{ process.sourceAreaCodes.join(', ') }}</span>
+              <span>{{ process.areaCode }}</span>
             </td>
             <td>{{ formatNumber(process.toolGroupCount) }}</td>
             <td>{{ formatRatioPercent(process.avgUtilizationRate) }}</td>

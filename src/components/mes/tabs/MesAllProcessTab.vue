@@ -20,6 +20,18 @@ const emit = defineEmits<{
   selectToolGroup: [tgId: string];
 }>();
 
+const wipChartRange = computed(() => {
+  const values = props.data.wipTrend;
+  if (values.length === 0) return { min: undefined, max: undefined };
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const padding = Math.max(10, Math.ceil((max - min) * 0.15));
+  return {
+    min: Math.max(0, Math.floor(min - padding)),
+    max: Math.ceil(max + padding),
+  };
+});
+
 const utilizationChartRange = computed(() => {
   const allValues = props.data.utilizationSeries.flatMap((s) => s.values);
   if (allValues.length === 0) return { min: 0, max: 100 };
@@ -53,8 +65,8 @@ const processWipChart = computed(() => {
 
     <div class="mes-all-process-tab__charts">
       <MesTrendChart
-        title="가동률 트렌드 - 상위 병목 TG"
-        subtitle="MES 스냅샷"
+        title="FAB 평균 가동률 추이"
+        subtitle="전체 FAB 평균"
         :labels="data.days"
         :series="data.utilizationSeries"
         value-mode="ratio"
@@ -66,6 +78,8 @@ const processWipChart = computed(() => {
         subtitle="WIP Lot 합계"
         :labels="data.days"
         :series="[{ name: 'WIP', values: data.wipTrend, colorToken: '--color-status-info' }]"
+        :min="wipChartRange.min"
+        :max="wipChartRange.max"
         :show-legend="false"
       />
       <MesTrendChart

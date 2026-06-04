@@ -13,20 +13,24 @@ defineProps<Props>();
 <template>
   <div class="tool-group-detail-metric-grid">
     <div class="tool-group-detail-metric-grid__item">
-      <strong>{{ formatNumber(detail.wipCount) }}</strong>
       <span>WIP (대기 Lot)</span>
+      <strong>{{ formatNumber(detail.wipCount) }}</strong>
     </div>
     <div class="tool-group-detail-metric-grid__item">
+      <span>Q-time</span>
       <strong>{{ formatQtimeDays(detail.avgQtimeMin) }}</strong>
-      <span>Q-time (일)</span>
     </div>
     <div class="tool-group-detail-metric-grid__item">
-      <strong>{{ formatRatioPercent(detail.availableToolRatio) }}</strong>
       <span>가용률</span>
+      <strong>{{ formatRatioPercent(detail.availableToolRatio) }}</strong>
     </div>
     <div class="tool-group-detail-metric-grid__item">
-      <strong>{{ formatRatioPercent(detail.utilizationRate) }}</strong>
       <span>가동률</span>
+      <strong>{{ formatRatioPercent(detail.utilizationRate) }}</strong>
+    </div>
+    <div class="tool-group-detail-metric-grid__item tool-group-detail-metric-grid__item--wide">
+      <span>병목 예측 확률</span>
+      <strong>{{ formatRatioPercent(detail.bottleneckProb) }}</strong>
     </div>
   </div>
 </template>
@@ -49,18 +53,23 @@ defineProps<Props>();
   text-align: center;
 }
 
+.tool-group-detail-metric-grid__item--wide {
+  grid-column: 1 / -1;
+  min-height: 76px;
+}
+
+.tool-group-detail-metric-grid__item span {
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
 .tool-group-detail-metric-grid__item strong {
   display: block;
+  margin-top: var(--space-1);
   color: var(--color-fg-strong);
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
   line-height: var(--line-height-tight);
-}
-
-.tool-group-detail-metric-grid__item span {
-  margin-top: var(--space-1);
-  color: var(--color-fg-muted);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
 }
 </style>

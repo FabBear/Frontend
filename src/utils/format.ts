@@ -33,7 +33,8 @@ export function toRatioPercentNumber(value: number): number {
 }
 
 // 0-100 퍼센트 포인트 입력 (API가 이미 % 단위로 반환하는 경우)
-export function formatPercentPoint(value: number): string {
+export function formatPercentPoint(value: number | null): string {
+  if (value === null) return '-';
   return `${value.toFixed(1)}%`;
 }
 

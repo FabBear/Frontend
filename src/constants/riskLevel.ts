@@ -2,6 +2,11 @@ export const RISK_LEVELS = ['critical', 'high', 'medium', 'low'] as const;
 
 export type RiskLevel = (typeof RISK_LEVELS)[number];
 
+export function riskGradeToLevel(grade: string): RiskLevel {
+  const lower = grade.toLowerCase();
+  return lower === 'critical' || lower === 'high' || lower === 'medium' || lower === 'low' ? lower : 'low';
+}
+
 export interface RiskLevelMeta {
   label: string;
   description: string;

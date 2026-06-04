@@ -1,7 +1,7 @@
 import { TREND_META } from '@/constants/dashboard';
 import { getMesSemiconductorProcessCode, getProcessAreaSortOrder } from '@/constants/processArea';
 import { PROCESS_RISK_THRESHOLDS } from '@/constants/processRisk';
-import type { RiskLevel } from '@/constants/riskLevel';
+import { riskGradeToLevel } from '@/constants/riskLevel';
 
 import type {
   BottleneckAlertItem,
@@ -63,21 +63,45 @@ export function mapRiskAlerts(alerts: DashboardRiskAlertsResponse): BottleneckAl
 }
 
 function mapAlert(alert: DashboardRiskAlertItem): BottleneckAlertItem {
+  const currentStepName = alert.currentStepName ?? '-';
+  const hasCause = Boolean(alert.mainCause);
+
   return {
     caseId: alert.caseId,
     tgId: alert.tgId,
     tgName: alert.tgName,
     areaName: alert.areaName,
     riskGrade: alert.riskGrade,
-    riskLevel: toRiskLevel(alert.riskGrade),
+    riskLevel: riskGradeToLevel(alert.riskGrade),
     bottleneckProb: alert.bottleneckProb ?? 0,
     estDelayHours: minutesToHours(alert.estimatedDelayMin ?? 0),
     affectedLotCount: alert.affectedLotCount ?? 0,
-    mainCause: alert.mainCause ?? '원인 분석 대기',
+    mainCause: alert.mainCause ?? '원인 분석 진행 중',
     status: alert.status ?? '-',
-    currentStepName: alert.currentStepName ?? '-',
+    currentStepName,
+    canAnalyzeCause: hasCause || getAgentStepOrder(currentStepName) >= 2,
+    canShowSolutions: getAgentStepOrder(currentStepName) >= 4,
     detectedAt: alert.detectedAt,
   };
+}
+
+function getAgentStepOrder(stepName: string): number {
+  switch (stepName) {
+    case 'DIFFUSION_ANALYSIS':
+      return 1;
+    case 'CAUSE_ANALYSIS':
+      return 2;
+    case 'ACTION_PLAN_GEN':
+      return 3;
+    case 'ACTION_PLAN_COMPARE':
+      return 4;
+    case 'HITL_WAITING':
+      return 5;
+    case 'REPORT_GEN':
+      return 6;
+    default:
+      return 0;
+  }
 }
 
 export function mapProcessMap(processMap: DashboardProcessMapResponse): DashboardProcessAreaData[] {
@@ -135,7 +159,7 @@ function mapProcessToolGroup(toolGroup: DashboardProcessToolGroup): DashboardPro
     tgCode: toolGroup.tgCode,
     tgName: toolGroup.tgName,
     riskGrade,
-    riskLevel: toRiskLevel(riskGrade),
+    riskLevel: riskGradeToLevel(riskGrade),
     utilizationRate,
     bottleneckProb: toolGroup.bottleneckProb ?? 0,
     wipCount: toolGroup.wipCount ?? 0,
@@ -177,14 +201,6 @@ export function mapTrends(trends: DashboardTrendsResponse): KpiTrendSeries[] {
       },
     ];
   });
-}
-
-function toRiskLevel(riskGrade: string): RiskLevel {
-  const normalized = riskGrade.toLowerCase();
-  if (normalized === 'critical' || normalized === 'high' || normalized === 'medium' || normalized === 'low') {
-    return normalized;
-  }
-  return 'low';
 }
 
 function normalizeTrendValue(key: DashboardTrendKey, value: number): number {

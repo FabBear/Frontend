@@ -5,7 +5,7 @@ import { RISK_LEVEL_META, type RiskLevel } from '@/constants/riskLevel';
 
 import type { BottleneckToolGroupItem } from '@/types/bottleneckMonitoring';
 
-import { formatNumber, formatPercentPoint, formatRatioPercent } from '@/utils/format';
+import { formatNumber, formatRatioPercent } from '@/utils/format';
 
 interface Props {
   toolGroup: BottleneckToolGroupItem;
@@ -54,9 +54,6 @@ function handleSelect() {
     </td>
     <td class="tool-group-table-row__util">{{ formatRatioPercent(toolGroup.utilizationRate) }}</td>
     <td class="tool-group-table-row__wip">{{ formatNumber(toolGroup.wipCount) }}</td>
-    <td class="tool-group-table-row__prob">{{ formatRatioPercent(toolGroup.bottleneckProb) }}</td>
-    <td class="tool-group-table-row__setup">{{ formatRatioPercent(toolGroup.setupRatio) }}</td>
-    <td class="tool-group-table-row__wait">{{ formatPercentPoint(toolGroup.waitRatio) }}</td>
   </tr>
 </template>
 
@@ -117,15 +114,12 @@ function handleSelect() {
   vertical-align: middle;
 }
 
-.tool-group-table-row__util,
-.tool-group-table-row__prob {
+.tool-group-table-row__util {
   font-weight: var(--font-weight-semibold);
   text-align: right;
 }
 
-.tool-group-table-row__wip,
-.tool-group-table-row__setup,
-.tool-group-table-row__wait {
+.tool-group-table-row__wip {
   color: var(--color-fg-muted);
   text-align: right;
 }

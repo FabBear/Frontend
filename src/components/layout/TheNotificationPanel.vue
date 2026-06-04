@@ -7,15 +7,27 @@ import type { NotificationItem, NotificationLevel } from '@/types/notification';
 
 import BaseBadge from '@/components/base/BaseBadge.vue';
 
+import { formatKoTime } from '@/utils/format';
+
 interface Props {
   open: boolean;
   notifications: NotificationItem[];
+  loading?: boolean;
+  errorMessage?: string | null;
+  streamError?: boolean;
 }
 
-defineProps<Props>();
+withDefaults(defineProps<Props>(), {
+  loading: false,
+  errorMessage: null,
+  streamError: false,
+});
 
 const emit = defineEmits<{
   close: [];
+  markRead: [notificationId: string];
+  openCase: [caseId: string];
+  openMonitoring: [caseId: string];
 }>();
 
 const levelIconMap: Record<NotificationLevel, Component> = {
@@ -42,17 +54,57 @@ const levelLabelMap: Record<NotificationLevel, string> = {
       </button>
     </header>
 
+    <p v-if="streamError" class="notification-panel__status notification-panel__status--warning">
+      실시간 알림 연결이 끊겼습니다. 목록 조회 데이터로 표시합니다.
+    </p>
+    <p v-if="loading" class="notification-panel__status">알림을 불러오는 중입니다.</p>
+    <p v-else-if="errorMessage" class="notification-panel__status notification-panel__status--error">
+      {{ errorMessage }}
+    </p>
+    <p v-else-if="notifications.length === 0" class="notification-panel__status">표시할 알림이 없습니다.</p>
+
     <ul class="notification-panel__list">
-      <li v-for="notification in notifications" :key="notification.id" class="notification-panel__item">
+      <li
+        v-for="notification in notifications"
+        :key="notification.id"
+        class="notification-panel__item"
+        :class="{ 'notification-panel__item--unread': notification.unread }"
+      >
         <div class="notification-panel__item-header">
           <BaseBadge :variant="notification.level">
             <component :is="levelIconMap[notification.level]" :size="14" aria-hidden="true" />
             {{ levelLabelMap[notification.level] }}
           </BaseBadge>
-          <span class="notification-panel__time">{{ notification.createdAt }}</span>
+          <span class="notification-panel__time">{{ formatKoTime(notification.createdAt) }}</span>
         </div>
         <strong>{{ notification.title }}</strong>
         <p>{{ notification.message }}</p>
+        <div class="notification-panel__actions">
+          <button
+            v-if="notification.refCaseId"
+            class="notification-panel__action"
+            type="button"
+            @click="emit('openMonitoring', notification.refCaseId)"
+          >
+            병목 모니터링
+          </button>
+          <button
+            v-if="notification.refCaseId"
+            class="notification-panel__action notification-panel__action--ghost"
+            type="button"
+            @click="emit('openCase', notification.refCaseId)"
+          >
+            케이스 보기
+          </button>
+          <button
+            v-if="notification.unread"
+            class="notification-panel__action notification-panel__action--muted"
+            type="button"
+            @click="emit('markRead', notification.id)"
+          >
+            읽음 처리
+          </button>
+        </div>
       </li>
     </ul>
   </aside>
@@ -98,11 +150,39 @@ const levelLabelMap: Record<NotificationLevel, string> = {
   padding: var(--spacing-card);
 }
 
+.notification-panel__status {
+  margin: var(--space-3) var(--spacing-card) 0;
+  border: var(--border-width-default) solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle);
+  padding: var(--space-2);
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-sm);
+}
+
+.notification-panel__status--warning {
+  border-color: var(--color-status-warning);
+  color: var(--color-status-warning);
+}
+
+.notification-panel__status--error {
+  border-color: var(--color-status-danger);
+  color: var(--color-status-danger);
+}
+
 .notification-panel__item {
   display: grid;
   gap: var(--space-2);
   border-bottom: var(--border-width-default) solid var(--color-border-subtle);
   padding-bottom: var(--space-3);
+}
+
+.notification-panel__item--unread {
+  border-radius: var(--radius-md);
+  border-bottom-color: transparent;
+  background: var(--color-bg-card);
+  padding: var(--space-2);
+  box-shadow: inset 0 0 0 1px var(--color-border-subtle);
 }
 
 .notification-panel__item-header {
@@ -116,5 +196,34 @@ const levelLabelMap: Record<NotificationLevel, string> = {
 .notification-panel__time {
   color: var(--color-fg-muted);
   font-size: var(--font-size-sm);
+}
+
+.notification-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.notification-panel__action {
+  min-height: 28px;
+  border: var(--border-width-default) solid var(--color-action-primary-border);
+  border-radius: var(--radius-md);
+  background: var(--color-action-primary);
+  padding: 0 10px;
+  color: var(--color-text-inverse);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.notification-panel__action--ghost {
+  background: transparent;
+  color: var(--color-action-primary);
+}
+
+.notification-panel__action--muted {
+  border-color: var(--color-border-default);
+  background: transparent;
+  color: var(--color-fg-muted);
 }
 </style>

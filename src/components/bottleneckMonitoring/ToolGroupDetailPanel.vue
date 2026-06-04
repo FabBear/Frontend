@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { BottleneckToolGroupDetail } from '@/types/bottleneckMonitoring';
 
-import BaseButton from '@/components/base/BaseButton.vue';
 import ToolGroupDetailMetricGrid from '@/components/bottleneckMonitoring/ToolGroupDetailMetricGrid.vue';
 import ToolGroupRiskProbability from '@/components/bottleneckMonitoring/ToolGroupRiskProbability.vue';
 
@@ -10,17 +9,7 @@ interface Props {
   errorMessage?: string | null;
 }
 
-const props = defineProps<Props>();
-
-const emit = defineEmits<{
-  openCenter: [caseId: string];
-}>();
-
-function handleOpenCenter() {
-  if (props.detail?.relatedCaseId) {
-    emit('openCenter', props.detail.relatedCaseId);
-  }
-}
+defineProps<Props>();
 </script>
 
 <template>
@@ -47,27 +36,6 @@ function handleOpenCenter() {
 
       <ToolGroupDetailMetricGrid :detail="detail" />
       <ToolGroupRiskProbability :probability="detail.bottleneckProb" :risk-grade="detail.riskGrade" />
-
-      <!-- Setup/Wait 비율·측정 시각: 디자인 확정 후 표시 여부 결정
-      <dl class="tool-group-detail-panel__facts">
-        <div class="tool-group-detail-panel__fact-card">
-          <dt>Setup 비율</dt>
-          <dd>{{ formatRatioPercent(detail.setupRatio) }}</dd>
-        </div>
-        <div class="tool-group-detail-panel__fact-card">
-          <dt>Wait 비율</dt>
-          <dd>{{ formatPercentPoint(detail.waitRatio) }}</dd>
-        </div>
-        <div class="tool-group-detail-panel__fact-row">
-          <dt>측정 시각</dt>
-          <dd>{{ detail.measuredAt }}</dd>
-        </div>
-      </dl>
-      -->
-
-      <BaseButton class="tool-group-detail-panel__button" :disabled="!detail.relatedCaseId" @click="handleOpenCenter">
-        병목 대응 센터 →
-      </BaseButton>
     </template>
   </aside>
 </template>
@@ -80,7 +48,7 @@ function handleOpenCenter() {
   min-height: 100%;
   border: var(--border-width-default) solid var(--color-border-default);
   border-radius: var(--radius-md);
-  background: var(--color-bg-surface);
+  background: var(--color-bg-card);
   padding: var(--space-3);
 }
 

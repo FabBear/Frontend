@@ -1,20 +1,28 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 
-import { type ProcessRiskGrade } from '@/constants/processRisk';
+import { getProcessAreaDisplayCode, getProcessAreaNameKo } from '@/constants/processArea';
+import {
+  PROCESS_RISK_GRADES,
+  PROCESS_RISK_META,
+  type ProcessRiskGrade,
+  getProcessFilterButtonStyle,
+} from '@/constants/processRisk';
 
-import type { DashboardProcessAreaData } from '@/types/dashboard';
+import type { DashboardProcessAreaData, DashboardProcessToolGroupData } from '@/types/dashboard';
 
-import ProcessFlowRow from '@/components/dashboard/ProcessFlowRow.vue';
 import ProcessMapToolbar from '@/components/dashboard/ProcessMapToolbar.vue';
-import ProcessToolGroupRow from '@/components/dashboard/ProcessToolGroupRow.vue';
 
 interface Props {
   areas: DashboardProcessAreaData[];
   selectedAreaCode?: string | null;
+  metricMode?: 'utilization' | 'bottleneck';
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+  selectedAreaCode: null,
+  metricMode: 'utilization',
+});
 
 const emit = defineEmits<{
   selectArea: [areaCode: string];
@@ -22,8 +30,12 @@ const emit = defineEmits<{
 
 const activeGrades = ref<Set<ProcessRiskGrade>>(new Set(['dc', 'dr']));
 const localSelectedAreaCode = ref<string | null>(null);
-
 const currentSelectedAreaCode = computed(() => props.selectedAreaCode ?? localSelectedAreaCode.value);
+const metricHint = computed(() =>
+  props.metricMode === 'bottleneck'
+    ? '병목 확률 기준 · API 위험등급'
+    : '가동률 기준 · Critical ≥90% · High ≥85% · Medium ≥70%'
+);
 
 function handleToggleGrade(grade: ProcessRiskGrade) {
   const next = new Set(activeGrades.value);
@@ -36,30 +48,138 @@ function handleToggleGrade(grade: ProcessRiskGrade) {
   activeGrades.value = next;
 }
 
-function handleSelectArea(area: DashboardProcessAreaData) {
-  localSelectedAreaCode.value = localSelectedAreaCode.value === area.areaCode ? null : area.areaCode;
-  emit('selectArea', area.areaCode);
+function handleSelectArea(areaCode: string) {
+  localSelectedAreaCode.value = localSelectedAreaCode.value === areaCode ? null : areaCode;
+  emit('selectArea', areaCode);
 }
+
+function getTgRiskGrade(tg: DashboardProcessToolGroupData): ProcessRiskGrade {
+  if (tg.riskLevel === 'critical') return 'dc';
+  if (tg.riskLevel === 'high') return 'dr';
+  if (tg.riskLevel === 'medium') return 'dy';
+  return 'dg';
+}
+
+function getTgMetricValue(tg: DashboardProcessToolGroupData): number {
+  return props.metricMode === 'bottleneck' ? tg.bottleneckProb : tg.utilizationRate;
+}
+
+function getAreaRiskGrade(toolGroups: DashboardProcessToolGroupData[]): ProcessRiskGrade | null {
+  if (toolGroups.length === 0) return null;
+
+  return [...toolGroups]
+    .map(getTgRiskGrade)
+    .sort((a, b) => PROCESS_RISK_GRADES.indexOf(a) - PROCESS_RISK_GRADES.indexOf(b))[0];
+}
+
+const processedAreas = computed(() =>
+  props.areas.map((area) => {
+    const isSelected = currentSelectedAreaCode.value === area.areaCode;
+    const hasSelection = !!currentSelectedAreaCode.value;
+    const visibleTgs = area.toolGroups
+      .filter((tg) => activeGrades.value.has(getTgRiskGrade(tg)))
+      .sort((a, b) => {
+        const riskDiff =
+          PROCESS_RISK_GRADES.indexOf(getTgRiskGrade(a)) - PROCESS_RISK_GRADES.indexOf(getTgRiskGrade(b));
+        return riskDiff !== 0 ? riskDiff : b.utilizationRate - a.utilizationRate;
+      });
+    const metricValue = visibleTgs.length ? Math.max(...visibleTgs.map(getTgMetricValue)) : null;
+    const areaRiskGrade = getAreaRiskGrade(visibleTgs);
+    const colors =
+      areaRiskGrade === null
+        ? {
+            background: 'var(--color-bg-subtle)',
+            border: 'var(--border-width-default) solid var(--color-border-default)',
+            color: 'var(--color-fg-muted)',
+          }
+        : {
+            background: PROCESS_RISK_META[areaRiskGrade].bg,
+            border: `var(--border-width-default) solid ${PROCESS_RISK_META[areaRiskGrade].borderColor}`,
+            color: PROCESS_RISK_META[areaRiskGrade].color,
+          };
+
+    return {
+      area,
+      metricValue,
+      areaRiskGrade,
+      isSelected,
+      isDimmed: hasSelection && !isSelected,
+      displayCode: getProcessAreaDisplayCode(area.areaCode),
+      nameKo: getProcessAreaNameKo(area.areaCode),
+      btnStyle: {
+        ...colors,
+        outline: isSelected ? `2px solid ${colors.color}` : 'none',
+        outlineOffset: isSelected ? '2px' : '0',
+      },
+      visibleTgs,
+      totalTgCount: area.totalTgCount,
+    };
+  })
+);
 </script>
 
 <template>
   <section class="process-map" aria-labelledby="pm-title">
+    <div class="process-map__header">
+      <h2 id="pm-title" class="process-map__title">공정 상태맵</h2>
+      <p class="process-map__hint">{{ metricHint }}</p>
+    </div>
+
     <div class="process-map__card">
-      <div class="process-map__card-header">
-        <h2 id="pm-title" class="process-map__title">공정 상태맵</h2>
-        <p class="process-map__hint">가동률 기준 · Critical ≥90% · High ≥85% · Medium ≥70%</p>
-      </div>
+      <ProcessMapToolbar
+        class="process-map__toolbar"
+        :active-grades="activeGrades"
+        :show-label="false"
+        @toggle-grade="handleToggleGrade"
+      />
 
-      <ProcessMapToolbar :active-grades="activeGrades" @toggle-grade="handleToggleGrade" />
+      <div class="process-map__grid">
+        <article
+          v-for="item in processedAreas"
+          :key="item.area.areaId"
+          class="process-map__area"
+          :class="{ 'process-map__area--dimmed': item.isDimmed }"
+        >
+          <button
+            class="process-map__process-btn"
+            type="button"
+            :style="item.btnStyle"
+            :aria-label="`${item.area.areaCode} (${item.nameKo}) ${metricMode === 'bottleneck' ? '병목 확률' : '가동률'} ${item.metricValue === null ? '-' : `${(item.metricValue * 100).toFixed(0)}%`}`"
+            @click="handleSelectArea(item.area.areaCode)"
+          >
+            <span
+              v-if="item.areaRiskGrade"
+              class="process-map__risk-chip"
+              :style="getProcessFilterButtonStyle(item.areaRiskGrade, true)"
+            >
+              {{ PROCESS_RISK_META[item.areaRiskGrade].label }}
+            </span>
+            <span v-else class="process-map__risk-chip process-map__risk-chip--empty">-</span>
+            <strong>{{ item.nameKo }}</strong>
+            <span>{{ item.displayCode }}</span>
+            <span>{{ item.metricValue === null ? '-' : `${(item.metricValue * 100).toFixed(0)}%` }}</span>
+          </button>
 
-      <div class="process-map__scroll">
-        <ProcessFlowRow :areas="areas" :selected-area-code="currentSelectedAreaCode" @select-area="handleSelectArea" />
-        <div class="process-map__separator" />
-        <ProcessToolGroupRow
-          :areas="areas"
-          :active-grades="activeGrades"
-          :selected-area-code="currentSelectedAreaCode"
-        />
+          <div class="process-map__tg-col">
+            <p class="process-map__tg-count">{{ item.visibleTgs.length }}/{{ item.totalTgCount }} TG</p>
+            <div class="process-map__tg-list">
+              <span
+                v-for="tg in item.visibleTgs"
+                :key="tg.tgId"
+                class="process-map__tg-chip"
+                :title="`${tg.tgCode} · ${tg.riskGrade} · ${metricMode === 'bottleneck' ? '병목 확률' : '가동률'} ${(getTgMetricValue(tg) * 100).toFixed(1)}%`"
+              >
+                <i
+                  class="process-map__tg-dot"
+                  :class="`process-map__tg-dot--${getTgRiskGrade(tg)}`"
+                  aria-hidden="true"
+                />
+                {{ tg.tgName }}
+              </span>
+              <span v-if="item.visibleTgs.length === 0" class="process-map__tg-empty"> 해당 등급 없음 </span>
+            </div>
+          </div>
+        </article>
       </div>
     </div>
   </section>
@@ -67,62 +187,210 @@ function handleSelectArea(area: DashboardProcessAreaData) {
 
 <style scoped>
 .process-map {
-  height: 100%;
-  min-width: 0;
-}
-
-.process-map__card {
-  --pm-column-width: 10rem;
-  --pm-step-height: 6rem;
   display: grid;
-  align-content: start;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: var(--space-2);
-  height: 100%;
-  min-height: 0;
   min-width: 0;
-  max-width: 100%;
-  overflow: hidden;
-  border: var(--border-width-default) solid var(--color-border-default);
-  border-radius: var(--radius-lg);
-  background: var(--color-bg-card);
-  padding: var(--space-3);
-  box-shadow: var(--shadow-sm);
+  min-height: 0;
 }
 
-.process-map__card-header {
+.process-map__header {
   display: flex;
-  align-items: center;
+  gap: var(--space-2);
   justify-content: space-between;
-  gap: var(--space-3);
-  flex-wrap: wrap;
 }
 
 .process-map__title {
   color: var(--color-fg-strong);
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-lg);
   font-weight: var(--font-weight-bold);
-  line-height: var(--line-height-tight);
   white-space: nowrap;
 }
 
 .process-map__hint {
   color: var(--color-fg-muted);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-base);
 }
 
-.process-map__scroll {
-  width: 100%;
+.process-map__card {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
+  min-height: 0;
   min-width: 0;
-  max-width: 100%;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  padding-bottom: var(--space-4);
-  scrollbar-gutter: stable;
+  overflow: auto;
+  border: var(--border-width-default) solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-card);
+  padding: 12px;
+  box-shadow: var(--shadow-sm);
 }
 
-.process-map__separator {
-  border-top: var(--border-width-default) dashed var(--color-border-subtle);
-  margin: var(--space-3) 0 0;
+.process-map__toolbar {
+  justify-content: flex-end;
+}
+
+.process-map__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(300px, 1fr));
+  grid-template-rows: repeat(4, minmax(0, 1fr));
+  grid-auto-rows: minmax(0, 1fr);
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.process-map__area {
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr);
+  align-items: stretch;
+  min-width: 0;
+  gap: var(--space-2);
+  border-radius: var(--radius-md);
+  transition: opacity var(--transition-fast);
+}
+
+.process-map__area--dimmed {
+  opacity: 0.35;
+}
+
+.process-map__process-btn {
+  width: 100%;
+  min-height: 0;
+  border-radius: var(--radius-md);
+  padding: 8px var(--space-1);
+  display: grid;
+  grid-template-rows: auto auto minmax(0, auto) auto;
+  place-content: center;
+  gap: 4px;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+  overflow: hidden;
+}
+
+.process-map__process-btn:hover,
+.process-map__process-btn:focus-visible {
+  box-shadow: var(--shadow-sm);
+  outline: none;
+}
+
+.process-map__process-btn strong {
+  display: block;
+  color: var(--color-fg-strong);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+}
+
+.process-map__risk-chip {
+  justify-self: center;
+  border: var(--border-width-default) solid;
+  border-radius: var(--radius-pill);
+  padding: 1px var(--space-2);
+  color: var(--color-fg-strong) !important;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+}
+
+.process-map__risk-chip--empty {
+  border-color: var(--color-border-default);
+  background: var(--color-bg-subtle);
+  color: var(--color-fg-muted) !important;
+}
+
+.process-map__process-btn span {
+  display: block;
+  color: var(--color-fg-strong);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-tight);
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.process-map__process-btn span:nth-of-type(1) {
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.process-map__tg-col {
+  display: grid;
+  align-content: start;
+  align-items: start;
+  gap: 3px;
+  min-width: 0;
+  border-radius: var(--radius-md);
+  padding: 6px 0;
+}
+
+.process-map__tg-count {
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* TG 목록: 최대 2줄 wrap, 초과 시 세로 스크롤 */
+.process-map__tg-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-1);
+  max-height: 4.75rem;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.process-map__tg-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  border: var(--border-width-default) solid var(--color-border-default);
+  border-radius: var(--radius-pill);
+  background: var(--color-bg-surface);
+  padding: 3px 10px;
+  color: var(--color-fg);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+.process-map__tg-empty {
+  color: var(--color-fg-subtle);
+  font-size: var(--font-size-xs);
+}
+
+/* 도트 색상 */
+.process-map__tg-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  flex-shrink: 0;
+}
+
+.process-map__tg-dot--dc {
+  background: var(--color-risk-critical);
+}
+.process-map__tg-dot--dr {
+  background: var(--color-risk-high);
+}
+.process-map__tg-dot--dy {
+  background: var(--color-risk-medium);
+}
+.process-map__tg-dot--dg {
+  background: var(--color-risk-low);
+}
+
+@media (max-width: 1180px) {
+  .process-map__grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

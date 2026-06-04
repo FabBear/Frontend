@@ -8,9 +8,12 @@ import {
 
 interface Props {
   activeGrades: Set<ProcessRiskGrade>;
+  showLabel?: boolean;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+  showLabel: true,
+});
 
 const emit = defineEmits<{
   toggleGrade: [grade: ProcessRiskGrade];
@@ -23,7 +26,7 @@ function isGradeActive(grade: ProcessRiskGrade): boolean {
 
 <template>
   <div class="process-map-toolbar">
-    <span class="process-map-toolbar__label">표시 등급</span>
+    <span v-if="showLabel" class="process-map-toolbar__label">표시 등급</span>
     <div class="process-map-toolbar__filters" role="group" aria-label="위험도 필터">
       <button
         v-for="grade in PROCESS_RISK_GRADES"

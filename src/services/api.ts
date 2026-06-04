@@ -2,7 +2,8 @@ import axios from 'axios';
 import type { InternalAxiosRequestConfig } from 'axios';
 
 // _csrfRetried: CSRF priming 후 무한 retry 방지 플래그
-type RetryableConfig = InternalAxiosRequestConfig & { _csrfRetried?: boolean };
+// _authVerifiedOn401: 단일 요청에서 인증 재확인 중복 방지 플래그
+type RetryableConfig = InternalAxiosRequestConfig & { _csrfRetried?: boolean; _authVerifiedOn401?: boolean };
 
 // XSRF-TOKEN 쿠키를 읽어 반환 — Spring이 발급한 CSRF 토큰
 function getCsrfToken(): string | null {
@@ -48,10 +49,21 @@ api.interceptors.response.use(
       }
     }
 
-    // 인증 만료 401 — 로컬 세션 초기화 (auth 엔드포인트 실패는 각 호출부에서 처리)
-    if (error.response?.status === 401 && !isAuthUrl) {
-      const { useAuthStore } = await import('@/stores/auth');
-      useAuthStore().clearAuth();
+    // 인증 만료 401 — 쿠키 세션이 실제로 만료됐는지 /me로 확인 후 로컬 세션 초기화
+    if (error.response?.status === 401 && !isAuthUrl && !config._authVerifiedOn401) {
+      config._authVerifiedOn401 = true;
+      try {
+        await axios.get('/v1/auth/me', {
+          baseURL: api.defaults.baseURL,
+          withCredentials: true,
+          headers: { Accept: 'application/json' },
+        });
+      } catch (meError) {
+        if (axios.isAxiosError(meError) && meError.response?.status === 401) {
+          const { useAuthStore } = await import('@/stores/auth');
+          useAuthStore().clearAuth();
+        }
+      }
     }
 
     return Promise.reject(error);

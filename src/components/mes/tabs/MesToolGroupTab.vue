@@ -6,6 +6,7 @@ import { getProcessAreaSortOrder } from '@/constants/processArea';
 import type {
   MesKpiCard,
   MesMonitoringData,
+  MesRiskGrade,
   MesToolGroupMetric,
   MesToolMetric,
   MesToolStatus,
@@ -28,7 +29,7 @@ interface Props {
   toolViewMode: MesToolViewMode;
   detailErrorMessage: string | null;
   tgAreaFilter: string;
-  tgRiskFilter: string;
+  tgRiskFilter: MesRiskGrade | 'ALL';
   tgToolStatusFilter: string;
   onDownToolClick?: () => void;
   onCriticalClick?: () => void;
@@ -40,7 +41,7 @@ const props = defineProps<Props>();
 const emit = defineEmits<{
   'update:toolViewMode': [value: MesToolViewMode];
   'update:tgAreaFilter': [value: string];
-  'update:tgRiskFilter': [value: string];
+  'update:tgRiskFilter': [value: MesRiskGrade | 'ALL'];
   'clear-tool-status-filter': [];
   'set-tool-status-filter': [value: string];
   selectToolGroup: [tgId: string];

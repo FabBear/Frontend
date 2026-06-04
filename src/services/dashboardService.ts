@@ -9,7 +9,6 @@ import {
   DASHBOARD_TRENDS_HOURLY_RANGE,
   TREND_META,
 } from '@/constants/dashboard';
-import { MOCK_BOTTLENECK_ALERTS } from '@/constants/mockData/dashboard';
 
 import type {
   BottleneckAlertItem,
@@ -21,6 +20,7 @@ import type {
 } from '@/types/dashboard';
 import type {
   DashboardKpiResponse,
+  DashboardPageInfo,
   DashboardProcessMapResponse,
   DashboardRiskAlertsResponse,
   DashboardTrendsResponse,
@@ -29,7 +29,18 @@ import type {
 interface DashboardLoadResult {
   data: DashboardSectionData;
   errors: DashboardSectionErrors;
-  isMockAlerts: boolean;
+}
+
+export interface DashboardRiskAlertsPage {
+  items: BottleneckAlertItem[];
+  pageInfo: DashboardPageInfo;
+}
+
+interface DashboardRiskAlertParams {
+  page?: number;
+  size?: number;
+  detectedFrom?: string | null;
+  detectedTo?: string | null;
 }
 
 export async function fetchDashboardKpi(): Promise<FabKpiSnapshot> {
@@ -37,11 +48,29 @@ export async function fetchDashboardKpi(): Promise<FabKpiSnapshot> {
   return mapKpi(data);
 }
 
-export async function fetchDashboardRiskAlerts(): Promise<BottleneckAlertItem[]> {
+export async function fetchDashboardRiskAlertsPage({
+  page = 0,
+  size = DASHBOARD_ALERTS_PAGE_SIZE,
+  detectedFrom,
+  detectedTo,
+}: DashboardRiskAlertParams = {}): Promise<DashboardRiskAlertsPage> {
   const { data } = await api.get<DashboardRiskAlertsResponse>('/v1/dashboard/risk-alerts', {
-    params: { page: 0, size: DASHBOARD_ALERTS_PAGE_SIZE },
+    params: {
+      page,
+      size,
+      ...(detectedFrom ? { detectedFrom } : {}),
+      ...(detectedTo ? { detectedTo } : {}),
+    },
   });
-  return mapRiskAlerts(data);
+  return {
+    items: mapRiskAlerts(data),
+    pageInfo: data.pageInfo,
+  };
+}
+
+export async function fetchDashboardRiskAlerts(size = DASHBOARD_ALERTS_PAGE_SIZE): Promise<BottleneckAlertItem[]> {
+  const { items } = await fetchDashboardRiskAlertsPage({ page: 0, size });
+  return items;
 }
 
 export async function fetchDashboardProcessMap(): Promise<DashboardProcessAreaData[]> {
@@ -81,13 +110,10 @@ export async function fetchDashboardData(): Promise<DashboardLoadResult> {
     fetchDashboardTrends(),
   ]);
 
-  const alertItems = alerts.status === 'fulfilled' ? alerts.value : null;
-  const isMockAlerts = alertItems !== null && alertItems.length === 0;
-
   return {
     data: {
       kpi: kpi.status === 'fulfilled' ? kpi.value : null,
-      alerts: isMockAlerts ? MOCK_BOTTLENECK_ALERTS : alertItems,
+      alerts: alerts.status === 'fulfilled' ? alerts.value : null,
       processAreas: processMap.status === 'fulfilled' ? processMap.value : null,
       trends: trends.status === 'fulfilled' ? trends.value : null,
     },
@@ -97,6 +123,5 @@ export async function fetchDashboardData(): Promise<DashboardLoadResult> {
       ...(processMap.status === 'rejected' ? { processAreas: '공정 상태맵을 불러오지 못했습니다.' } : {}),
       ...(trends.status === 'rejected' ? { trends: 'KPI 추이 데이터를 불러오지 못했습니다.' } : {}),
     },
-    isMockAlerts,
   };
 }

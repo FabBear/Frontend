@@ -2,9 +2,9 @@
 import { computed, ref } from 'vue';
 
 import { getProcessAreaSortOrder } from '@/constants/processArea';
-import { RISK_LEVEL_META, type RiskLevel } from '@/constants/riskLevel';
+import { RISK_LEVEL_META, riskGradeToLevel } from '@/constants/riskLevel';
 
-import type { MesProcessSummary, MesRiskGrade, MesToolGroupMetric } from '@/types/mes';
+import type { MesProcessSummary, MesToolGroupMetric } from '@/types/mes';
 
 import { formatNumber, formatQtimeDays, formatRatioPercent } from '@/utils/format';
 import { getMesUtilizationColor } from '@/utils/mesMetrics';
@@ -42,10 +42,6 @@ const areas = computed(() => {
       .sort((a, b) => b.utilizationRate - a.utilizationRate),
   }));
 });
-
-function toRiskLevel(riskGrade: MesRiskGrade): RiskLevel {
-  return riskGrade.toLowerCase() as RiskLevel;
-}
 
 function updateTooltipPosition(event: MouseEvent | FocusEvent) {
   if ('clientX' in event) {
@@ -120,7 +116,7 @@ function hideTooltip() {
       <strong>{{ hoveredToolGroup.tgName }}</strong>
       <span>
         {{ hoveredToolGroup.areaNameKo }} / {{ hoveredToolGroup.sourceAreaNameKo }} ·
-        {{ RISK_LEVEL_META[toRiskLevel(hoveredToolGroup.riskGrade)].label }}
+        {{ RISK_LEVEL_META[riskGradeToLevel(hoveredToolGroup.riskGrade)].label }}
       </span>
       <dl>
         <div>

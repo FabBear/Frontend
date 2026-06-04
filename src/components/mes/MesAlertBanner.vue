@@ -15,10 +15,11 @@ const emit = defineEmits<{
 }>();
 
 function handleAction(action: Alert['action']) {
+  if (!action) return;
   if (action === 'navigateToDownTools') emit('navigateToDownTools');
   else if (action === 'navigateToCritical') emit('navigateToCritical');
   else if (action === 'navigateToHigh') emit('navigateToHigh');
-  else emit('navigateToToolGroup');
+  else if (action === 'navigateToToolGroup') emit('navigateToToolGroup');
 }
 
 interface Alert {

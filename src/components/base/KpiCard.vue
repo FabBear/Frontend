@@ -93,9 +93,11 @@ function handleClick() {
     background 120ms;
 }
 
-.kpi-card--clickable:hover {
+.kpi-card--clickable:hover,
+.kpi-card--clickable:focus-visible {
   border-color: var(--color-border-strong);
   background: var(--color-bg-surface);
+  outline: none;
 }
 
 .kpi-card__title {

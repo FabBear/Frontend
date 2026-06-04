@@ -43,15 +43,12 @@ const filteredTools = computed(() =>
   toolStatusFilter.value === 'ALL' ? props.tools : props.tools.filter((tool) => tool.status === toolStatusFilter.value)
 );
 
-watch(
-  () => [props.toolGroup?.tgId, props.initialStatusFilter],
-  () => {
-    const initial = TOOL_STATUS_FILTERS.some((filter) => filter.value === props.initialStatusFilter)
-      ? (props.initialStatusFilter as MesToolStatus | 'ALL')
-      : 'ALL';
-    toolStatusFilter.value = initial;
-  }
-);
+watch([() => props.toolGroup?.tgId, () => props.initialStatusFilter], () => {
+  const initial = TOOL_STATUS_FILTERS.some((filter) => filter.value === props.initialStatusFilter)
+    ? (props.initialStatusFilter as MesToolStatus | 'ALL')
+    : 'ALL';
+  toolStatusFilter.value = initial;
+});
 
 function getStatusFilterStyle(status: MesToolStatus | 'ALL') {
   if (status === 'ALL' || toolStatusFilter.value === status) return {};

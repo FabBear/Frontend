@@ -29,7 +29,7 @@ export interface BottleneckAreaSummary {
 }
 
 export interface BottleneckProcessMapData {
-  snapshotId: string;
+  snapshotId: string | null;
   capturedAt: string;
   areas: BottleneckAreaSummary[];
 }
@@ -43,9 +43,9 @@ export interface BottleneckToolGroupItem {
   utilizationRate: number;
   wipCount: number;
   avgQtimeMin: number | null;
-  setupRatio: number;
-  waitRatio: number;
-  availableToolRatio: number;
+  setupRatio: number | null;
+  waitRatio: number | null;
+  availableToolRatio: number | null;
   bottleneckProb: number;
   measuredAt: string;
   areaId: string;
@@ -67,11 +67,11 @@ export interface BottleneckToolGroupDetail {
   areaName: string;
   measuredAt: string;
   utilizationRate: number;
-  availableToolRatio: number;
+  availableToolRatio: number | null;
   wipCount: number;
   avgQtimeMin: number | null;
-  setupRatio: number;
-  waitRatio: number;
+  setupRatio: number | null;
+  waitRatio: number | null;
   bottleneckProb: number;
   riskGrade: BottleneckRiskGrade;
   relatedCaseId: string | null;

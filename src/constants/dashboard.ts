@@ -4,7 +4,7 @@ import type { DashboardTrendKey } from '@/types/dashboardApi';
 
 export const DASHBOARD_POLL_INTERVAL_MS = 30_000;
 
-export const DASHBOARD_ALERTS_PAGE_SIZE = 5;
+export const DASHBOARD_ALERTS_PAGE_SIZE = 3;
 
 export const DASHBOARD_TRENDS_HOURLY_RANGE = '24h';
 export const DASHBOARD_TRENDS_DAILY_RANGE = '7d';

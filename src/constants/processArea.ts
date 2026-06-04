@@ -104,6 +104,16 @@ export function getMesSemiconductorProcessCode(sourceAreaCode: string, toolGroup
   return MES_SOURCE_TO_SEMICONDUCTOR_PROCESS[sourceAreaCode] ?? 'BUFFER';
 }
 
+export function formatAlertAreaDisplay(areaName: string, tgName?: string): string {
+  const normalized = areaName
+    .trim()
+    .replace(/[^a-zA-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .toUpperCase();
+  const processCode = getMesSemiconductorProcessCode(normalized, tgName);
+  return `${getProcessAreaDisplayCode(processCode)} · ${getProcessAreaNameKo(processCode)}`;
+}
+
 export function getProcessAreaSortOrder(areaCode: string): number {
   const processIndex = SEMICONDUCTOR_PROCESS_ORDER.indexOf(areaCode);
   if (processIndex !== -1) return processIndex;

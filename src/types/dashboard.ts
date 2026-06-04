@@ -29,6 +29,8 @@ export interface BottleneckAlertItem {
   mainCause: string;
   status: string;
   currentStepName: string;
+  canAnalyzeCause: boolean;
+  canShowSolutions: boolean;
   detectedAt: string;
 }
 

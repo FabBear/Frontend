@@ -35,6 +35,15 @@ export interface DashboardTrendPoint {
 
 export interface DashboardRiskAlertsResponse {
   items: DashboardRiskAlertItem[];
+  pageInfo: DashboardPageInfo;
+}
+
+export interface DashboardPageInfo {
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  sort: string;
 }
 
 export interface DashboardRiskAlertItem {

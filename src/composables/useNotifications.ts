@@ -67,15 +67,19 @@ export function useNotifications() {
     });
 
     eventSource.addEventListener('notification', (event) => {
-      const payload = JSON.parse((event as MessageEvent).data) as NotificationStreamEvent;
-      const item = mapNotificationStreamEvent(payload);
-      notifications.value = [item, ...notifications.value.filter((notification) => notification.id !== item.id)].slice(
-        0,
-        20
-      );
-      unreadCount.value = payload.unreadCount ?? unreadCount.value + 1;
-      streamConnected.value = true;
-      streamError.value = false;
+      try {
+        const payload = JSON.parse((event as MessageEvent).data) as NotificationStreamEvent;
+        const item = mapNotificationStreamEvent(payload);
+        notifications.value = [
+          item,
+          ...notifications.value.filter((notification) => notification.id !== item.id),
+        ].slice(0, 20);
+        unreadCount.value = payload.unreadCount ?? unreadCount.value + 1;
+        streamConnected.value = true;
+        streamError.value = false;
+      } catch {
+        // 잘못된 SSE 페이로드는 무시 — 스트림 연결 유지
+      }
     });
 
     eventSource.onerror = () => {

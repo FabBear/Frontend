@@ -58,9 +58,11 @@ api.interceptors.response.use(
           withCredentials: true,
           headers: { Accept: 'application/json' },
         });
-      } catch {
-        const { useAuthStore } = await import('@/stores/auth');
-        useAuthStore().clearAuth();
+      } catch (meError) {
+        if (axios.isAxiosError(meError) && meError.response?.status === 401) {
+          const { useAuthStore } = await import('@/stores/auth');
+          useAuthStore().clearAuth();
+        }
       }
     }
 

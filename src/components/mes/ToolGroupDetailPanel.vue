@@ -19,6 +19,7 @@ const props = defineProps<{
   tools: MesToolMetric[];
   toolViewMode: MesToolViewMode;
   errorMessage?: string | null;
+  initialStatusFilter?: string;
 }>();
 
 const emit = defineEmits<{
@@ -43,9 +44,12 @@ const filteredTools = computed(() =>
 );
 
 watch(
-  () => props.toolGroup?.tgId,
+  () => [props.toolGroup?.tgId, props.initialStatusFilter],
   () => {
-    toolStatusFilter.value = 'ALL';
+    const initial = TOOL_STATUS_FILTERS.some((filter) => filter.value === props.initialStatusFilter)
+      ? (props.initialStatusFilter as MesToolStatus | 'ALL')
+      : 'ALL';
+    toolStatusFilter.value = initial;
   }
 );
 
@@ -82,7 +86,7 @@ function getStatusFilterStyle(status: MesToolStatus | 'ALL') {
             }}</span>
           </div>
           <p>
-            공정: <b>{{ toolGroup.areaName }}</b> / {{ toolGroup.sourceAreaNameKo }} · 장비 수:
+            공정: <b>{{ toolGroup.areaCode }}</b> · {{ toolGroup.areaNameKo }} · 장비 수:
             <b>{{ toolGroup.toolCount }}대</b> · 가동률:
             <b :style="{ color: riskMeta?.color }">{{ formatRatioPercent(toolGroup.utilizationRate) }}</b>
           </p>

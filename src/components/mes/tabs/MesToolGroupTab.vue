@@ -6,9 +6,9 @@ import { getProcessAreaSortOrder } from '@/constants/processArea';
 import type {
   MesKpiCard,
   MesMonitoringData,
-  MesRiskGrade,
   MesToolGroupMetric,
   MesToolMetric,
+  MesToolStatus,
   MesToolStatusSummary,
   MesToolViewMode,
 } from '@/types/mes';
@@ -28,6 +28,11 @@ interface Props {
   toolViewMode: MesToolViewMode;
   detailErrorMessage: string | null;
   tgAreaFilter: string;
+  tgRiskFilter: string;
+  tgToolStatusFilter: string;
+  onDownToolClick?: () => void;
+  onCriticalClick?: () => void;
+  onHighClick?: () => void;
 }
 
 const props = defineProps<Props>();
@@ -35,11 +40,13 @@ const props = defineProps<Props>();
 const emit = defineEmits<{
   'update:toolViewMode': [value: MesToolViewMode];
   'update:tgAreaFilter': [value: string];
+  'update:tgRiskFilter': [value: string];
+  'clear-tool-status-filter': [];
+  'set-tool-status-filter': [value: string];
   selectToolGroup: [tgId: string];
 }>();
 
 const tgSearch = ref('');
-const tgRiskFilter = ref<MesRiskGrade | 'ALL'>('ALL');
 
 const toolStatusSummaries = computed<Record<string, MesToolStatusSummary>>(() => {
   const toolsByTgId = props.data.tools.reduce<Record<string, MesToolMetric[]>>((groups, tool) => {
@@ -66,7 +73,11 @@ const filteredToolGroups = computed(() => {
     .filter((tg) => {
       if (keyword && !tg.tgName.toLowerCase().includes(keyword)) return false;
       if (props.tgAreaFilter !== 'ALL' && tg.areaCode !== props.tgAreaFilter) return false;
-      if (tgRiskFilter.value !== 'ALL' && tg.riskGrade !== tgRiskFilter.value) return false;
+      if (props.tgRiskFilter !== 'ALL' && tg.riskGrade !== props.tgRiskFilter) return false;
+      if (props.tgToolStatusFilter !== 'ALL') {
+        const summary = toolStatusSummaries.value[tg.tgId];
+        if (!summary || summary[props.tgToolStatusFilter as MesToolStatus] === 0) return false;
+      }
       return true;
     })
     .sort((a, b) => b.utilizationRate - a.utilizationRate);
@@ -81,6 +92,36 @@ const summaryCards = computed<MesKpiCard[]>(() => {
 
   return [
     {
+      key: 'tg-critical',
+      title: 'Critical TG',
+      value: `${formatNumber(criticalCount)}개`,
+      subtitle: '가동률 ≥90%',
+      tone: 'critical',
+      onClick: criticalCount > 0 ? props.onCriticalClick : undefined,
+    },
+    {
+      key: 'tg-high',
+      title: 'High TG',
+      value: `${formatNumber(highCount)}개`,
+      subtitle: '가동률 85~90%',
+      tone: 'high',
+      onClick: highCount > 0 ? props.onHighClick : undefined,
+    },
+    {
+      key: 'tool-down',
+      title: 'Down Tool',
+      value: `${formatNumber(statusSummary.DOWN)}대`,
+      subtitle: `Setup ${formatNumber(statusSummary.SETUP)}대 포함 시 ${formatNumber(statusSummary.DOWN + statusSummary.SETUP)}대`,
+      tone: statusSummary.DOWN > 0 ? 'danger' : undefined,
+      onClick: statusSummary.DOWN > 0 ? props.onDownToolClick : undefined,
+    },
+    {
+      key: 'tg-avail',
+      title: '평균 가용 장비율',
+      value: formatRatioPercent(avgAvailRatio),
+      subtitle: 'TG 평균 available ratio',
+    },
+    {
       key: 'tg-total',
       title: '전체 TG 수',
       value: `${formatNumber(tgs.length)}개`,
@@ -92,33 +133,6 @@ const summaryCards = computed<MesKpiCard[]>(() => {
       title: '전체 Tool 수',
       value: `${formatNumber(props.data.tools.length)}대`,
       subtitle: 'MES 수집 장비',
-    },
-    {
-      key: 'tg-critical',
-      title: 'Critical TG',
-      value: `${formatNumber(criticalCount)}개`,
-      subtitle: '가동률 ≥90%',
-      tone: 'critical',
-    },
-    {
-      key: 'tg-high',
-      title: 'High TG',
-      value: `${formatNumber(highCount)}개`,
-      subtitle: '가동률 85~90%',
-      tone: 'high',
-    },
-    {
-      key: 'tool-down',
-      title: 'Down Tool',
-      value: `${formatNumber(statusSummary.DOWN)}대`,
-      subtitle: `Setup ${formatNumber(statusSummary.SETUP)}대 포함 시 ${formatNumber(statusSummary.DOWN + statusSummary.SETUP)}대`,
-      tone: statusSummary.DOWN > 0 ? 'danger' : undefined,
-    },
-    {
-      key: 'tg-avail',
-      title: '평균 가용 장비율',
-      value: formatRatioPercent(avgAvailRatio),
-      subtitle: 'TG 평균 available ratio',
     },
   ];
 });
@@ -137,9 +151,12 @@ const summaryCards = computed<MesKpiCard[]>(() => {
         :area-filter="tgAreaFilter"
         :area-options="areaOptions"
         :status-summaries="toolStatusSummaries"
+        :tool-status-filter="tgToolStatusFilter"
         @update:search="tgSearch = $event"
-        @update:risk-filter="tgRiskFilter = $event"
+        @update:risk-filter="emit('update:tgRiskFilter', $event)"
         @update:area-filter="emit('update:tgAreaFilter', $event)"
+        @clear-tool-status-filter="emit('clear-tool-status-filter')"
+        @set-tool-status-filter="emit('set-tool-status-filter', $event)"
         @select="emit('selectToolGroup', $event)"
       />
       <ToolGroupDetailPanel
@@ -147,6 +164,7 @@ const summaryCards = computed<MesKpiCard[]>(() => {
         :tools="selectedTools"
         :tool-view-mode="toolViewMode"
         :error-message="detailErrorMessage"
+        :initial-status-filter="tgToolStatusFilter"
         @update:tool-view-mode="emit('update:toolViewMode', $event)"
       />
     </div>
@@ -165,49 +183,5 @@ const summaryCards = computed<MesKpiCard[]>(() => {
   align-items: flex-start;
   gap: var(--space-3);
   min-width: 0;
-}
-
-.mes-tg-tool-tab__section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.mes-tg-tool-tab__section-header h3 {
-  color: var(--color-fg-strong);
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-bold);
-}
-
-.mes-tg-tool-tab__section-header span {
-  color: var(--color-fg-muted);
-  font-size: var(--font-size-sm);
-}
-
-.mes-tg-tool-tab__filters {
-  display: flex;
-  gap: var(--space-2);
-}
-
-.mes-tg-tool-tab__filters input,
-.mes-tg-tool-tab__filters select {
-  border: var(--border-width-default) solid var(--color-border-default);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-card);
-  color: var(--color-fg-default);
-  font-size: var(--font-size-sm);
-  padding: var(--space-1) var(--space-2);
-}
-
-@media (max-width: 1100px) {
-  .mes-tg-tool-tab__section-header {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .mes-tg-tool-tab__filters {
-    flex-direction: column;
-  }
 }
 </style>

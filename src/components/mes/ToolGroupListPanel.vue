@@ -24,6 +24,7 @@ interface Props {
   areaFilter: string;
   areaOptions: AreaOption[];
   statusSummaries: Record<string, MesToolStatusSummaryModel>;
+  toolStatusFilter?: string;
 }
 
 defineProps<Props>();
@@ -32,6 +33,8 @@ const emit = defineEmits<{
   'update:search': [value: string];
   'update:riskFilter': [value: MesRiskGrade | 'ALL'];
   'update:areaFilter': [value: string];
+  'clear-tool-status-filter': [];
+  'set-tool-status-filter': [value: string];
   select: [tgId: string];
 }>();
 
@@ -54,17 +57,30 @@ function getRiskFilterColor(value: MesRiskGrade | 'ALL') {
         placeholder="TG 이름 검색..."
         @input="emit('update:search', ($event.target as HTMLInputElement).value)"
       />
-      <select
-        class="tool-group-list-panel__area-select"
-        :value="areaFilter"
-        aria-label="공정 필터"
-        @change="emit('update:areaFilter', ($event.target as HTMLSelectElement).value)"
-      >
-        <option value="ALL">전체 공정</option>
-        <option v-for="area in areaOptions" :key="area.areaCode" :value="area.areaCode">
-          {{ area.areaNameKo }}
-        </option>
-      </select>
+      <div class="tool-group-list-panel__filter-row">
+        <select
+          class="tool-group-list-panel__area-select"
+          :value="areaFilter"
+          aria-label="공정 필터"
+          @change="emit('update:areaFilter', ($event.target as HTMLSelectElement).value)"
+        >
+          <option value="ALL">전체 공정</option>
+          <option v-for="area in areaOptions" :key="area.areaCode" :value="area.areaCode">
+            {{ area.areaCode }} · {{ area.areaNameKo }}
+          </option>
+        </select>
+        <button
+          type="button"
+          class="tool-group-list-panel__status-chip"
+          :class="{ 'tool-group-list-panel__status-chip--active': toolStatusFilter === 'DOWN' }"
+          @click="
+            toolStatusFilter === 'DOWN' ? emit('clear-tool-status-filter') : emit('set-tool-status-filter', 'DOWN')
+          "
+        >
+          Down 보유
+        </button>
+      </div>
+
       <div class="tool-group-list-panel__filters" role="group" aria-label="위험도 필터">
         <button
           v-for="filter in MES_RISK_FILTERS"
@@ -103,10 +119,12 @@ function getRiskFilterColor(value: MesRiskGrade | 'ALL') {
             {{ formatRatioPercent(toolGroup.utilizationRate) }}
           </span>
         </div>
-        <small class="tool-group-list-panel__sub">
-          {{ toolGroup.areaNameKo }} / {{ toolGroup.sourceAreaNameKo }} · 총 {{ toolGroup.toolCount }}대 · WIP
-          {{ formatNumber(toolGroup.wipCount) }} Lot
-        </small>
+        <div class="tool-group-list-panel__item-bottom">
+          <span class="tool-group-list-panel__area-chip">{{ toolGroup.areaCode }}</span>
+          <span class="tool-group-list-panel__sub"
+            >총 {{ toolGroup.toolCount }}대 · WIP {{ formatNumber(toolGroup.wipCount) }}</span
+          >
+        </div>
         <MesToolStatusSummaryView :summary="statusSummaries[toolGroup.tgId]" compact hide-zero />
       </button>
       <p v-if="toolGroups.length === 0" class="tool-group-list-panel__empty">검색 결과 없음</p>
@@ -118,7 +136,7 @@ function getRiskFilterColor(value: MesRiskGrade | 'ALL') {
 .tool-group-list-panel {
   display: grid;
   grid-template-rows: auto 1fr;
-  width: 320px;
+  width: 380px;
   flex-shrink: 0;
   overflow: hidden;
   border: var(--border-width-default) solid var(--color-border-default);
@@ -155,9 +173,15 @@ function getRiskFilterColor(value: MesRiskGrade | 'ALL') {
   font-size: var(--font-size-xs);
 }
 
-.tool-group-list-panel__area-select {
-  width: 100%;
+.tool-group-list-panel__filter-row {
+  display: flex;
+  gap: var(--space-1);
   margin-bottom: var(--space-2);
+}
+
+.tool-group-list-panel__area-select {
+  flex: 1;
+  min-width: 0;
   border: var(--border-width-default) solid var(--color-border-default);
   border-radius: var(--radius-md);
   background: var(--color-bg-card);
@@ -244,9 +268,47 @@ function getRiskFilterColor(value: MesRiskGrade | 'ALL') {
   font-weight: var(--font-weight-bold);
 }
 
-.tool-group-list-panel__sub {
+.tool-group-list-panel__status-chip {
+  border: var(--border-width-default) solid var(--color-border-default);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  padding: 2px 10px;
   color: var(--color-fg-muted);
+  cursor: pointer;
   font-size: var(--font-size-xs);
+}
+
+.tool-group-list-panel__status-chip--active {
+  border-color: var(--color-status-danger);
+  background: color-mix(in srgb, var(--color-status-danger) 10%, transparent);
+  color: var(--color-status-danger);
+  font-weight: var(--font-weight-semibold);
+}
+
+.tool-group-list-panel__item-bottom {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.tool-group-list-panel__area-chip {
+  flex-shrink: 0;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-pill);
+  padding: 1px 7px;
+  color: var(--color-fg-subtle);
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.02em;
+}
+
+.tool-group-list-panel__sub {
+  overflow: hidden;
+  color: var(--color-fg-subtle);
+  font-size: var(--font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tool-group-list-panel__empty {

@@ -43,6 +43,8 @@ function getToneColor(tone?: RiskLevel | 'info' | 'success' | 'warning' | 'dange
       :is-positive-good="card.isPositiveGood"
       :subtitle="card.subtitle"
       :note="card.note"
+      :clickable="!!card.onClick"
+      @click="card.onClick?.()"
     />
   </div>
 </template>

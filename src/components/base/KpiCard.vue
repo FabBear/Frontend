@@ -8,6 +8,7 @@ interface Props {
   isPositiveGood?: boolean;
   subtitle?: string;
   note?: string;
+  clickable?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -17,7 +18,10 @@ const props = withDefaults(defineProps<Props>(), {
   isPositiveGood: true,
   subtitle: undefined,
   note: undefined,
+  clickable: false,
 });
+
+const emit = defineEmits<{ click: [] }>();
 
 // isPositiveGood: true  → 값이 오를수록 좋음 (throughput, RTF 등)
 // isPositiveGood: false → 값이 오를수록 나쁨 (WIP, Q-time 등)
@@ -40,10 +44,22 @@ function formatDeltaValue(value: number) {
   if (value > 0 && value < 0.1) return value.toFixed(2);
   return value.toFixed(1);
 }
+
+function handleClick() {
+  if (props.clickable) emit('click');
+}
 </script>
 
 <template>
-  <article class="kpi-card">
+  <article
+    class="kpi-card"
+    :class="{ 'kpi-card--clickable': clickable }"
+    :role="clickable ? 'button' : undefined"
+    :tabindex="clickable ? 0 : undefined"
+    @click="handleClick"
+    @keydown.enter.prevent="handleClick"
+    @keydown.space.prevent="handleClick"
+  >
     <p class="kpi-card__title">{{ title }}</p>
     <div class="kpi-card__value-row">
       <strong class="kpi-card__value" :style="valueColor ? { color: valueColor } : {}">
@@ -68,6 +84,18 @@ function formatDeltaValue(value: number) {
   background: var(--color-bg-card);
   padding: var(--space-3);
   box-shadow: var(--shadow-sm);
+}
+
+.kpi-card--clickable {
+  cursor: pointer;
+  transition:
+    border-color 120ms,
+    background 120ms;
+}
+
+.kpi-card--clickable:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-bg-surface);
 }
 
 .kpi-card__title {

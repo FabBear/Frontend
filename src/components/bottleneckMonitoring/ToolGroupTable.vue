@@ -60,10 +60,10 @@ const emit = defineEmits<{
 
 <style scoped>
 .tool-group-table {
-  --tool-group-table-min-width: 880px;
-  --tool-group-table-status-width: 112px;
-  --tool-group-table-name-width: 300px;
-  --tool-group-table-metric-width: 104px;
+  --tool-group-table-min-width: 520px;
+  --tool-group-table-status-width: 100px;
+  --tool-group-table-name-width: auto;
+  --tool-group-table-metric-width: 90px;
   min-width: 0;
 }
 
@@ -75,7 +75,7 @@ const emit = defineEmits<{
 }
 
 .tool-group-table__table {
-  width: max-content;
+  width: 100%;
   min-width: var(--tool-group-table-min-width);
   border-collapse: collapse;
   table-layout: fixed;
@@ -112,14 +112,11 @@ const emit = defineEmits<{
 }
 
 .tool-group-table__col-name {
-  width: var(--tool-group-table-name-width);
+  /* auto: 남은 공간을 TG명 컬럼이 모두 차지 */
 }
 
 .tool-group-table__col-util,
-.tool-group-table__col-wip,
-.tool-group-table__col-prob,
-.tool-group-table__col-setup,
-.tool-group-table__col-wait {
+.tool-group-table__col-wip {
   width: var(--tool-group-table-metric-width);
 }
 

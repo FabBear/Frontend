@@ -20,6 +20,8 @@ const RISK_GRADE_TO_LEVEL: Record<MesRiskGrade, RiskLevel> = {
   MEDIUM: 'medium',
   LOW: 'low',
 };
+const MES_RISK_GRADES: MesRiskGrade[] = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
+type MesRiskFilter = MesRiskGrade | 'ALL';
 
 export function toMesRiskLevel(riskGrade: MesRiskGrade): RiskLevel {
   return RISK_GRADE_TO_LEVEL[riskGrade];
@@ -61,11 +63,14 @@ export function useMesMonitoring() {
     },
   });
 
-  const tgRiskFilter = computed<string>({
+  const tgRiskFilter = computed<MesRiskFilter>({
     get() {
-      return (route.query.riskFilter as string) || 'ALL';
+      const riskFilter = route.query.riskFilter;
+      return typeof riskFilter === 'string' && MES_RISK_GRADES.includes(riskFilter as MesRiskGrade)
+        ? (riskFilter as MesRiskGrade)
+        : 'ALL';
     },
-    set(grade: string) {
+    set(grade: MesRiskFilter) {
       router.replace({ query: { ...route.query, riskFilter: grade === 'ALL' ? undefined : grade } });
     },
   });

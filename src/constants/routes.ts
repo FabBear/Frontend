@@ -3,6 +3,7 @@ export const ROUTE_NAMES = {
   dashboard: 'dashboard',
   bottleneckMonitoring: 'bottlenecks',
   mesMonitoring: 'mesMonitoring',
+  machineMonitoring: 'machineMonitoring',
   bottleneckCenter: 'bottleneckCenter',
   causeReport: 'causeReport',
   notFound: 'notFound',

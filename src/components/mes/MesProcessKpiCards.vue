@@ -1,23 +1,20 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-
 import { toMesRiskLevel } from '@/composables/useMesMonitoring';
 
 import { RISK_LEVEL_META } from '@/constants/riskLevel';
 
-import type { MesProcessSummary, MesRiskGrade, MesToolGroupMetric } from '@/types/mes';
+import type { MesProcessSummary, MesRiskGrade } from '@/types/mes';
 
 import MesProcessRiskBar from '@/components/mes/MesProcessRiskBar.vue';
 
 import { formatNumber, formatQtimeDays, formatRatioPercent, toRatioPercentNumber } from '@/utils/format';
-import { calculateMesOeeEstimate, getMesQtimeColor, getMesUtilizationColor } from '@/utils/mesMetrics';
+import { getMesQtimeColor, getMesUtilizationColor } from '@/utils/mesMetrics';
 
 interface Props {
   processSummaries: MesProcessSummary[];
-  toolGroups: MesToolGroupMetric[];
 }
 
-const props = defineProps<Props>();
+defineProps<Props>();
 
 const emit = defineEmits<{
   selectProcess: [areaCode: string];
@@ -25,19 +22,8 @@ const emit = defineEmits<{
 
 const DEFAULT_RISK_COUNTS: Record<MesRiskGrade, number> = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
 
-const riskCountsByArea = computed(() => {
-  const map = new Map<string, Record<MesRiskGrade, number>>();
-  for (const tg of props.toolGroups) {
-    if (!map.has(tg.areaCode)) {
-      map.set(tg.areaCode, { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 });
-    }
-    map.get(tg.areaCode)![tg.riskGrade]++;
-  }
-  return map;
-});
-
 function getRiskCounts(process: MesProcessSummary) {
-  return riskCountsByArea.value.get(process.areaCode) ?? DEFAULT_RISK_COUNTS;
+  return process.riskCounts ?? DEFAULT_RISK_COUNTS;
 }
 
 function getProgressWidth(value: number) {
@@ -48,16 +34,18 @@ function getProcessRiskMeta(process: MesProcessSummary) {
   return RISK_LEVEL_META[toMesRiskLevel(process.riskGrade)];
 }
 
-function getOee(process: MesProcessSummary) {
-  return calculateMesOeeEstimate(process.avgUtilizationRate, process.setupRatio);
+function getProcessCardStyle(process: MesProcessSummary) {
+  const riskMeta = getProcessRiskMeta(process);
+
+  return {
+    borderColor: `color-mix(in srgb, ${riskMeta.color} 24%, var(--color-border-default))`,
+    borderLeftColor: riskMeta.color,
+    backgroundColor: riskMeta.background,
+  };
 }
 
-const MAX_QTIME_DISPLAY_DAYS = 15;
-
-function getQtimeBarWidth(qtimeMin: number | null): string {
-  if (qtimeMin === null) return '0%';
-  const days = qtimeMin / 60 / 24;
-  return `${Math.min((days / MAX_QTIME_DISPLAY_DAYS) * 100, 100)}%`;
+function getOee(process: MesProcessSummary) {
+  return process.oeeEstimate;
 }
 </script>
 
@@ -67,14 +55,14 @@ function getQtimeBarWidth(qtimeMin: number | null): string {
       v-for="process in processSummaries"
       :key="process.areaId"
       class="mes-process-kpi-cards__card"
-      :style="{ borderLeftColor: getProcessRiskMeta(process).color }"
+      :style="getProcessCardStyle(process)"
       title="클릭하면 TG/Tool 탭에서 해당 공정으로 필터링합니다"
       @click="emit('selectProcess', process.areaCode)"
     >
       <header class="mes-process-kpi-cards__header">
         <div>
           <h3>{{ process.areaNameKo }}</h3>
-          <p>{{ process.areaCode }} · TG {{ formatNumber(process.toolGroupCount) }}개</p>
+          <p>{{ process.areaCode }}</p>
         </div>
         <span
           class="mes-process-kpi-cards__chip"
@@ -110,39 +98,17 @@ function getQtimeBarWidth(qtimeMin: number | null): string {
           </div>
           <strong>{{ formatRatioPercent(process.avgUtilizationRate) }}</strong>
         </div>
-        <div class="mes-process-kpi-cards__bar-divider" />
-        <div class="mes-process-kpi-cards__bar-row">
-          <span>Q-time 최대</span>
-          <div class="mes-process-kpi-cards__progress-track">
-            <div
-              class="mes-process-kpi-cards__progress-fill"
-              :style="{
-                width: getQtimeBarWidth(process.maxQtimeMin),
-                backgroundColor: getMesQtimeColor(process.maxQtimeMin),
-              }"
-            />
-          </div>
-          <strong :style="{ color: getMesQtimeColor(process.maxQtimeMin) }">
-            {{ formatQtimeDays(process.maxQtimeMin) }}
-          </strong>
-        </div>
-        <div class="mes-process-kpi-cards__bar-row">
-          <span>Q-time 평균</span>
-          <div class="mes-process-kpi-cards__progress-track">
-            <div
-              class="mes-process-kpi-cards__progress-fill"
-              :style="{
-                width: getQtimeBarWidth(process.avgQtimeMin),
-                backgroundColor: getMesQtimeColor(process.avgQtimeMin),
-                opacity: 0.6,
-              }"
-            />
-          </div>
-          <strong>{{ formatQtimeDays(process.avgQtimeMin) }}</strong>
-        </div>
       </section>
 
       <dl class="mes-process-kpi-cards__metrics">
+        <div>
+          <dt>TG 수</dt>
+          <dd>{{ formatNumber(process.toolGroupCount) }}개</dd>
+        </div>
+        <div>
+          <dt>장비 수</dt>
+          <dd>{{ formatNumber(process.toolCount) }}대</dd>
+        </div>
         <div>
           <dt>OEE 추정</dt>
           <dd>{{ formatRatioPercent(getOee(process)) }}</dd>
@@ -152,18 +118,20 @@ function getQtimeBarWidth(qtimeMin: number | null): string {
           <dd>{{ formatNumber(process.wipCount) }}</dd>
         </div>
         <div>
+          <dt>Q-time 최대</dt>
+          <dd :style="{ color: getMesQtimeColor(process.maxQtimeMin) }">{{ formatQtimeDays(process.maxQtimeMin) }}</dd>
+        </div>
+        <div>
+          <dt>Q-time 평균</dt>
+          <dd :style="{ color: getMesQtimeColor(process.avgQtimeMin) }">{{ formatQtimeDays(process.avgQtimeMin) }}</dd>
+        </div>
+        <div>
           <dt>가용 장비율</dt>
           <dd>{{ formatRatioPercent(process.avgAvailableToolRatio) }}</dd>
         </div>
-        <div>
-          <dt>Setup</dt>
-          <dd>{{ formatRatioPercent(process.setupRatio) }}</dd>
-        </div>
-        <div>
+        <div v-if="process.bottleneckToolGroupCount > 0">
           <dt>병목 TG</dt>
-          <dd :class="{ 'mes-process-kpi-cards__metric-danger': process.bottleneckToolGroupCount > 0 }">
-            {{ process.bottleneckToolGroupCount > 0 ? `${formatNumber(process.bottleneckToolGroupCount)}개` : '-' }}
-          </dd>
+          <dd class="mes-process-kpi-cards__metric-danger">{{ formatNumber(process.bottleneckToolGroupCount) }}개</dd>
         </div>
       </dl>
 
@@ -239,12 +207,6 @@ function getQtimeBarWidth(qtimeMin: number | null): string {
   grid-template-columns: 5.5em 1fr auto;
   align-items: center;
   gap: var(--space-2);
-}
-
-.mes-process-kpi-cards__bar-divider {
-  height: 1px;
-  background: var(--color-border-subtle);
-  margin: var(--space-1) 0;
 }
 
 .mes-process-kpi-cards__bar-row span {

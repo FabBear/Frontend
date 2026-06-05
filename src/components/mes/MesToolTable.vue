@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { MES_TOOL_STATUS_META } from '@/constants/mes';
+
 import type { MesToolMetric } from '@/types/mes';
 
 import MesToolStatusBadge from '@/components/mes/MesToolStatusBadge.vue';
@@ -10,6 +12,10 @@ interface Props {
 }
 
 defineProps<Props>();
+
+function getToolAccentColor(tool: MesToolMetric): string {
+  return MES_TOOL_STATUS_META[tool.status].color;
+}
 </script>
 
 <template>
@@ -21,7 +27,7 @@ defineProps<Props>();
           <th>상태</th>
           <th>가동률</th>
           <th>OEE 추정</th>
-          <th>Down 비율</th>
+          <th>정비 비율</th>
           <th>Q-time</th>
           <th>대기 Lot</th>
           <th>Setup 비율</th>
@@ -33,9 +39,11 @@ defineProps<Props>();
           <td>
             <MesToolStatusBadge :status="tool.status" />
           </td>
-          <td>{{ formatRatioPercent(tool.utilizationRate) }}</td>
+          <td :style="{ color: getToolAccentColor(tool), fontWeight: 'var(--font-weight-semibold)' }">
+            {{ formatRatioPercent(tool.utilizationRate) }}
+          </td>
           <td>{{ tool.oeeEstimate === null ? '-' : formatRatioPercent(tool.oeeEstimate) }}</td>
-          <td :style="{ color: tool.downRatio > 0.05 ? 'var(--color-status-danger)' : undefined }">
+          <td :style="{ color: tool.status === 'DOWN' ? MES_TOOL_STATUS_META.DOWN.color : undefined }">
             {{ formatRatioPercent(tool.downRatio) }}
           </td>
           <td>{{ formatQtimeDays(tool.avgQtimeMin) }}</td>

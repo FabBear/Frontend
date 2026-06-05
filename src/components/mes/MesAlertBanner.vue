@@ -52,7 +52,7 @@ const alerts = computed<Alert[]>(() => {
   if (downTools.length > 0) {
     result.push({
       level: 'danger',
-      message: `Down Tool ${downTools.length}대 발생`,
+      message: `정비 Tool ${downTools.length}대 발생`,
       action: 'navigateToDownTools',
     });
   }

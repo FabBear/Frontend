@@ -17,7 +17,7 @@ const props = withDefaults(defineProps<Props>(), {
   hideZero: false,
 });
 
-const STATUS_ORDER: MesToolStatus[] = ['RUN', 'IDLE', 'SETUP', 'DOWN'];
+const STATUS_ORDER: MesToolStatus[] = ['RUN', 'IDLE', 'DOWN'];
 const visibleStatuses = computed(() =>
   props.hideZero ? STATUS_ORDER.filter((status) => getStatusCount(props.summary, status) > 0) : STATUS_ORDER
 );

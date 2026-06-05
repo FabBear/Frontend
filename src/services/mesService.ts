@@ -1,27 +1,33 @@
 import api from '@/services/api';
 
 import { getMesSemiconductorProcessCode, getProcessAreaNameKo } from '@/constants/processArea';
+import { RISK_LEVEL_META, riskGradeToLevel } from '@/constants/riskLevel';
 
 import type {
+  MesFabSummary,
   MesKpiCard,
   MesMonitoringData,
   MesProcessSummary,
   MesRealtimePayload,
+  MesRealtimeProcessSummary,
   MesRealtimeTool,
   MesRealtimeToolGroup,
+  MesRealtimeToolStatusSummary,
   MesRiskGrade,
   MesToolGroupMetric,
   MesToolMetric,
-  MesToolStatus,
+  MesToolStatusSummary,
   MesTrendSeries,
 } from '@/types/mes';
 
 import { formatKoMonthDayTime, formatNumber, formatQtimeDays, formatRatioPercent } from '@/utils/format';
-import { average } from '@/utils/mesMetrics';
 
 const MES_STREAM_PATH = '/v1/monitoring/mes/stream';
 const MES_CURRENT_PATH = '/v1/monitoring/mes/current';
 const UTILIZATION_COLORS = ['--color-chart-blue', '--color-chart-violet', '--color-risk-high'];
+
+const DEFAULT_STATUS_SUMMARY: MesToolStatusSummary = { RUN: 0, IDLE: 0, SETUP: 0, DOWN: 0 };
+const DEFAULT_RISK_COUNTS: Record<MesRiskGrade, number> = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
 
 function normalizeNumber(value: number | null | undefined): number | null {
   return value == null ? null : value;
@@ -39,18 +45,17 @@ function normalizeRiskGrade(value: MesRiskGrade | null | undefined, utilizationR
   return 'LOW';
 }
 
-function deriveToolStatus(tool: MesRealtimeTool): MesToolStatus {
-  if (tool.status) return tool.status;
-  if ((tool.downRatio ?? 0) > 0.05) return 'DOWN';
-  if ((tool.setupRatio ?? 0) > 0.05) return 'SETUP';
-  if ((tool.utilizationRate ?? 0) >= 0.5) return 'RUN';
-  return 'IDLE';
+function compareRiskGrade(a: MesRiskGrade, b: MesRiskGrade): number {
+  return RISK_LEVEL_META[riskGradeToLevel(a)].sortOrder - RISK_LEVEL_META[riskGradeToLevel(b)].sortOrder;
+}
+
+function normalizeStatusSummary(value: MesRealtimeToolStatusSummary | null | undefined): MesToolStatusSummary {
+  return { ...DEFAULT_STATUS_SUMMARY, ...value };
 }
 
 function toSimulationDay(simulationTime: string): number {
   const date = new Date(simulationTime);
   if (Number.isNaN(date.getTime())) return 0;
-
   const startOfYear = Date.UTC(date.getUTCFullYear(), 0, 1);
   return Math.floor((date.getTime() - startOfYear) / (1000 * 60 * 60 * 24));
 }
@@ -64,13 +69,13 @@ function toToolGroupMetric(toolGroup: MesRealtimeToolGroup): MesToolGroupMetric 
     tgId: toolGroup.tgId,
     tgCode: toolGroup.tgCode,
     tgName: toolGroup.tgName || toolGroup.tgCode,
-    areaId: `area-${areaCode.toLowerCase().replaceAll('_', '-')}`,
+    areaId: toolGroup.areaId,
     areaCode,
     areaName: areaCode,
     areaNameKo: getProcessAreaNameKo(areaCode),
     sourceAreaCode,
     sourceAreaNameKo: getProcessAreaNameKo(sourceAreaCode),
-    toolCount: 0,
+    toolCount: normalizeCount(toolGroup.toolCount),
     utilizationRate,
     availableToolRatio: normalizeNumber(toolGroup.availableToolRatio) ?? 0,
     wipCount: normalizeCount(toolGroup.wipCount),
@@ -80,6 +85,8 @@ function toToolGroupMetric(toolGroup: MesRealtimeToolGroup): MesToolGroupMetric 
     bottleneckProb: normalizeNumber(toolGroup.bottleneckProb) ?? 0,
     riskGrade: normalizeRiskGrade(toolGroup.riskGrade, utilizationRate),
     measuredAt: toolGroup.measuredAt,
+    statusSummary: normalizeStatusSummary(toolGroup.statusSummary),
+    oeeEstimate: normalizeNumber(toolGroup.oeeEstimate),
   };
 }
 
@@ -98,47 +105,159 @@ function toToolMetric(tool: MesRealtimeTool, toolGroupById: Map<string, MesToolG
     queueLotCount: normalizeCount(tool.queueLotCount),
     setupRatio: normalizeNumber(tool.setupRatio) ?? 0,
     downRatio: normalizeNumber(tool.downRatio) ?? 0,
-    status: deriveToolStatus(tool),
-    lastDispatchAt: null,
+    status: tool.status ?? 'IDLE',
+    lastDispatchAt: tool.lastDispatchAt ?? null,
     measuredAt: tool.measuredAt,
   };
 }
 
-function createProcessSummaries(toolGroups: MesToolGroupMetric[]): MesProcessSummary[] {
-  const groups = toolGroups.reduce<Record<string, MesToolGroupMetric[]>>((acc, toolGroup) => {
-    acc[toolGroup.areaCode] ??= [];
-    acc[toolGroup.areaCode].push(toolGroup);
-    return acc;
-  }, {});
+function toProcessSummary(raw: MesRealtimeProcessSummary, toolGroups: MesToolGroupMetric[]): MesProcessSummary {
+  const areaCode = getMesSemiconductorProcessCode(raw.areaCode);
+  const areaToolGroups = toolGroups.filter((tg) => tg.sourceAreaCode === raw.areaCode);
+  const sourceAreaCodes = [...new Set([raw.areaCode, ...areaToolGroups.map((tg) => tg.sourceAreaCode)])];
 
-  return Object.entries(groups).map(([areaCode, areaToolGroups]) => {
-    const maxUtilizationRate = Math.max(...areaToolGroups.map((toolGroup) => toolGroup.utilizationRate));
-    const qtimeValues = areaToolGroups.map((toolGroup) => toolGroup.avgQtimeMin).filter((value) => value != null);
+  const avgUtilizationRate = normalizeNumber(raw.avgUtilizationRate) ?? 0;
+  const maxUtilizationRate = normalizeNumber(raw.maxUtilizationRate) ?? 0;
+  const riskCounts: Record<MesRiskGrade, number> = raw.riskCounts
+    ? { ...DEFAULT_RISK_COUNTS, ...raw.riskCounts }
+    : { ...DEFAULT_RISK_COUNTS };
+
+  return {
+    areaId: raw.areaId,
+    areaCode,
+    areaName: raw.areaName,
+    areaNameKo: getProcessAreaNameKo(areaCode),
+    sourceAreaCodes,
+    toolGroupCount: raw.toolGroupCount,
+    toolCount: raw.toolCount,
+    avgUtilizationRate,
+    maxUtilizationRate,
+    wipCount: normalizeCount(raw.wipCount),
+    avgQtimeMin: normalizeNumber(raw.avgQtimeMin),
+    maxQtimeMin: normalizeNumber(raw.maxQtimeMin),
+    setupRatio: normalizeNumber(raw.setupRatio) ?? 0,
+    bottleneckToolGroupCount: normalizeCount(raw.bottleneckToolGroupCount),
+    avgAvailableToolRatio: normalizeNumber(raw.avgAvailableToolRatio) ?? 0,
+    riskGrade: normalizeRiskGrade(raw.riskGrade, maxUtilizationRate),
+    oeeEstimate: normalizeNumber(raw.oeeEstimate),
+    riskCounts,
+  };
+}
+
+function weightedAverage(
+  values: MesProcessSummary[],
+  getValue: (summary: MesProcessSummary) => number | null,
+  getWeight: (summary: MesProcessSummary) => number
+): number | null {
+  let totalWeight = 0;
+  let totalValue = 0;
+
+  values.forEach((summary) => {
+    const value = getValue(summary);
+    if (value === null) return;
+
+    const weight = getWeight(summary);
+    if (weight <= 0) return;
+
+    totalWeight += weight;
+    totalValue += value * weight;
+  });
+
+  return totalWeight === 0 ? null : totalValue / totalWeight;
+}
+
+function sumRiskCounts(summaries: MesProcessSummary[]): Record<MesRiskGrade, number> {
+  return summaries.reduce<Record<MesRiskGrade, number>>(
+    (acc, summary) => {
+      (Object.keys(DEFAULT_RISK_COUNTS) as MesRiskGrade[]).forEach((grade) => {
+        acc[grade] += summary.riskCounts[grade] ?? 0;
+      });
+      return acc;
+    },
+    { ...DEFAULT_RISK_COUNTS }
+  );
+}
+
+function mergeProcessSummaries(summaries: MesProcessSummary[]): MesProcessSummary[] {
+  const grouped = summaries.reduce<Map<string, MesProcessSummary[]>>((acc, summary) => {
+    const current = acc.get(summary.areaCode) ?? [];
+    current.push(summary);
+    acc.set(summary.areaCode, current);
+    return acc;
+  }, new Map());
+
+  return [...grouped.entries()].map(([areaCode, group]) => {
+    if (group.length === 1) return group[0];
+
+    const base = group[0];
+    const toolGroupCount = group.reduce((sum, summary) => sum + summary.toolGroupCount, 0);
+    const toolCount = group.reduce((sum, summary) => sum + summary.toolCount, 0);
+    const riskCounts = sumRiskCounts(group);
+    const maxUtilizationRate = Math.max(...group.map((summary) => summary.maxUtilizationRate));
+    const highestRiskGrade = [...group].map((summary) => summary.riskGrade).sort(compareRiskGrade)[0];
 
     return {
-      areaId: `area-${areaCode.toLowerCase().replaceAll('_', '-')}`,
+      ...base,
+      areaId: areaCode,
       areaCode,
       areaName: areaCode,
       areaNameKo: getProcessAreaNameKo(areaCode),
-      sourceAreaCodes: [...new Set(areaToolGroups.map((toolGroup) => toolGroup.sourceAreaCode))],
-      toolGroupCount: areaToolGroups.length,
-      toolCount: areaToolGroups.reduce((sum, toolGroup) => sum + toolGroup.toolCount, 0),
-      avgUtilizationRate: average(areaToolGroups.map((toolGroup) => toolGroup.utilizationRate)),
+      sourceAreaCodes: [...new Set(group.flatMap((summary) => summary.sourceAreaCodes))].sort(),
+      toolGroupCount,
+      toolCount,
+      avgUtilizationRate:
+        weightedAverage(
+          group,
+          (summary) => summary.avgUtilizationRate,
+          (summary) => summary.toolGroupCount
+        ) ?? 0,
       maxUtilizationRate,
-      wipCount: areaToolGroups.reduce((sum, toolGroup) => sum + toolGroup.wipCount, 0),
-      avgQtimeMin: qtimeValues.length > 0 ? average(qtimeValues) : null,
-      maxQtimeMin: qtimeValues.length > 0 ? Math.max(...qtimeValues) : null,
-      setupRatio: average(areaToolGroups.map((toolGroup) => toolGroup.setupRatio)),
-      bottleneckToolGroupCount: areaToolGroups.filter((toolGroup) => toolGroup.bottleneckProb >= 0.5).length,
-      avgAvailableToolRatio: average(areaToolGroups.map((toolGroup) => toolGroup.availableToolRatio)),
-      riskGrade: normalizeRiskGrade(null, maxUtilizationRate),
+      wipCount: group.reduce((sum, summary) => sum + summary.wipCount, 0),
+      avgQtimeMin: weightedAverage(
+        group,
+        (summary) => summary.avgQtimeMin,
+        (summary) => summary.toolGroupCount
+      ),
+      maxQtimeMin: (() => {
+        const vals = group.map((s) => s.maxQtimeMin).filter((v): v is number => v !== null);
+        return vals.length > 0 ? Math.max(...vals) : null;
+      })(),
+      setupRatio:
+        weightedAverage(
+          group,
+          (summary) => summary.setupRatio,
+          (summary) => summary.toolGroupCount
+        ) ?? 0,
+      bottleneckToolGroupCount: group.reduce((sum, summary) => sum + summary.bottleneckToolGroupCount, 0),
+      avgAvailableToolRatio:
+        weightedAverage(
+          group,
+          (summary) => summary.avgAvailableToolRatio,
+          (summary) => summary.toolGroupCount
+        ) ?? 0,
+      riskGrade: highestRiskGrade,
+      oeeEstimate: weightedAverage(
+        group,
+        (summary) => summary.oeeEstimate,
+        (summary) => summary.toolGroupCount
+      ),
+      riskCounts,
     };
   });
 }
 
+function toFabSummary(fab: MesRealtimePayload['fab']): MesFabSummary {
+  return {
+    bottleneckTgCount: normalizeCount(fab?.bottleneckTgCount),
+    criticalTgCount: normalizeCount(fab?.criticalTgCount),
+    highTgCount: normalizeCount(fab?.highTgCount),
+    avgAvailableToolRatio: normalizeNumber(fab?.avgAvailableToolRatio) ?? 0,
+    toolStatusSummary: normalizeStatusSummary(fab?.toolStatusSummary),
+  };
+}
+
 function createKpiCards(payload: MesRealtimePayload): MesKpiCard[] {
   const fab = payload.fab;
-  const summary = payload.summary;
 
   return [
     {
@@ -160,7 +279,7 @@ function createKpiCards(payload: MesRealtimePayload): MesKpiCard[] {
     {
       key: 'bottleneck',
       title: '병목 TG 수',
-      value: `${formatNumber(summary?.bottleneckTgCount ?? null)}개`,
+      value: `${formatNumber(fab?.bottleneckTgCount ?? null)}개`,
       subtitle: '병목 확률 ≥50%',
       tone: 'danger',
     },
@@ -195,28 +314,18 @@ function toTrendValues(points: { value: number | null }[] | undefined): number[]
 
 function createTrendSeries(name: string, values: number[], colorIndex = 0): MesTrendSeries[] {
   if (values.length === 0) return [];
-
-  return [
-    {
-      name,
-      colorToken: UTILIZATION_COLORS[colorIndex % UTILIZATION_COLORS.length],
-      values,
-    },
-  ];
+  return [{ name, colorToken: UTILIZATION_COLORS[colorIndex % UTILIZATION_COLORS.length], values }];
 }
 
 export function mapMesPayload(payload: MesRealtimePayload, isConnected = true): MesMonitoringData {
   const toolGroups = (payload.toolGroups ?? []).map(toToolGroupMetric);
-  const toolGroupById = new Map(toolGroups.map((toolGroup) => [toolGroup.tgId, toolGroup]));
+  const toolGroupById = new Map(toolGroups.map((tg) => [tg.tgId, tg]));
   const tools = (payload.tools ?? []).map((tool) => toToolMetric(tool, toolGroupById));
-  const toolCountByTgId = tools.reduce<Record<string, number>>((acc, tool) => {
-    acc[tool.tgId] = (acc[tool.tgId] ?? 0) + 1;
-    return acc;
-  }, {});
-  const normalizedToolGroups = toolGroups.map((toolGroup) => ({
-    ...toolGroup,
-    toolCount: toolCountByTgId[toolGroup.tgId] ?? 0,
-  }));
+
+  const processSummaries = mergeProcessSummaries(
+    (payload.processSummaries ?? []).map((raw) => toProcessSummary(raw, toolGroups))
+  );
+
   const trendLabels = (payload.trends?.utilization ?? payload.trends?.wip ?? payload.trends?.setupRatio ?? []).map(
     (point) => formatKoMonthDayTime(point.time)
   );
@@ -229,11 +338,12 @@ export function mapMesPayload(payload: MesRealtimePayload, isConnected = true): 
     },
     days: trendLabels,
     kpiCards: createKpiCards(payload),
+    fabSummary: toFabSummary(payload.fab),
     utilizationSeries: createTrendSeries('FAB 평균 가동률', toTrendValues(payload.trends?.utilization), 0),
     wipTrend: toTrendValues(payload.trends?.wip),
     setupSeries: createTrendSeries('평균 Setup 비율', toTrendValues(payload.trends?.setupRatio), 1),
-    processSummaries: createProcessSummaries(normalizedToolGroups),
-    toolGroups: normalizedToolGroups,
+    processSummaries,
+    toolGroups,
     tools,
   };
 }
@@ -291,7 +401,7 @@ export function exportMesCsv(data: MesMonitoringData, type: ExportType): void {
       '평균Q-time(분)',
       '대기Lot',
       'Setup비율(%)',
-      'Down비율(%)',
+      '정비비율(%)',
     ];
     rows = data.tools.map((tool) => [
       tool.toolCode,
@@ -321,7 +431,6 @@ export function exportMesCsv(data: MesMonitoringData, type: ExportType): void {
   }
 
   const csv = [headers, ...rows].map((row) => row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(',')).join('\n');
-
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

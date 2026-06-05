@@ -99,6 +99,7 @@ export function getProcessAreaAxisLabel(areaCode: string, nameKo: string): strin
 }
 
 export function getMesSemiconductorProcessCode(sourceAreaCode: string, toolGroupCode?: string): string {
+  if (SEMICONDUCTOR_PROCESS_ORDER.includes(sourceAreaCode)) return sourceAreaCode;
   if (toolGroupCode?.startsWith('EPI_')) return 'ION_IMPLANT';
 
   return MES_SOURCE_TO_SEMICONDUCTOR_PROCESS[sourceAreaCode] ?? 'BUFFER';

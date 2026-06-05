@@ -5,6 +5,7 @@ export type MesRiskGrade = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
 export type MesToolStatus = 'RUN' | 'IDLE' | 'SETUP' | 'DOWN';
 export type MesToolViewMode = 'card' | 'table';
 export type MesToolStatusSummary = Record<MesToolStatus, number>;
+export type MesRealtimeToolStatusSummary = Partial<MesToolStatusSummary>;
 
 export interface MesSnapshot {
   measuredAt: string;
@@ -35,6 +36,8 @@ export interface MesProcessSummary {
   bottleneckToolGroupCount: number;
   avgAvailableToolRatio: number;
   riskGrade: MesRiskGrade;
+  oeeEstimate: number | null;
+  riskCounts: Record<MesRiskGrade, number>;
 }
 
 export interface MesToolGroupMetric {
@@ -57,6 +60,8 @@ export interface MesToolGroupMetric {
   bottleneckProb: number;
   riskGrade: MesRiskGrade;
   measuredAt: string;
+  statusSummary: MesToolStatusSummary;
+  oeeEstimate: number | null;
 }
 
 export interface MesToolMetric {
@@ -72,8 +77,16 @@ export interface MesToolMetric {
   setupRatio: number;
   downRatio: number;
   status: MesToolStatus;
-  lastDispatchAt?: string | null;
+  lastDispatchAt: string | null;
   measuredAt: string;
+}
+
+export interface MesFabSummary {
+  bottleneckTgCount: number;
+  criticalTgCount: number;
+  highTgCount: number;
+  avgAvailableToolRatio: number;
+  toolStatusSummary: MesToolStatusSummary;
 }
 
 export interface MesKpiCard {
@@ -93,6 +106,7 @@ export interface MesMonitoringData {
   snapshot: MesSnapshot;
   days: string[];
   kpiCards: MesKpiCard[];
+  fabSummary: MesFabSummary;
   utilizationSeries: MesTrendSeries[];
   wipTrend: number[];
   setupSeries: MesTrendSeries[];
@@ -106,11 +120,12 @@ export interface MesTabOption {
   label: string;
 }
 
+// ── API 응답 타입 ─────────────────────────────────────────────
+
 export interface MesRealtimePayload {
   simulationTime: string;
   fab: MesRealtimeFab | null;
-  summary: MesRealtimeSummary | null;
-  areas: MesRealtimeArea[];
+  processSummaries: MesRealtimeProcessSummary[];
   toolGroups: MesRealtimeToolGroup[];
   tools: MesRealtimeTool[];
   trends: MesRealtimeTrends | null;
@@ -128,25 +143,30 @@ export interface MesRealtimeFab {
   tatMin: number | null;
   throughput24h: number | null;
   deliveryCompliance: number | null;
-}
-
-export interface MesRealtimeSummary {
-  totalWipCount: number | null;
-  avgUtilizationRate: number | null;
-  tatMin: number | null;
   bottleneckTgCount: number | null;
-  throughput24h: number | null;
-  deliveryCompliance: number | null;
+  criticalTgCount: number | null;
+  highTgCount: number | null;
+  avgAvailableToolRatio: number | null;
+  toolStatusSummary: MesRealtimeToolStatusSummary | null;
 }
 
-export interface MesRealtimeArea {
+export interface MesRealtimeProcessSummary {
   areaId: string;
   areaCode: string;
   areaName: string;
   toolGroupCount: number;
-  bottleneckTgCount: number;
+  toolCount: number;
   avgUtilizationRate: number | null;
+  maxUtilizationRate: number | null;
   wipCount: number | null;
+  avgQtimeMin: number | null;
+  maxQtimeMin: number | null;
+  setupRatio: number | null;
+  avgAvailableToolRatio: number | null;
+  bottleneckToolGroupCount: number | null;
+  riskGrade: MesRiskGrade | null;
+  oeeEstimate: number | null;
+  riskCounts: Partial<Record<MesRiskGrade, number>> | null;
 }
 
 export interface MesRealtimeToolGroup {
@@ -165,6 +185,9 @@ export interface MesRealtimeToolGroup {
   waitRatio: number | null;
   bottleneckProb: number | null;
   riskGrade: MesRiskGrade | null;
+  toolCount: number | null;
+  statusSummary: MesRealtimeToolStatusSummary | null;
+  oeeEstimate: number | null;
 }
 
 export interface MesRealtimeTool {
@@ -179,7 +202,8 @@ export interface MesRealtimeTool {
   queueLotCount: number | null;
   setupRatio: number | null;
   downRatio: number | null;
-  status?: MesToolStatus | null;
+  status: MesToolStatus;
+  lastDispatchAt: string | null;
 }
 
 export interface MesRealtimeTrendPoint {

@@ -6,7 +6,7 @@ import { RISK_LEVEL_META } from '@/constants/riskLevel';
 import type { MesProcessSummary } from '@/types/mes';
 
 import { formatNumber, formatQtimeDays, formatRatioPercent } from '@/utils/format';
-import { calculateMesOeeEstimate, getMesQtimeColor } from '@/utils/mesMetrics';
+import { getMesQtimeColor } from '@/utils/mesMetrics';
 
 interface Props {
   processSummaries: MesProcessSummary[];
@@ -17,10 +17,6 @@ defineProps<Props>();
 const emit = defineEmits<{
   selectProcess: [areaCode: string];
 }>();
-
-function getOee(process: MesProcessSummary) {
-  return calculateMesOeeEstimate(process.avgUtilizationRate, process.setupRatio);
-}
 
 function getRiskMeta(process: MesProcessSummary) {
   return RISK_LEVEL_META[toMesRiskLevel(process.riskGrade)];
@@ -34,17 +30,15 @@ function getRiskMeta(process: MesProcessSummary) {
         <thead>
           <tr>
             <th>공정</th>
-            <th>TG 수</th>
-            <th>평균 가동률</th>
-            <th>최대 가동률</th>
-            <th>OEE 추정</th>
-            <th>평균 Q-time</th>
-            <th>최대 Q-time</th>
-            <th>WIP Lot</th>
-            <th>Setup</th>
-            <th>병목 TG</th>
-            <th>가용 장비율</th>
             <th>상태</th>
+            <th>최대 가동률</th>
+            <th>평균 가동률</th>
+            <th>WIP Lot</th>
+            <th>최대 Q-time</th>
+            <th>평균 Q-time</th>
+            <th>TG 수</th>
+            <th>장비 수</th>
+            <th>가용 장비율</th>
           </tr>
         </thead>
         <tbody>
@@ -59,20 +53,6 @@ function getRiskMeta(process: MesProcessSummary) {
               <strong>{{ process.areaNameKo }}</strong>
               <span>{{ process.areaCode }}</span>
             </td>
-            <td>{{ formatNumber(process.toolGroupCount) }}</td>
-            <td>{{ formatRatioPercent(process.avgUtilizationRate) }}</td>
-            <td>{{ formatRatioPercent(process.maxUtilizationRate) }}</td>
-            <td>{{ formatRatioPercent(getOee(process)) }}</td>
-            <td>{{ formatQtimeDays(process.avgQtimeMin) }}</td>
-            <td :style="{ color: getMesQtimeColor(process.maxQtimeMin) }">
-              {{ formatQtimeDays(process.maxQtimeMin) }}
-            </td>
-            <td>{{ formatNumber(process.wipCount) }}</td>
-            <td>{{ formatRatioPercent(process.setupRatio) }}</td>
-            <td>
-              {{ process.bottleneckToolGroupCount > 0 ? `${formatNumber(process.bottleneckToolGroupCount)}개` : '-' }}
-            </td>
-            <td>{{ formatRatioPercent(process.avgAvailableToolRatio) }}</td>
             <td>
               <span
                 class="mes-process-kpi-table__chip"
@@ -81,6 +61,16 @@ function getRiskMeta(process: MesProcessSummary) {
                 {{ getRiskMeta(process).label }}
               </span>
             </td>
+            <td>{{ formatRatioPercent(process.maxUtilizationRate) }}</td>
+            <td>{{ formatRatioPercent(process.avgUtilizationRate) }}</td>
+            <td>{{ formatNumber(process.wipCount) }}</td>
+            <td :style="{ color: getMesQtimeColor(process.maxQtimeMin) }">
+              {{ formatQtimeDays(process.maxQtimeMin) }}
+            </td>
+            <td>{{ formatQtimeDays(process.avgQtimeMin) }}</td>
+            <td>{{ formatNumber(process.toolGroupCount) }}</td>
+            <td>{{ formatNumber(process.toolCount) }}</td>
+            <td>{{ formatRatioPercent(process.avgAvailableToolRatio) }}</td>
           </tr>
         </tbody>
       </table>
@@ -103,7 +93,7 @@ function getRiskMeta(process: MesProcessSummary) {
 
 .mes-process-kpi-table__table {
   width: 100%;
-  min-width: 980px;
+  min-width: 760px;
   border-collapse: collapse;
 }
 

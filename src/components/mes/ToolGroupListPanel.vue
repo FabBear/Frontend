@@ -77,7 +77,7 @@ function getRiskFilterColor(value: MesRiskGrade | 'ALL') {
             toolStatusFilter === 'DOWN' ? emit('clear-tool-status-filter') : emit('set-tool-status-filter', 'DOWN')
           "
         >
-          Down 보유
+          정비 보유
         </button>
       </div>
 
@@ -217,24 +217,32 @@ function getRiskFilterColor(value: MesRiskGrade | 'ALL') {
   overflow-y: auto;
   max-height: 560px;
   padding: var(--space-2);
+  display: grid;
+  gap: var(--space-2);
 }
 
 .tool-group-list-panel__item {
   display: grid;
   gap: var(--space-1);
   width: 100%;
-  border: var(--border-width-default) solid transparent;
+  border: var(--border-width-default) solid var(--color-border-default);
   border-radius: var(--radius-md);
-  background: transparent;
+  background: var(--color-bg-surface);
   padding: var(--space-2) var(--space-2);
   cursor: pointer;
   text-align: left;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
-.tool-group-list-panel__item:hover,
+.tool-group-list-panel__item:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-bg-card);
+}
+
 .tool-group-list-panel__item--selected {
   border-color: var(--color-action-primary-border);
   background: var(--color-action-primary-soft);
+  box-shadow: inset 3px 0 0 var(--color-action-primary);
 }
 
 .tool-group-list-panel__item-top {
@@ -279,9 +287,9 @@ function getRiskFilterColor(value: MesRiskGrade | 'ALL') {
 }
 
 .tool-group-list-panel__status-chip--active {
-  border-color: var(--color-status-danger);
-  background: color-mix(in srgb, var(--color-status-danger) 10%, transparent);
-  color: var(--color-status-danger);
+  border-color: var(--color-status-down);
+  background: var(--color-status-down-soft);
+  color: var(--color-status-down);
   font-weight: var(--font-weight-semibold);
 }
 

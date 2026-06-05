@@ -170,7 +170,6 @@ const qtimeChart = computed(() => {
       <MesProcessKpiCards
         v-else
         :process-summaries="sortedProcesses"
-        :tool-groups="data.toolGroups"
         @select-process="emit('navigateToProcess', $event)"
       />
     </section>

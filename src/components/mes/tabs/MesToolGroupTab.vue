@@ -19,7 +19,6 @@ import ToolGroupDetailPanel from '@/components/mes/ToolGroupDetailPanel.vue';
 import ToolGroupListPanel from '@/components/mes/ToolGroupListPanel.vue';
 
 import { formatNumber, formatRatioPercent } from '@/utils/format';
-import { average, createMesToolStatusSummary } from '@/utils/mesMetrics';
 
 interface Props {
   data: MesMonitoringData;
@@ -49,18 +48,12 @@ const emit = defineEmits<{
 
 const tgSearch = ref('');
 
-const toolStatusSummaries = computed<Record<string, MesToolStatusSummary>>(() => {
-  const toolsByTgId = props.data.tools.reduce<Record<string, MesToolMetric[]>>((groups, tool) => {
-    groups[tool.tgId] ??= [];
-    groups[tool.tgId].push(tool);
-    return groups;
-  }, {});
-
-  return props.data.toolGroups.reduce<Record<string, MesToolStatusSummary>>((summaries, toolGroup) => {
-    summaries[toolGroup.tgId] = createMesToolStatusSummary(toolsByTgId[toolGroup.tgId] ?? []);
-    return summaries;
-  }, {});
-});
+const toolStatusSummaries = computed<Record<string, MesToolStatusSummary>>(() =>
+  props.data.toolGroups.reduce<Record<string, MesToolStatusSummary>>((acc, tg) => {
+    acc[tg.tgId] = tg.statusSummary;
+    return acc;
+  }, {})
+);
 
 const areaOptions = computed(() =>
   [...props.data.processSummaries]
@@ -85,41 +78,38 @@ const filteredToolGroups = computed(() => {
 });
 
 const summaryCards = computed<MesKpiCard[]>(() => {
+  const { criticalTgCount, highTgCount, toolStatusSummary, avgAvailableToolRatio } = props.data.fabSummary;
   const tgs = props.data.toolGroups;
-  const statusSummary = createMesToolStatusSummary(props.data.tools);
-  const criticalCount = tgs.filter((tg) => tg.utilizationRate >= 0.9).length;
-  const highCount = tgs.filter((tg) => tg.utilizationRate >= 0.85 && tg.utilizationRate < 0.9).length;
-  const avgAvailRatio = average(tgs.map((tg) => tg.availableToolRatio));
 
   return [
     {
       key: 'tg-critical',
       title: 'Critical TG',
-      value: `${formatNumber(criticalCount)}개`,
+      value: `${formatNumber(criticalTgCount)}개`,
       subtitle: '가동률 ≥90%',
       tone: 'critical',
-      onClick: criticalCount > 0 ? props.onCriticalClick : undefined,
+      onClick: criticalTgCount > 0 ? props.onCriticalClick : undefined,
     },
     {
       key: 'tg-high',
       title: 'High TG',
-      value: `${formatNumber(highCount)}개`,
+      value: `${formatNumber(highTgCount)}개`,
       subtitle: '가동률 85~90%',
       tone: 'high',
-      onClick: highCount > 0 ? props.onHighClick : undefined,
+      onClick: highTgCount > 0 ? props.onHighClick : undefined,
     },
     {
       key: 'tool-down',
-      title: 'Down Tool',
-      value: `${formatNumber(statusSummary.DOWN)}대`,
-      subtitle: `Setup ${formatNumber(statusSummary.SETUP)}대 포함 시 ${formatNumber(statusSummary.DOWN + statusSummary.SETUP)}대`,
-      tone: statusSummary.DOWN > 0 ? 'danger' : undefined,
-      onClick: statusSummary.DOWN > 0 ? props.onDownToolClick : undefined,
+      title: '정비 Tool',
+      value: `${formatNumber(toolStatusSummary.DOWN)}대`,
+      subtitle: '상태 원천 가동/대기/정비',
+      tone: toolStatusSummary.DOWN > 0 ? 'danger' : undefined,
+      onClick: toolStatusSummary.DOWN > 0 ? props.onDownToolClick : undefined,
     },
     {
       key: 'tg-avail',
       title: '평균 가용 장비율',
-      value: formatRatioPercent(avgAvailRatio),
+      value: formatRatioPercent(avgAvailableToolRatio),
       subtitle: 'TG 평균 available ratio',
     },
     {

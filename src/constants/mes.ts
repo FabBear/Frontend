@@ -36,7 +36,7 @@ export const MES_TOOL_STATUS_META: Record<MesToolStatus, { label: string; color:
   },
   DOWN: {
     label: '정비',
-    color: 'var(--color-status-danger)',
-    background: 'var(--color-bg-surface)',
+    color: 'var(--color-status-down)',
+    background: 'var(--color-status-down-soft)',
   },
 };

@@ -156,7 +156,9 @@ function weightedAverage(
     const value = getValue(summary);
     if (value === null) return;
 
-    const weight = Math.max(1, getWeight(summary));
+    const weight = getWeight(summary);
+    if (weight <= 0) return;
+
     totalWeight += weight;
     totalValue += value * weight;
   });

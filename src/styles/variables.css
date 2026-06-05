@@ -20,9 +20,11 @@
   --color-focus-ring: rgba(159, 103, 49, 0.34);
 
   --color-success: #15803d;
-  --color-success-soft: rgba(21, 128, 61, 0.14);
+  --color-success-soft: #f6fff9;
   --color-warning: #ff8800;
-  --color-warning-soft: rgba(245, 158, 11, 0.16);
+  --color-warning-soft: #fef6ed;
+  --color-down: #374151;
+  --color-down-soft: #f3f4f6;
   --color-danger: #c53030;
   --color-info: #8a5528;
   --color-muted: #687385;
@@ -48,6 +50,8 @@
   --color-status-warning-soft: var(--color-warning-soft);
   --color-status-danger: var(--color-danger);
   --color-status-info: var(--color-info);
+  --color-status-down: var(--color-down);
+  --color-status-down-soft: var(--color-down-soft);
   --color-state-hover: var(--color-row-hover);
   --color-state-selected-bg: var(--color-primary-soft);
   --color-state-selected-border: var(--color-primary-border);
@@ -56,9 +60,13 @@
   --opacity-disabled: 0.45;
 
   --color-risk-critical: #c00000;
+  --color-risk-critical-soft: #fff1f1;
   --color-risk-high: #ed7d31;
+  --color-risk-high-soft: #fff4ec;
   --color-risk-medium: #f2bd1f;
+  --color-risk-medium-soft: #fff8e1;
   --color-risk-low: #70ad47;
+  --color-risk-low-soft: #f1f8ed;
 
   --color-chart-blue: #4a90d9;
   --color-chart-violet: #8b65c8;

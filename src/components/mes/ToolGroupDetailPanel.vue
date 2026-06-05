@@ -30,7 +30,6 @@ const TOOL_STATUS_FILTERS: Array<{ value: MesToolStatus | 'ALL'; label: string }
   { value: 'ALL', label: '전체' },
   { value: 'RUN', label: MES_TOOL_STATUS_META.RUN.label },
   { value: 'IDLE', label: MES_TOOL_STATUS_META.IDLE.label },
-  { value: 'SETUP', label: MES_TOOL_STATUS_META.SETUP.label },
   { value: 'DOWN', label: MES_TOOL_STATUS_META.DOWN.label },
 ];
 

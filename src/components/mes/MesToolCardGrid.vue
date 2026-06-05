@@ -1,27 +1,38 @@
 <script setup lang="ts">
+import { MES_TOOL_STATUS_META } from '@/constants/mes';
+
 import type { MesToolMetric } from '@/types/mes';
 
 import MesMetricBar from '@/components/mes/MesMetricBar.vue';
 import MesToolStatusBadge from '@/components/mes/MesToolStatusBadge.vue';
 
-import { formatQtimeDays, formatRatioPercent } from '@/utils/format';
-import { getMesQtimeColor, getMesQueueColor, getMesUtilizationColor } from '@/utils/mesMetrics';
+import { formatMesDispatchAt, formatQtimeDays, formatRatioPercent } from '@/utils/format';
+import { getMesQtimeColor, getMesQueueColor } from '@/utils/mesMetrics';
 
 interface Props {
   tools: MesToolMetric[];
 }
 
 defineProps<Props>();
+
+function getToolAccentColor(tool: MesToolMetric): string {
+  return MES_TOOL_STATUS_META[tool.status].color;
+}
+
+function getToolCardStyle(tool: MesToolMetric) {
+  const meta = MES_TOOL_STATUS_META[tool.status];
+
+  return {
+    borderColor: `color-mix(in srgb, ${meta.color} 28%, var(--color-border-default))`,
+    borderTopColor: meta.color,
+    backgroundColor: meta.background,
+  };
+}
 </script>
 
 <template>
   <div class="mes-tool-card-grid">
-    <article
-      v-for="tool in tools"
-      :key="tool.toolId"
-      class="mes-tool-card-grid__card"
-      :style="{ borderTopColor: getMesUtilizationColor(tool.utilizationRate) }"
-    >
+    <article v-for="tool in tools" :key="tool.toolId" class="mes-tool-card-grid__card" :style="getToolCardStyle(tool)">
       <header>
         <strong>{{ tool.toolCode }}</strong>
         <MesToolStatusBadge :status="tool.status" />
@@ -30,7 +41,7 @@ defineProps<Props>();
         class="mes-tool-card-grid__util"
         label="가동률"
         :value="tool.utilizationRate"
-        :color="getMesUtilizationColor(tool.utilizationRate)"
+        :color="getToolAccentColor(tool)"
       >
         {{ formatRatioPercent(tool.utilizationRate) }}
       </MesMetricBar>
@@ -42,8 +53,8 @@ defineProps<Props>();
           </dd>
         </div>
         <div>
-          <dt>Down</dt>
-          <dd :style="{ color: tool.downRatio > 0.05 ? 'var(--color-status-danger)' : undefined }">
+          <dt>정비</dt>
+          <dd :style="{ color: tool.status === 'DOWN' ? MES_TOOL_STATUS_META.DOWN.color : undefined }">
             {{ formatRatioPercent(tool.downRatio) }}
           </dd>
         </div>
@@ -60,6 +71,7 @@ defineProps<Props>();
           <dd>{{ formatRatioPercent(tool.setupRatio) }}</dd>
         </div>
       </dl>
+      <p class="mes-tool-card-grid__dispatch">마지막 Dispatch {{ formatMesDispatchAt(tool.lastDispatchAt) }}</p>
     </article>
   </div>
 </template>
@@ -102,12 +114,12 @@ defineProps<Props>();
 }
 
 .mes-tool-card-grid__card dt,
-.mes-tool-card-grid__card p {
+.mes-tool-card-grid__dispatch {
   color: var(--color-fg-muted);
 }
 
 .mes-tool-card-grid__card dl,
-.mes-tool-card-grid__card p {
+.mes-tool-card-grid__dispatch {
   font-size: var(--font-size-xs);
 }
 
@@ -134,9 +146,12 @@ defineProps<Props>();
   color: var(--color-status-info);
 }
 
-.mes-tool-card-grid__card p {
+.mes-tool-card-grid__dispatch {
   margin-top: var(--space-2);
   border-top: var(--border-width-default) solid var(--color-border-default);
   padding-top: var(--space-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

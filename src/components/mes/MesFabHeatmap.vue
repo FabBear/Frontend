@@ -43,6 +43,16 @@ const areas = computed(() => {
   }));
 });
 
+const areaGridTemplateColumns = computed(() =>
+  areas.value
+    .map((item) => {
+      if (item.process.areaCode === 'ETCH') return 'minmax(180px, 1.7fr)';
+      if (item.process.areaCode === 'BUFFER') return 'minmax(76px, 0.55fr)';
+      return 'minmax(104px, 1fr)';
+    })
+    .join(' ')
+);
+
 function updateTooltipPosition(event: MouseEvent | FocusEvent) {
   if ('clientX' in event) {
     tooltipPosition.value = { x: event.clientX + 12, y: event.clientY - 12 };
@@ -70,7 +80,7 @@ function hideTooltip() {
       <span>각 막대 = Tool Group · 높이 = 가동률</span>
     </header>
 
-    <div class="mes-fab-heatmap__strip">
+    <div class="mes-fab-heatmap__strip" :style="{ '--mes-fab-heatmap-columns': areaGridTemplateColumns }">
       <div v-for="item in areas" :key="item.process.areaId" class="mes-fab-heatmap__area">
         <div
           class="mes-fab-heatmap__bars"
@@ -165,7 +175,7 @@ function hideTooltip() {
 
 .mes-fab-heatmap__strip {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  grid-template-columns: var(--mes-fab-heatmap-columns);
   gap: var(--space-2);
   align-items: stretch;
 }
@@ -184,9 +194,7 @@ function hideTooltip() {
   gap: 1px;
   width: 100%;
   height: 104px;
-  /* overflow-x: auto — TG가 많은 공정(35~36개)은 minmax(112px) 셀보다 막대 합산 너비가 커서 스크롤 허용 */
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow: hidden;
   border-bottom: 2px solid;
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   background: var(--color-bg-surface);
@@ -195,8 +203,8 @@ function hideTooltip() {
 }
 
 .mes-fab-heatmap__bar {
-  flex: 1 0 5px;
-  min-width: 5px;
+  flex: 1 1 3px;
+  min-width: 0;
   border: 0;
   border-radius: 1px 1px 0 0;
   outline: none;
@@ -296,5 +304,11 @@ function hideTooltip() {
 .mes-fab-heatmap__tooltip dd {
   color: var(--color-fg-strong);
   font-weight: var(--font-weight-semibold);
+}
+
+@media (max-width: 1100px) {
+  .mes-fab-heatmap__strip {
+    grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  }
 }
 </style>

@@ -18,6 +18,7 @@ import type {
   MesToolGroupMetric,
   MesToolMetric,
   MesToolStatus,
+  MesToolStatusSummary,
   MesTrendSeries,
 } from '@/types/mes';
 
@@ -27,6 +28,8 @@ import { average } from '@/utils/mesMetrics';
 const MES_QUALITY_FACTOR_LABEL = '추정 OEE';
 const SIMULATION_DAY = Math.round(MES_CSV_SNAPSHOT_TIME_MIN / 1440);
 const UTILIZATION_COLORS = ['--color-risk-critical', '--color-risk-high', '--color-risk-medium', '--color-status-info'];
+const DEFAULT_STATUS_SUMMARY: MesToolStatusSummary = { RUN: 0, IDLE: 0, SETUP: 0, DOWN: 0 };
+const DEFAULT_RISK_COUNTS: Record<MesRiskGrade, number> = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
 
 function createAreaId(areaCode: string) {
   return `area-${areaCode.toLowerCase().replaceAll('_', '-').replaceAll('/', '-')}`;
@@ -45,6 +48,10 @@ function getRiskGrade(utilizationRate: number): MesRiskGrade {
   if (utilizationRate >= 0.85) return 'HIGH';
   if (utilizationRate >= 0.7) return 'MEDIUM';
   return 'LOW';
+}
+
+function createOeeEstimate(utilizationRate: number, setupRatio: number): number {
+  return utilizationRate * Math.max(1 - setupRatio, 0.7) * 0.995;
 }
 
 export const MOCK_MES_TOOL_GROUP_METRICS: MesToolGroupMetric[] = MES_CSV_TOOL_GROUP_ROWS.map(
@@ -82,6 +89,8 @@ export const MOCK_MES_TOOL_GROUP_METRICS: MesToolGroupMetric[] = MES_CSV_TOOL_GR
       bottleneckProb,
       riskGrade: getRiskGrade(utilizationRate),
       measuredAt: MES_CSV_MEASURED_AT,
+      statusSummary: { ...DEFAULT_STATUS_SUMMARY },
+      oeeEstimate: createOeeEstimate(utilizationRate, setupRatio),
     };
   }
 );
@@ -138,6 +147,14 @@ export const MOCK_MES_PROCESS_SUMMARIES: MesProcessSummary[] = Object.entries(PR
       bottleneckToolGroupCount: toolGroups.filter((toolGroup) => toolGroup.utilizationRate >= 0.85).length,
       avgAvailableToolRatio: average(toolGroups.map((toolGroup) => toolGroup.availableToolRatio)),
       riskGrade: getRiskGrade(maxUtilizationRate),
+      oeeEstimate: average(toolGroups.map((toolGroup) => toolGroup.oeeEstimate ?? 0)),
+      riskCounts: toolGroups.reduce<Record<MesRiskGrade, number>>(
+        (counts, toolGroup) => {
+          counts[toolGroup.riskGrade] += 1;
+          return counts;
+        },
+        { ...DEFAULT_RISK_COUNTS }
+      ),
     };
   }
 );
@@ -233,6 +250,13 @@ export const MOCK_MES_MONITORING_DATA: MesMonitoringData = {
   },
   days: [...MES_CSV_TREND_LABELS],
   kpiCards: MOCK_MES_KPI_CARDS,
+  fabSummary: {
+    bottleneckTgCount: bottleneckToolGroupCount,
+    criticalTgCount: MOCK_MES_TOOL_GROUP_METRICS.filter((toolGroup) => toolGroup.riskGrade === 'CRITICAL').length,
+    highTgCount: MOCK_MES_TOOL_GROUP_METRICS.filter((toolGroup) => toolGroup.riskGrade === 'HIGH').length,
+    avgAvailableToolRatio: average(MOCK_MES_TOOL_GROUP_METRICS.map((toolGroup) => toolGroup.availableToolRatio)),
+    toolStatusSummary: statusCounts,
+  },
   utilizationSeries: MOCK_MES_UTILIZATION_SERIES,
   wipTrend: MOCK_MES_WIP_TREND,
   setupSeries: MOCK_MES_SETUP_SERIES,

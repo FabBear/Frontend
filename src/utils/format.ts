@@ -21,7 +21,7 @@ export function formatNumber(value: number | null): string {
   return KO_NUMBER_FORMATTER.format(value);
 }
 
-// 0-1 소수 입력 (utilizationRate, setupRatio, waitRatio 등 API 반환값)
+// 0-1 소수 입력 (utilizationRate, setupRatio 등 API 반환값)
 export function formatRatioPercent(value: number | null): string {
   if (value === null) return '-';
   return `${(value * 100).toFixed(1)}%`;

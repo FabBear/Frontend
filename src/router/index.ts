@@ -39,8 +39,8 @@ const router = createRouter({
     },
     {
       path: '/monitoring/machines',
-      name: 'machineMonitoring',
-      component: PlaceholderView,
+      name: ROUTE_NAMES.machineMonitoring,
+      component: () => import('@/views/MachineMonitorView.vue'),
       meta: { title: '장비 모니터링', requiresAuth: true },
     },
     {

@@ -9,6 +9,7 @@ interface Props {
   subtitle?: string;
   note?: string;
   clickable?: boolean;
+  active?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -19,6 +20,7 @@ const props = withDefaults(defineProps<Props>(), {
   subtitle: undefined,
   note: undefined,
   clickable: false,
+  active: false,
 });
 
 const emit = defineEmits<{ click: [] }>();
@@ -53,7 +55,7 @@ function handleClick() {
 <template>
   <article
     class="kpi-card"
-    :class="{ 'kpi-card--clickable': clickable }"
+    :class="{ 'kpi-card--clickable': clickable, 'kpi-card--active': active }"
     :role="clickable ? 'button' : undefined"
     :tabindex="clickable ? 0 : undefined"
     @click="handleClick"
@@ -98,6 +100,12 @@ function handleClick() {
   border-color: var(--color-border-strong);
   background: var(--color-bg-surface);
   outline: none;
+}
+
+.kpi-card--active {
+  border-color: var(--color-action-primary);
+  background: color-mix(in srgb, var(--color-action-primary) 6%, transparent);
+  box-shadow: 0 0 0 1px var(--color-action-primary);
 }
 
 .kpi-card__title {

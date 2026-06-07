@@ -55,7 +55,7 @@ const emit = defineEmits<{
 
 .metric-palette p {
   color: var(--color-fg-muted);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
 }
 
 .metric-palette__chips {
@@ -72,7 +72,7 @@ const emit = defineEmits<{
   padding: 5px 11px;
   color: var(--color-fg-muted);
   cursor: pointer;
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-base);
   font-weight: var(--font-weight-semibold);
 }
 

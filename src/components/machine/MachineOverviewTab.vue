@@ -31,6 +31,7 @@ interface ToolPeriodRow extends MachineEquipmentItem {
   maxQueueLotCount: number;
   avgDownRatio: number;
   issueScore: number;
+  trends: MachineTrendPoint[];
 }
 
 interface ToolGroupPeriodRow extends MachineToolGroupItem {
@@ -218,11 +219,11 @@ function periodTrendPoints(points: MachineTrendPoint[]): MachineTrendPoint[] {
     .map((point) => ({ point, measuredAt: new Date(point.measuredAt) }))
     .filter(({ measuredAt }) => !Number.isNaN(measuredAt.getTime()));
 
-  if (from && to && datedPoints.length === points.length) {
+  if (from && to && datedPoints.length > 0) {
     const filtered = datedPoints
       .filter(({ measuredAt }) => measuredAt >= from && measuredAt <= to)
       .map(({ point }) => point);
-    return filtered.length > 0 ? filtered : points.slice(-1);
+    return filtered.length > 0 ? filtered : datedPoints.slice(-1).map(({ point }) => point);
   }
 
   const limit = fallbackTrendPointLimit(appliedDurationHours.value);
@@ -238,6 +239,7 @@ const toolPeriodRows = computed<ToolPeriodRow[]>(() =>
     const downValues = trends.length ? trends.map((point) => point.downRatio) : [equipment.downRatio];
 
     const avgUtilizationRate = avg(utilValues);
+    const avgOeeEstimate = avgNullable(oeeValues);
     const avgQueueLotCount = avg(queueValues);
     const avgDownRatio = avg(downValues);
     const deltaUtilizationRate = equipment.utilizationRate - avgUtilizationRate;
@@ -245,17 +247,18 @@ const toolPeriodRows = computed<ToolPeriodRow[]>(() =>
       Math.max(-deltaUtilizationRate, 0) * 2 +
       avgDownRatio * 4 +
       avgQueueLotCount * 0.08 +
-      (equipment.oeeEstimate !== null ? Math.max(0.78 - equipment.oeeEstimate, 0) : 0);
+      (avgOeeEstimate !== null ? Math.max(0.78 - avgOeeEstimate, 0) : 0);
 
     return {
       ...equipment,
       avgUtilizationRate,
       deltaUtilizationRate,
-      avgOeeEstimate: avgNullable(oeeValues),
+      avgOeeEstimate,
       avgQueueLotCount,
       maxQueueLotCount: max(queueValues),
       avgDownRatio,
       issueScore,
+      trends,
     };
   })
 );
@@ -349,8 +352,7 @@ function formatProcessLabel(areaCode: string, areaNameKo: string): string {
   return `${getProcessAreaDisplayCode(areaCode)} · ${areaNameKo}`;
 }
 
-function sparkline(toolId: string): string {
-  const trends = props.trendsByToolId[toolId] ?? [];
+function sparkline(trends: MachineTrendPoint[]): string {
   if (trends.length < 2) return '';
   const W = 44,
     H = 12;
@@ -620,8 +622,8 @@ function sparkline(toolId: string): string {
               <span>{{ formatRatioPercent(eq.avgUtilizationRate) }}</span>
               <svg class="overview-tab__sparkline" viewBox="0 0 44 12" preserveAspectRatio="none" aria-hidden="true">
                 <polyline
-                  v-if="sparkline(eq.toolId)"
-                  :points="sparkline(eq.toolId)"
+                  v-if="sparkline(eq.trends)"
+                  :points="sparkline(eq.trends)"
                   fill="none"
                   stroke="currentColor"
                   stroke-width="1.5"

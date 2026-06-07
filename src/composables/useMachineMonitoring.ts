@@ -34,7 +34,7 @@ function includesKeyword(values: string[], keyword: string) {
 function formatTrendLabel(isoOrLabel: string): string {
   const d = new Date(isoOrLabel);
   if (isNaN(d.getTime())) return isoOrLabel; // 'T-N' 같은 mock 레이블 그대로
-  return d.toLocaleTimeString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 function formatMetricForInsight(metric: MachineMetricDefinition, value: number | null): string {

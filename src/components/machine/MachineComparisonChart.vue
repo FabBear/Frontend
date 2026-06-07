@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUpdate, onMounted, ref, watch } from 'vue';
 
 import { BarChart, LineChart } from 'echarts/charts';
 import { GridComponent, LegendComponent, MarkLineComponent, TooltipComponent } from 'echarts/components';
@@ -174,13 +174,29 @@ function buildSnapshotOption(metricDef: MachineMetricDefinition) {
 // ── ECharts tooltip 동기화 ─────────────────────────────────────────────
 const chartRefs = ref<InstanceType<typeof VChart>[]>([]);
 
-onMounted(() => {
+async function connectChartGroup() {
+  await nextTick();
   const instances = chartRefs.value.map((ref) => ref?.chart).filter(Boolean) as echarts.ECharts[];
   instances.forEach((inst) => {
     inst.group = CHART_GROUP;
   });
   if (instances.length > 1) echarts.connect(CHART_GROUP);
+}
+
+onBeforeUpdate(() => {
+  chartRefs.value = [];
 });
+
+onMounted(() => {
+  void connectChartGroup();
+});
+
+watch(
+  () => activeMetrics.value.map((metric) => metric.key).join('|'),
+  () => {
+    void connectChartGroup();
+  }
+);
 
 // ── 수치 요약 테이블 ──────────────────────────────────────────────────
 function metricStats(s: MachineAnalysisSeries, m: MachineMetricDefinition) {

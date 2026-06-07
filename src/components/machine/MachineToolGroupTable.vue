@@ -79,7 +79,7 @@ const emit = defineEmits<{
 .machine-tg-table__meta,
 .machine-tg-table small {
   color: var(--color-fg-muted);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-base);
 }
 
 .machine-tg-table__cards {
@@ -115,7 +115,7 @@ const emit = defineEmits<{
 
 .machine-tg-table__card-top strong {
   color: var(--color-fg-strong);
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-base);
 }
 
 .machine-tg-table__bar {
@@ -139,7 +139,7 @@ const emit = defineEmits<{
 
 .machine-tg-table__metrics b {
   color: var(--color-fg-strong);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-base);
 }
 
 @media (max-width: 1200px) {

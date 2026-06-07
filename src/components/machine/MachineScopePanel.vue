@@ -92,7 +92,7 @@ const emit = defineEmits<{
 .machine-scope-panel span,
 .machine-scope-panel small {
   color: var(--color-fg-muted);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-base);
 }
 
 .machine-scope-panel__mode {
@@ -128,7 +128,7 @@ const emit = defineEmits<{
 
 .machine-scope-panel__item strong {
   color: var(--color-fg-strong);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-base);
 }
 
 @media (max-width: 900px) {

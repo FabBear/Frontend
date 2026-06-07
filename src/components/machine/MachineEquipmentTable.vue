@@ -90,7 +90,7 @@ function getStatusVariant(status: MachineEquipmentStatus) {
 .machine-equipment-table__meta,
 .machine-equipment-table small {
   color: var(--color-fg-muted);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-base);
 }
 
 .machine-equipment-table__cards {
@@ -126,7 +126,7 @@ function getStatusVariant(status: MachineEquipmentStatus) {
 
 .machine-equipment-table__top strong {
   color: var(--color-fg-strong);
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-base);
 }
 
 .machine-equipment-table__metrics span {
@@ -136,7 +136,7 @@ function getStatusVariant(status: MachineEquipmentStatus) {
 
 .machine-equipment-table__metrics b {
   color: var(--color-fg-strong);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-base);
 }
 
 @media (max-width: 1200px) {

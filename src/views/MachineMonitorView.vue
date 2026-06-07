@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted } from 'vue';
 
-import { MACHINE_TREND_LABELS, useMachineMonitoring } from '@/composables/useMachineMonitoring';
+import { useMachineMonitoring } from '@/composables/useMachineMonitoring';
 
 import MachineAnalysisTab from '@/components/machine/MachineAnalysisTab.vue';
 import MachineOverviewTab from '@/components/machine/MachineOverviewTab.vue';
@@ -23,16 +23,25 @@ const {
   selectedCompareToolGroupIds,
   selectedCompareToolIds,
   periodPreset,
-  metricDefinitions,
+  MAX_COMPARE,
+  activeMetricDefinitions,
   toolGroupTargets,
   toolTargets,
   analysisSeries,
+  trendLabels,
+  analysisPresets,
+  selectedAnalysisPresetKey,
+  analysisInsight,
   // 액션
   loadMachineMonitoringData,
   setActiveTab,
+  setAnalysisTargetType,
   toggleMetric,
   toggleCompareToolGroup,
   toggleCompareTool,
+  clearCompareTargets,
+  applyAnalysisPreset,
+  resetAnalysisPreset,
 } = useMachineMonitoring();
 
 onMounted(() => {
@@ -89,19 +98,26 @@ onMounted(() => {
         v-else
         :target-type="analysisTargetType"
         :period-preset="periodPreset"
-        :metrics="metricDefinitions"
+        :metrics="activeMetricDefinitions"
         :selected-metric-keys="selectedMetricKeys"
         :tool-group-targets="toolGroupTargets"
         :tool-targets="toolTargets"
         :selected-tool-group-ids="selectedCompareToolGroupIds"
         :selected-tool-ids="selectedCompareToolIds"
         :analysis-series="analysisSeries"
-        :trend-labels="MACHINE_TREND_LABELS"
-        @update:target-type="analysisTargetType = $event"
+        :trend-labels="trendLabels"
+        :analysis-presets="analysisPresets"
+        :selected-analysis-preset-key="selectedAnalysisPresetKey"
+        :analysis-insight="analysisInsight"
+        :max-compare="MAX_COMPARE"
+        @update:target-type="setAnalysisTargetType"
         @update:period-preset="periodPreset = $event"
         @toggle-metric="toggleMetric"
         @toggle-tool-group="toggleCompareToolGroup"
         @toggle-tool="toggleCompareTool"
+        @clear-targets="clearCompareTargets"
+        @apply-preset="applyAnalysisPreset"
+        @reset-preset="resetAnalysisPreset"
       />
     </template>
   </div>
@@ -112,6 +128,9 @@ onMounted(() => {
   display: grid;
   gap: var(--space-4);
   min-width: 0;
+  min-height: calc(100svh - var(--layout-header-height) - 2 * var(--spacing-page));
+  align-content: start;
+  font-size: var(--font-size-base);
 }
 
 .machine-monitor-view__header {
@@ -134,7 +153,7 @@ onMounted(() => {
 .machine-monitor-view__timestamp {
   margin-top: var(--space-1);
   color: var(--color-fg-muted);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-base);
 }
 
 .machine-monitor-view__state {
@@ -144,7 +163,7 @@ onMounted(() => {
   padding: var(--space-3);
   box-shadow: var(--shadow-sm);
   color: var(--color-fg-muted);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-base);
 }
 
 .machine-monitor-view__state--error {
@@ -165,7 +184,7 @@ onMounted(() => {
   padding: var(--space-2) var(--space-4);
   color: var(--color-fg-muted);
   cursor: pointer;
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-base);
   font-weight: var(--font-weight-semibold);
   transition: all 0.1s;
 }

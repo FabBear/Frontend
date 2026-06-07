@@ -21,7 +21,10 @@ defineEmits<{
 
 const riskLevel = computed(() => riskGradeToLevel(props.item.riskGrade));
 const riskMeta = computed(() => RISK_LEVEL_META[riskLevel.value]);
-const progressRate = computed(() => Math.round((props.item.stepProgress / props.item.totalSteps) * 100));
+const progressRate = computed(() => {
+  if (!props.item.totalSteps) return 0;
+  return Math.round((props.item.stepProgress / props.item.totalSteps) * 100);
+});
 const statusMeta = computed(() => BNC_STATUS_META[props.item.status]);
 const currentStepLabel = computed(() =>
   props.item.currentStepName ? (BNC_STEP_LABELS[props.item.currentStepName] ?? props.item.currentStepName) : '-'

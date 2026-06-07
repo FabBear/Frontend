@@ -63,7 +63,7 @@ onMounted(() => {
 });
 
 watch(selectedCaseId, (caseId) => {
-  if (caseId && caseId !== routeCaseId()) {
+  if (caseId !== routeCaseId()) {
     void updateRoute(caseId, activeTab.value);
   }
 });

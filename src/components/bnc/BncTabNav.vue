@@ -12,20 +12,21 @@ defineEmits<{
 </script>
 
 <template>
-  <nav class="bnc-tab-nav" aria-label="병목 대응 센터 탭">
+  <div class="bnc-tab-nav" role="tablist" aria-label="병목 대응 센터 탭">
     <button
       v-for="tab in tabs"
       :key="tab.id"
       class="bnc-tab-nav__button"
       :class="{ 'bnc-tab-nav__button--active': tab.id === activeTab }"
       type="button"
-      :aria-current="tab.id === activeTab ? 'page' : undefined"
+      role="tab"
+      :aria-selected="tab.id === activeTab"
       @click="$emit('select', tab.id)"
     >
       <span class="bnc-tab-nav__label">{{ tab.label }}</span>
       <span class="bnc-tab-nav__description">{{ tab.description }}</span>
     </button>
-  </nav>
+  </div>
 </template>
 
 <style scoped>

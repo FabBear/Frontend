@@ -20,7 +20,7 @@ export function useBnc(initialCaseId?: string | null, initialTab?: string | null
       const statusDiff = BNC_STATUS_META[a.status].priority - BNC_STATUS_META[b.status].priority;
       if (statusDiff !== 0) return statusDiff;
       if (b.bottleneckProb !== a.bottleneckProb) return b.bottleneckProb - a.bottleneckProb;
-      return new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime();
+      return b.detectedAt.localeCompare(a.detectedAt);
     })
   );
 

@@ -52,7 +52,7 @@ const router = createRouter({
     {
       path: '/response/bottleneck-center',
       name: ROUTE_NAMES.bottleneckCenter,
-      component: PlaceholderView,
+      component: () => import('@/views/BncView.vue'),
       meta: { title: '병목 대응 센터', requiresAuth: true },
     },
     {

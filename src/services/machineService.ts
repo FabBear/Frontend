@@ -4,10 +4,13 @@ import { MACHINE_METRIC_DEFINITIONS, MOCK_MACHINE_MONITORING_DATA } from '@/cons
 import { getProcessAreaNameKo } from '@/constants/processArea';
 
 import type {
+  MachineAnalysisTargetType,
   MachineEquipmentItem,
   MachineEquipmentStatus,
+  MachineEquipmentTrendsPayload,
   MachineEventLog,
   MachineMonitoringData,
+  MachinePeriodPreset,
   MachineSummary,
   MachineToolGroupItem,
   MachineTrendPoint,
@@ -226,4 +229,20 @@ function mapEquipmentPayload(payload: EquipmentRealtimePayload): MachineMonitori
 export async function fetchMachineMonitoringData(): Promise<MachineMonitoringData> {
   const { data } = await api.get<EquipmentRealtimePayload>(EQUIPMENT_CURRENT_PATH);
   return mapEquipmentPayload(data);
+}
+
+/**
+ * TG 또는 Tool 단위 시계열 KPI 트렌드를 조회한다.
+ * 백엔드 GET /v1/monitoring/equipment/trends 에 대응.
+ * 엔드포인트가 아직 없으면 404/500이 발생하므로 호출 측에서 try-catch 처리.
+ */
+export async function fetchEquipmentTrends(
+  type: MachineAnalysisTargetType,
+  ids: string[],
+  range: MachinePeriodPreset
+): Promise<MachineEquipmentTrendsPayload> {
+  const { data } = await api.get<MachineEquipmentTrendsPayload>('/v1/monitoring/equipment/trends', {
+    params: { type, ids: ids.join(','), range },
+  });
+  return data;
 }

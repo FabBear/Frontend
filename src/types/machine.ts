@@ -6,15 +6,34 @@ export type MachineSortDirection = 'desc' | 'asc';
 export type MachineRiskFilter = 'ALL' | 'RISK' | 'MEDIUM' | 'LOW';
 export type MachineEquipmentStatus = 'RUN' | 'IDLE' | 'DOWN';
 export type MachineEquipmentStatusFilter = MachineEquipmentStatus | 'ALL';
-export type MachinePeriodPreset = '1H' | '6H' | '24H' | '7D';
+export type MachinePeriodPreset = '6H' | '24H' | '7D' | '30D';
 export type MachineCompareMode = 'PREVIOUS_SNAPSHOT' | 'ONE_HOUR_AGO' | 'SAME_TIME_YESTERDAY' | 'TG_AVERAGE';
-export type MachineMetricKey = 'utilizationRate' | 'oeeEstimate' | 'queueLotCount' | 'downRatio';
+// TG 전용 지표
+export type MachineTgMetricKey =
+  | 'utilizationRate'
+  | 'wipCount'
+  | 'setupRatio'
+  | 'avgQtimeMin'
+  | 'availableToolRatio'
+  | 'bottleneckProb';
+
+// Tool 전용 지표
+export type MachineToolMetricKey =
+  | 'utilizationRate'
+  | 'oeeEstimate'
+  | 'queueLotCount'
+  | 'setupRatio'
+  | 'downRatio'
+  | 'avgQtimeMin';
+
+export type MachineMetricKey = MachineTgMetricKey | MachineToolMetricKey;
 export type MachineMetricGroup = 'production' | 'queue' | 'state';
 export type MachineEventType = 'DISPATCH' | 'PM' | 'BREAKDOWN' | 'STATE_CHANGE' | 'QUEUE_BUILDUP';
 export type MachineEventSeverity = 'INFO' | 'WARNING' | 'CRITICAL';
 export type MachineScopeMode = 'process' | 'role';
 export type MachinePageTab = 'overview' | 'analysis';
 export type MachineAnalysisTargetType = 'toolGroup' | 'tool';
+export type MachineAnalysisPresetSeverity = 'warning' | 'info';
 
 export interface MachineSummary {
   toolGroupCount: number;
@@ -156,4 +175,45 @@ export interface MachineAnalysisSeries {
   label: string;
   groupLabel: string;
   values: Record<MachineMetricKey, number[]>;
+}
+
+export interface MachineAnalysisPreset {
+  key: string;
+  label: string;
+  description: string;
+  targetType: MachineAnalysisTargetType;
+  targetIds: string[];
+  metricKeys: MachineMetricKey[];
+  severity: MachineAnalysisPresetSeverity;
+}
+
+// ── 트렌드 API 응답 타입 ──────────────────────────────────────────────
+
+export interface MachineEquipmentTrendPoint {
+  measuredAt: string;
+  // 공통
+  utilizationRate: number | null;
+  setupRatio: number | null;
+  avgQtimeMin: number | null;
+  // TG 전용
+  wipCount?: number | null;
+  availableToolRatio?: number | null;
+  bottleneckProb?: number | null;
+  // Tool 전용
+  oeeEstimate?: number | null;
+  queueLotCount?: number | null;
+  downRatio?: number | null;
+}
+
+export interface MachineEquipmentTrendSeries {
+  id: string;
+  code: string;
+  groupLabel: string;
+  points: MachineEquipmentTrendPoint[];
+}
+
+export interface MachineEquipmentTrendsPayload {
+  type: MachineAnalysisTargetType;
+  range: MachinePeriodPreset;
+  series: MachineEquipmentTrendSeries[];
 }

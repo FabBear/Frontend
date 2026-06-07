@@ -2,13 +2,19 @@ import { MOCK_MES_MONITORING_DATA } from '@/constants/mockData/mes';
 
 import type {
   MachineActionItem,
+  MachineAnalysisTargetType,
   MachineEquipmentItem,
   MachineEquipmentStatus,
+  MachineEquipmentTrendPoint,
+  MachineEquipmentTrendsPayload,
   MachineEventLog,
   MachineMetricDefinition,
   MachineMonitoringData,
+  MachinePeriodPreset,
   MachineSummary,
+  MachineTgMetricKey,
   MachineToolGroupItem,
+  MachineToolMetricKey,
   MachineTrendPoint,
 } from '@/types/machine';
 import type { MesToolStatus } from '@/types/mes';
@@ -29,19 +35,35 @@ function average(values: number[]): number | null {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
-export const MACHINE_METRIC_DEFINITIONS: MachineMetricDefinition[] = [
+// TG 분석용 지표 정의
+export const MACHINE_TG_METRIC_DEFINITIONS: (MachineMetricDefinition & { key: MachineTgMetricKey })[] = [
+  { key: 'utilizationRate', label: '가동률', group: 'production', unit: '%', valueFormat: 'ratio', positiveGood: true },
+  { key: 'wipCount', label: 'WIP (Lot)', group: 'queue', unit: 'lot', valueFormat: 'number', positiveGood: false },
+  { key: 'setupRatio', label: '셋업 비율', group: 'state', unit: '%', valueFormat: 'ratio', positiveGood: false },
+  { key: 'avgQtimeMin', label: '평균 Q-time', group: 'queue', unit: 'lot', valueFormat: 'number', positiveGood: false },
   {
-    key: 'utilizationRate',
-    label: '가동률',
+    key: 'availableToolRatio',
+    label: '가용 장비율',
     group: 'production',
     unit: '%',
     valueFormat: 'ratio',
     positiveGood: true,
   },
+  { key: 'bottleneckProb', label: '병목 확률', group: 'state', unit: '%', valueFormat: 'ratio', positiveGood: false },
+];
+
+// Tool 분석용 지표 정의
+export const MACHINE_TOOL_METRIC_DEFINITIONS: (MachineMetricDefinition & { key: MachineToolMetricKey })[] = [
+  { key: 'utilizationRate', label: '가동률', group: 'production', unit: '%', valueFormat: 'ratio', positiveGood: true },
   { key: 'oeeEstimate', label: 'OEE', group: 'production', unit: '%', valueFormat: 'ratio', positiveGood: true },
   { key: 'queueLotCount', label: 'Queue Lot', group: 'queue', unit: 'lot', valueFormat: 'number', positiveGood: false },
+  { key: 'setupRatio', label: '셋업 비율', group: 'state', unit: '%', valueFormat: 'ratio', positiveGood: false },
   { key: 'downRatio', label: 'Down 비율', group: 'state', unit: '%', valueFormat: 'ratio', positiveGood: false },
+  { key: 'avgQtimeMin', label: '평균 Q-time', group: 'queue', unit: 'lot', valueFormat: 'number', positiveGood: false },
 ];
+
+// 하위 호환용 전체 목록 (기존 코드가 참조하는 곳)
+export const MACHINE_METRIC_DEFINITIONS: MachineMetricDefinition[] = MACHINE_TOOL_METRIC_DEFINITIONS;
 
 function normalizeEquipmentStatus(status: MesToolStatus): MachineEquipmentStatus {
   if (status === 'DOWN') return 'DOWN';
@@ -286,3 +308,136 @@ export const MOCK_MACHINE_MONITORING_DATA: MachineMonitoringData = {
   trendsByToolId: MOCK_MACHINE_TRENDS_BY_TOOL_ID,
   eventsByToolId: MOCK_MACHINE_EVENTS_BY_TOOL_ID,
 };
+
+// ── 분석 탭용 트렌드 mock 생성 ────────────────────────────────────────
+
+const SIM_BASE_MS = new Date('2020-02-01T09:00:00+09:00').getTime();
+
+function seededRng(seed: number) {
+  let s = seed;
+  return () => {
+    s = (s * 1664525 + 1013904223) & 0xffffffff;
+    return (s >>> 0) / 0xffffffff;
+  };
+}
+
+const RANGE_CONFIG: Record<MachinePeriodPreset, { bucketMin: number; nPoints: number }> = {
+  '6H': { bucketMin: 60, nPoints: 6 },
+  '24H': { bucketMin: 60, nPoints: 24 },
+  '7D': { bucketMin: 60, nPoints: 168 },
+  '30D': { bucketMin: 60, nPoints: 720 },
+};
+
+function makeTgPoints(tg: MachineToolGroupItem, nPoints: number, bucketMin: number): MachineEquipmentTrendPoint[] {
+  const rng = seededRng(tg.tgCode.charCodeAt(0) * 53 + tg.tgCode.length * 7);
+  return Array.from({ length: nPoints }, (_, i) => {
+    const offsetMin = (i - (nPoints - 1)) * bucketMin;
+    const noise = (rng() - 0.5) * 0.12;
+    const util = Math.max(0.05, Math.min(0.99, tg.utilizationRate + noise));
+    return {
+      measuredAt: new Date(SIM_BASE_MS + offsetMin * 60_000).toISOString(),
+      utilizationRate: util,
+      wipCount: Math.max(0, Math.round(tg.queueLotCount * (0.7 + rng() * 0.6))),
+      setupRatio: Math.max(0, Math.min(0.3, 0.06 + (rng() - 0.5) * 0.04)),
+      avgQtimeMin: Math.max(0, 25 + (rng() - 0.5) * 30),
+      availableToolRatio: Math.max(0.3, Math.min(1, tg.availableToolRatio + (rng() - 0.5) * 0.08)),
+      bottleneckProb: Math.max(0, Math.min(1, tg.bottleneckProb + (rng() - 0.5) * 0.1)),
+    };
+  });
+}
+
+function makeToolPoints(eq: MachineEquipmentItem, nPoints: number, bucketMin: number): MachineEquipmentTrendPoint[] {
+  const rng = seededRng(eq.toolCode.charCodeAt(0) * 37 + eq.toolCode.length * 11);
+  return Array.from({ length: nPoints }, (_, i) => {
+    const offsetMin = (i - (nPoints - 1)) * bucketMin;
+    const noise = (rng() - 0.5) * 0.14;
+    const util = Math.max(0.02, Math.min(0.99, eq.utilizationRate + noise));
+    const oee = eq.oeeEstimate == null ? null : Math.max(0, Math.min(0.99, util * 0.97 + (rng() - 0.5) * 0.05));
+    return {
+      measuredAt: new Date(SIM_BASE_MS + offsetMin * 60_000).toISOString(),
+      utilizationRate: util,
+      oeeEstimate: oee,
+      queueLotCount: Math.max(0, Math.round(eq.queueLotCount * (0.6 + rng() * 0.8))),
+      setupRatio: Math.max(0, Math.min(0.3, 0.05 + (rng() - 0.5) * 0.04)),
+      downRatio: eq.status === 'DOWN' ? Math.max(0.1, rng() * 0.4) : Math.max(0, rng() * 0.05),
+      avgQtimeMin: Math.max(0, 20 + (rng() - 0.5) * 25),
+    };
+  });
+}
+
+export interface MockTrendMeta {
+  id: string;
+  code: string;
+  groupLabel: string;
+  /** TG: 기준 가동률. 없으면 랜덤 생성. */
+  baseUtil?: number;
+  /** TG: 기준 WIP. 없으면 랜덤 생성. */
+  baseWip?: number;
+  baseAvailRatio?: number;
+  baseBottleneckProb?: number;
+  /** Tool: 기준 OEE. */
+  baseOee?: number | null;
+  /** Tool: 기준 Queue Lot. */
+  baseQueue?: number;
+  isDown?: boolean;
+}
+
+/**
+ * 실제 API UUID를 사용하는 경우에도 동작하도록
+ * 메타데이터(id, code, groupLabel 등)를 외부에서 주입받는다.
+ * code 문자열을 seed로 사용해 재현 가능한 mock 시계열을 생성한다.
+ */
+export function generateMockEquipmentTrends(
+  type: MachineAnalysisTargetType,
+  targets: MockTrendMeta[],
+  range: MachinePeriodPreset
+): MachineEquipmentTrendsPayload {
+  const { bucketMin, nPoints } = RANGE_CONFIG[range] ?? RANGE_CONFIG['24H'];
+
+  const series = targets.map((target) => {
+    const seed = target.code.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+
+    if (type === 'toolGroup') {
+      const baseUtil = target.baseUtil ?? 0.35 + seededRng(seed)() * 0.55;
+      const baseWip = target.baseWip ?? Math.round(2 + seededRng(seed + 1)() * 8);
+      const baseAvail = target.baseAvailRatio ?? 0.65 + seededRng(seed + 2)() * 0.35;
+      const baseBnProb = target.baseBottleneckProb ?? seededRng(seed + 3)() * 0.7;
+
+      const fakeTg = {
+        tgCode: target.code,
+        utilizationRate: baseUtil,
+        queueLotCount: baseWip,
+        availableToolRatio: baseAvail,
+        bottleneckProb: baseBnProb,
+      } as MachineToolGroupItem;
+
+      return {
+        id: target.id,
+        code: target.code,
+        groupLabel: target.groupLabel,
+        points: makeTgPoints(fakeTg, nPoints, bucketMin),
+      };
+    } else {
+      const baseUtil = target.baseUtil ?? 0.3 + seededRng(seed)() * 0.6;
+      const baseOee = target.baseOee !== undefined ? target.baseOee : baseUtil * 0.97;
+      const baseQueue = target.baseQueue ?? Math.round(seededRng(seed + 1)() * 5);
+
+      const fakeEq = {
+        toolCode: target.code,
+        utilizationRate: baseUtil,
+        oeeEstimate: baseOee,
+        queueLotCount: baseQueue,
+        status: target.isDown ? 'DOWN' : 'RUN',
+      } as MachineEquipmentItem;
+
+      return {
+        id: target.id,
+        code: target.code,
+        groupLabel: target.groupLabel,
+        points: makeToolPoints(fakeEq, nPoints, bucketMin),
+      };
+    }
+  });
+
+  return { type, range, series };
+}

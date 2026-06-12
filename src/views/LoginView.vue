@@ -59,6 +59,7 @@ async function handleLogin(payload: LoginRequest) {
 
 <template>
   <main class="login-view app-shell">
+    <div class="login-view__wafer" aria-hidden="true"></div>
     <LoginBrandPanel />
 
     <div class="login-view__right">
@@ -90,63 +91,104 @@ async function handleLogin(payload: LoginRequest) {
 
 <style scoped>
 .login-view {
-  --wafer-center-x: -10%;
-  --wafer-center-y: 50%;
-  --wafer-radius: 52%;
-  --wafer-edge: 52.5%;
-
   position: relative;
   display: flex;
   align-items: stretch;
   min-height: 100svh;
   overflow: hidden;
-  background:
-    radial-gradient(
-      circle at var(--wafer-center-x) var(--wafer-center-y),
-      transparent var(--wafer-radius),
-      color-mix(in srgb, var(--color-action-primary) 7%, var(--color-bg-surface)) var(--wafer-edge)
-    ),
-    linear-gradient(
-      155deg,
-      color-mix(in srgb, var(--color-status-warning) 68%, var(--color-action-primary)),
-      color-mix(in srgb, var(--color-action-primary) 78%, var(--color-status-warning)) 55%,
-      color-mix(in srgb, var(--color-action-primary) 94%, black)
-    );
+  background: linear-gradient(150deg, #f0ece4 0%, #f4f0ea 45%, #f8f6f2 100%);
 }
 
-/* 웨이퍼 다이 격자 — 직사각형 칩 셀 + 1px 다이싱 레인 + 코너 정렬 마크 */
-.login-view::before {
+.login-view__wafer {
+  position: absolute;
+  left: calc(50% - 160vmin);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 160vmin;
+  height: 160vmin;
+  border-radius: 50%;
+  z-index: 0;
+  overflow: hidden;
+  box-shadow: 0 0 35px 20px rgba(218, 217, 216, 0.82);
+  background:
+    /* 상단 primary highlight */
+    radial-gradient(
+      ellipse 55% 38% at 38% 22%,
+      rgba(248, 232, 191, 0.34) 0%,
+      rgba(243, 216, 150, 0.1) 44%,
+      transparent 66%
+    ),
+    /* 우하단 secondary shimmer — 교차 반사 효과 */
+    radial-gradient(ellipse 50% 44% at 74% 76%, rgba(248, 224, 160, 0.26) 0%, transparent 55%),
+    /* 좌하단 딥 새도우 */ radial-gradient(ellipse 40% 45% at 14% 82%, rgba(130, 80, 8, 0.28) 0%, transparent 54%),
+    /* 우측 중간 — 미세 이리데센트 쿨 shimmer */
+    radial-gradient(ellipse 32% 28% at 84% 44%, rgba(190, 235, 210, 0.07) 0%, transparent 52%),
+    /* 교차 각도 shimmer 레이어 (홀로그램 광각 효과) */
+    linear-gradient(
+        220deg,
+        transparent 20%,
+        rgba(248, 232, 191, 0.09) 38%,
+        rgba(244, 210, 110, 0.13) 50%,
+        rgba(248, 228, 170, 0.07) 62%,
+        transparent 78%
+      ),
+    /* 메인 골드 그라데이션 */
+    linear-gradient(
+        140deg,
+        #c49317 0%,
+        #e4ab1b 15%,
+        #e9ba44 28%,
+        #eec96d 40%,
+        #f3d896 48%,
+        #f8e8bf 55%,
+        #f3d896 62%,
+        #eec96d 70%,
+        #e9ba44 80%,
+        #e4ab1b 90%,
+        #c49317 100%
+      );
+}
+
+/* 다이 격자 — edge exclusion zone 안쪽에만 표시 */
+.login-view__wafer::before {
   content: '';
   position: absolute;
   inset: 0;
-  z-index: 0;
   background:
-    radial-gradient(circle, rgba(255, 255, 255, 0.36) 1.5px, transparent 1.5px) 79px 0 / 80px 56px,
+    radial-gradient(circle, rgba(140, 90, 10, 0.2) 1.5px, transparent 1.5px) 63px 0 / 64px 50px,
     linear-gradient(
         90deg,
-        transparent 79px,
-        rgba(255, 255, 255, 0.22) 79px,
-        rgba(255, 255, 255, 0.22) 80px,
-        transparent 80px
+        transparent 63px,
+        rgba(140, 90, 10, 0.18) 63px,
+        rgba(140, 90, 10, 0.18) 64px,
+        transparent 64px
       )
-      0 0 / 80px 56px,
+      0 0 / 64px 50px,
     linear-gradient(
         0deg,
-        transparent 55px,
-        rgba(255, 255, 255, 0.22) 55px,
-        rgba(255, 255, 255, 0.22) 56px,
-        transparent 56px
+        transparent 49px,
+        rgba(140, 90, 10, 0.18) 49px,
+        rgba(140, 90, 10, 0.18) 50px,
+        transparent 50px
       )
-      0 0 / 80px 56px;
-  mask: radial-gradient(
-    circle at var(--wafer-center-x) var(--wafer-center-y),
-    black var(--wafer-radius),
-    transparent var(--wafer-edge)
-  );
-  -webkit-mask: radial-gradient(
-    circle at var(--wafer-center-x) var(--wafer-center-y),
-    black var(--wafer-radius),
-    transparent var(--wafer-edge)
+      0 0 / 64px 50px;
+  mask: radial-gradient(circle at center, black 82%, transparent 87%);
+  -webkit-mask: radial-gradient(circle at center, black 82%, transparent 87%);
+  pointer-events: none;
+}
+
+/* 다크 메탈릭 엣지 링 */
+.login-view__wafer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at center,
+    transparent 82%,
+    rgba(25, 8, 0, 0.2) 87%,
+    rgba(25, 8, 0, 0.62) 92%,
+    rgba(18, 5, 0, 0.9) 96%
   );
   pointer-events: none;
 }
@@ -168,19 +210,22 @@ async function handleLogin(payload: LoginRequest) {
   position: relative;
   width: min(100%, 440px);
   gap: var(--space-6);
+  border: var(--border-width-default) solid var(--color-login-panel-border);
   border-radius: 20px;
   padding: var(--space-8);
-  background-color: var(--color-bg-surface);
-  box-shadow: 0 4px 40px color-mix(in srgb, var(--color-action-primary) 10%, rgba(0, 0, 0, 0.07));
+  background: linear-gradient(145deg, #ffffff, var(--color-login-panel-bg)), var(--color-login-panel-bg);
+  box-shadow:
+    0 22px 56px var(--color-login-panel-shadow),
+    inset 0 1px 0 #ffffff;
 }
 
 .login-view__demo {
   display: grid;
   gap: var(--space-2);
   width: min(100%, 440px);
-  border-top: var(--border-width-default) solid var(--color-border-subtle);
+  border-top: var(--border-width-default) solid color-mix(in srgb, var(--color-login-panel-border) 48%, transparent);
   padding-top: var(--space-4);
-  color: var(--color-fg-muted);
+  color: color-mix(in srgb, var(--color-brand-brown) 42%, var(--color-fg-muted));
   font-size: var(--font-size-sm);
 }
 
@@ -221,7 +266,7 @@ async function handleLogin(payload: LoginRequest) {
 .login-view__demo-fill {
   border: 0;
   background: transparent;
-  color: var(--color-fg-muted);
+  color: color-mix(in srgb, var(--color-brand-brown) 56%, var(--color-fg-muted));
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: var(--font-size-sm);
   text-decoration: underline dashed;
@@ -230,7 +275,7 @@ async function handleLogin(payload: LoginRequest) {
 }
 
 .login-view__demo-fill:hover {
-  color: var(--color-brand-red);
+  color: var(--color-gold);
 }
 
 @media (max-width: 860px) {
@@ -238,6 +283,10 @@ async function handleLogin(payload: LoginRequest) {
     display: grid;
     align-content: start;
     background: var(--color-bg-surface);
+  }
+
+  .login-view__wafer {
+    display: none;
   }
 
   .login-view__right {

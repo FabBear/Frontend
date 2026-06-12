@@ -40,3 +40,6 @@ docs/
 *.njsproj
 *.sln
 *.sw?
+
+# 온프렘 Silero VAD 자산(postinstall로 node_modules에서 재생성)
+public/vad/

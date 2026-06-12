@@ -12,13 +12,24 @@
     "typecheck": "vue-tsc --noEmit",
     "lint": "eslint . --fix",
     "format": "prettier --write .",
-    "prepare": "husky"
+    "prepare": "husky",
+    "copy:vad": "node scripts/copy-vad-assets.mjs",
+    "postinstall": "node scripts/copy-vad-assets.mjs"
   },
   "dependencies": {
     "@lucide/vue": "^1.16.0",
+    "@ricky0123/vad-web": "^0.0.30",
+    "@types/three": "^0.184.1",
     "axios": "^1.16.1",
+    "dompurify": "^3.4.9",
     "echarts": "^6.1.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.1",
+    "lottie-web": "^5.13.0",
+    "marked": "^18.0.5",
+    "onnxruntime-web": "^1.17.3",
     "pinia": "^3.0.4",
+    "three": "^0.184.0",
     "vue": "^3.5.34",
     "vue-echarts": "^8.0.1",
     "vue-router": "^5.0.7"

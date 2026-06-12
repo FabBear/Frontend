@@ -197,7 +197,7 @@ onMounted(() => {
 
 watch([() => route.query.areaCode, () => route.query.caseId], ([, nextCaseId], [, previousCaseId]) => {
   if (nextCaseId !== previousCaseId) {
-    void refreshMonitoringData();
+    void refreshMonitoringData(true);
     return;
   }
 

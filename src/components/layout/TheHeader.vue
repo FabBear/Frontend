@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { Bell, Bot, LogOut, UserRound } from '@lucide/vue';
+import { Bell, Bot, LogOut, Moon, Sun, UserRound } from '@lucide/vue';
+
+import { useTheme } from '@/composables/useTheme';
 
 import type { AuthUser } from '@/types/auth';
 
@@ -12,16 +14,21 @@ interface Props {
   notificationCount: number;
   user: AuthUser | null;
   notificationOpen?: boolean;
+  chatOpen?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   notificationOpen: false,
+  chatOpen: false,
 });
 
 const emit = defineEmits<{
+  openChat: [];
   toggleNotifications: [];
   logout: [];
 }>();
+
+const { isDark, toggle: toggleTheme } = useTheme();
 
 const roleLabel = computed(() => {
   if (!props.user) return '미인증';
@@ -47,9 +54,15 @@ const userSecondaryLabel = computed(() => {
     </div>
 
     <div class="the-header__actions">
-      <BaseButton variant="ghost" size="sm">
+      <BaseButton
+        class="the-header__chat-button"
+        :class="{ 'the-header__chat-button--active': chatOpen }"
+        variant="ghost"
+        size="sm"
+        @click="emit('openChat')"
+      >
         <Bot :size="16" aria-hidden="true" />
-        AI 챗봇
+        AI 에이전트
       </BaseButton>
       <button
         class="the-header__notification-button"
@@ -74,6 +87,15 @@ const userSecondaryLabel = computed(() => {
           <span>{{ userSecondaryLabel }}</span>
         </div>
       </div>
+      <button
+        class="the-header__icon-button the-header__theme-btn"
+        type="button"
+        :aria-label="isDark ? '라이트 모드로 전환' : '다크 모드로 전환'"
+        @click="toggleTheme"
+      >
+        <Sun v-if="isDark" :size="17" aria-hidden="true" />
+        <Moon v-else :size="17" aria-hidden="true" />
+      </button>
       <button class="the-header__icon-button" type="button" aria-label="로그아웃" @click="emit('logout')">
         <LogOut :size="17" aria-hidden="true" />
       </button>
@@ -125,6 +147,12 @@ const userSecondaryLabel = computed(() => {
 .the-header__actions :deep(.base-button--sm) {
   min-height: var(--header-control-height);
   padding: 0 12px;
+}
+
+.the-header__chat-button--active {
+  border-color: var(--color-action-primary-border);
+  background: var(--color-state-selected-bg);
+  color: var(--color-action-primary);
 }
 
 .the-header__notification-button,
@@ -200,6 +228,12 @@ const userSecondaryLabel = computed(() => {
   background: var(--color-action-primary);
   color: var(--color-text-inverse) !important;
   font-weight: var(--font-weight-bold);
+}
+
+.the-header__theme-btn {
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast);
 }
 
 @media (max-width: 1180px) {

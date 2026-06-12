@@ -4,8 +4,6 @@ import { useAuthStore } from '@/stores/auth';
 
 import { ROUTE_NAMES } from '@/constants/routes';
 
-import PlaceholderView from '@/views/PlaceholderView.vue';
-
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -45,8 +43,8 @@ const router = createRouter({
     },
     {
       path: '/monitoring/fab-3d',
-      name: 'fab3d',
-      component: PlaceholderView,
+      name: ROUTE_NAMES.fab3d,
+      component: () => import('@/views/Fab3dView.vue'),
       meta: { title: '3D FAB 뷰', requiresAuth: true },
     },
     {
@@ -56,70 +54,63 @@ const router = createRouter({
       meta: { title: '병목 대응 센터', requiresAuth: true },
     },
     {
-      path: '/reports/cause',
-      name: ROUTE_NAMES.causeReport,
-      component: PlaceholderView,
-      meta: { title: '원인 분석 리포트', requiresAuth: true },
+      path: '/reports/archive',
+      name: ROUTE_NAMES.reportArchive,
+      component: () => import('@/views/ActionHistoryView.vue'),
+      meta: { title: '리포트 아카이브', requiresAuth: true },
     },
     {
       path: '/reports/action-history',
-      name: 'actionHistory',
-      component: PlaceholderView,
-      meta: { title: '대응 이력', requiresAuth: true },
+      name: ROUTE_NAMES.actionHistory,
+      redirect: (to) => ({ name: ROUTE_NAMES.reportArchive, query: { ...to.query, reportType: 'ACTION' } }),
     },
     {
       path: '/ai/chatbot',
-      name: 'aiChatbot',
-      component: PlaceholderView,
+      name: ROUTE_NAMES.aiChatbot,
+      redirect: (to) => ({ name: ROUTE_NAMES.dashboard, query: { ...to.query, chat: 'open' } }),
       meta: { title: 'AI 챗봇', requiresAuth: true },
     },
     {
       path: '/admin/thresholds',
       name: 'adminThresholds',
-      component: PlaceholderView,
+      component: () => import('@/views/AdminThresholdView.vue'),
       meta: { title: '임계값 관리', requiresAuth: true, requiresAdmin: true },
     },
     {
       path: '/admin/mlflow',
       name: 'adminMlflow',
-      component: PlaceholderView,
+      component: () => import('@/views/AdminMlflowView.vue'),
       meta: { title: 'MLflow 모니터링', requiresAuth: true, requiresAdmin: true },
     },
     {
       path: '/admin/access',
       name: 'adminAccess',
-      component: PlaceholderView,
+      component: () => import('@/views/AdminAccessView.vue'),
       meta: { title: '권한 관리', requiresAuth: true, requiresAdmin: true },
-    },
-    {
-      path: '/admin/sites',
-      name: 'adminSites',
-      component: PlaceholderView,
-      meta: { title: '공장 관리', requiresAuth: true, requiresAdmin: true },
     },
     {
       path: '/admin/mes-interface',
       name: 'adminMesInterface',
-      component: PlaceholderView,
+      component: () => import('@/views/AdminMesInterfaceView.vue'),
       meta: { title: 'MES 인터페이스', requiresAuth: true, requiresAdmin: true },
     },
     {
       path: '/admin/prompts',
       name: 'adminPrompts',
-      component: PlaceholderView,
+      component: () => import('@/views/AdminPromptView.vue'),
       meta: { title: '프롬프트 관리', requiresAuth: true, requiresAdmin: true },
     },
     {
       path: '/admin/ingestion',
       name: 'adminIngestion',
-      component: PlaceholderView,
+      component: () => import('@/views/AdminIngestionView.vue'),
       meta: { title: '데이터 수집', requiresAuth: true, requiresAdmin: true },
     },
     {
       path: '/admin/logs',
       name: 'adminLogs',
-      component: PlaceholderView,
-      meta: { title: '운영 로그', requiresAuth: true, requiresAdmin: true },
+      component: () => import('@/views/AdminResourceView.vue'),
+      meta: { title: '운영 로그', requiresAuth: true, requiresAdmin: true, adminResource: 'logs' },
     },
     {
       path: '/:pathMatch(.*)*',

@@ -4,9 +4,12 @@ import { onBeforeUnmount, watch } from 'vue';
 interface Props {
   modelValue: boolean;
   title: string;
+  width?: string;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+  width: '520px',
+});
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean];
@@ -54,7 +57,13 @@ onBeforeUnmount(() => {
   <Teleport v-if="modelValue" to="body">
     <div class="base-modal" role="presentation">
       <div class="base-modal__overlay" @click="closeModal" />
-      <section class="base-modal__panel surface-card" role="dialog" aria-modal="true" :aria-label="title">
+      <section
+        class="base-modal__panel surface-card"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="title"
+        :style="{ '--base-modal-width': width }"
+      >
         <header class="base-modal__header">
           <h2 class="section-title">{{ title }}</h2>
           <button class="base-modal__close button button--ghost" type="button" aria-label="닫기" @click="closeModal">
@@ -88,7 +97,7 @@ onBeforeUnmount(() => {
 .base-modal__panel {
   position: relative;
   z-index: 1;
-  width: min(520px, 100%);
+  width: min(var(--base-modal-width), 100%);
   max-height: calc(100svh - 48px);
   overflow: auto;
   box-shadow: var(--shadow-panel);

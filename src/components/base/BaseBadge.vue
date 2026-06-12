@@ -3,7 +3,7 @@ import { computed } from 'vue';
 
 import type { RiskLevel } from '@/constants/riskLevel';
 
-type StatusVariant = 'success' | 'warning' | 'info';
+type StatusVariant = 'success' | 'warning' | 'info' | 'danger';
 type BadgeVariant = RiskLevel | StatusVariant;
 
 interface Props {

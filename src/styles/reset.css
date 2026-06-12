@@ -21,6 +21,11 @@ html {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* opt-in: 특정 라우트(병목 대응 센터)만 1280 floor 해제해 반응형으로. 기본은 1280 유지. */
+html.bnc-fluid {
+  min-width: 0;
+}
+
 body {
   min-height: 100svh;
   background: var(--color-bg);

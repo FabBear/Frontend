@@ -502,7 +502,7 @@ export function useChat() {
   }
 
   async function initWithCasePrompt(payload: CasePromptPayload) {
-    const sessionId = `case-${payload.caseId ?? Date.now()}`;
+    const sessionId = `local-case-${payload.caseId ?? Date.now()}`;
     const context: AgentContext = {
       taskId: sessionId,
       title: payload.title,

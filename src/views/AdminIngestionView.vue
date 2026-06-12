@@ -40,6 +40,28 @@ const STATUS_FILTERS: { value: AdminStatus | 'ALL'; label: string }[] = [
 
 const filteredItems = computed(() => {
   let result = items.value;
+
+  const now = new Date();
+  let cutoff: Date | null = null;
+  if (period.value === '1h') cutoff = new Date(now.getTime() - 60 * 60 * 1000);
+  else if (period.value === '6h') cutoff = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+  else if (period.value === '24h') cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  else if (period.value === '7d') cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  if (cutoff) {
+    result = result.filter((item) => new Date(item.updatedAt) >= cutoff!);
+  } else if (period.value === 'custom') {
+    if (dateFrom.value) {
+      const fromDate = new Date(dateFrom.value);
+      result = result.filter((item) => new Date(item.updatedAt) >= fromDate);
+    }
+    if (dateTo.value) {
+      const toDate = new Date(dateTo.value);
+      toDate.setHours(23, 59, 59, 999);
+      result = result.filter((item) => new Date(item.updatedAt) <= toDate);
+    }
+  }
+
   if (statusFilter.value !== 'ALL') {
     result = result.filter((item) => item.status === statusFilter.value);
   }

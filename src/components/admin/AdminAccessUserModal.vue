@@ -32,16 +32,21 @@ const errors = ref<Record<string, string>>({});
 const pendingUser = ref<AdminAccessUser | null>(null);
 const isConfirmOpen = ref(false);
 const OTHER_DEPARTMENT_VALUE = '__OTHER__';
+const isOtherSelected = ref(false);
 const selectedDepartment = computed({
   get() {
-    if (!draft.value?.department) return OTHER_DEPARTMENT_VALUE;
-    return props.departmentSuggestions.includes(draft.value.department)
-      ? draft.value.department
-      : OTHER_DEPARTMENT_VALUE;
+    if (isOtherSelected.value) return OTHER_DEPARTMENT_VALUE;
+    return draft.value?.department ?? '';
   },
   set(value: string) {
     if (!draft.value) return;
-    draft.value.department = value === OTHER_DEPARTMENT_VALUE ? '' : value;
+    if (value === OTHER_DEPARTMENT_VALUE) {
+      isOtherSelected.value = true;
+      draft.value.department = '';
+    } else {
+      isOtherSelected.value = false;
+      draft.value.department = value;
+    }
   },
 });
 
@@ -52,6 +57,11 @@ watch(
     errors.value = {};
     pendingUser.value = null;
     isConfirmOpen.value = false;
+    if (user) {
+      isOtherSelected.value = !user.department || !props.departmentSuggestions.includes(user.department);
+    } else {
+      isOtherSelected.value = false;
+    }
   },
   { immediate: true }
 );
@@ -159,12 +169,7 @@ function confirmSave() {
             </option>
             <option :value="OTHER_DEPARTMENT_VALUE">기타</option>
           </select>
-          <input
-            v-if="selectedDepartment === OTHER_DEPARTMENT_VALUE"
-            v-model="draft.department"
-            class="input"
-            placeholder="신규 부서명 입력"
-          />
+          <input v-if="isOtherSelected" v-model="draft.department" class="input" placeholder="신규 부서명 입력" />
           <em>목록에 없는 부서는 기타를 선택한 뒤 입력하세요.</em>
           <small v-if="errors.department">{{ errors.department }}</small>
         </label>

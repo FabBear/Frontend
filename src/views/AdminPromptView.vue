@@ -84,7 +84,7 @@ function requestSave() {
 
 function confirmSave() {
   if (!selectedTemplate.value) return;
-  const now = new Date().toISOString().slice(0, 16).replace('T', ' ');
+  const now = new Date().toLocaleString('sv-SE').slice(0, 16);
   const updatedBy = authStore.user?.loginId ?? 'admin';
   const templateId = selectedTemplate.value.id;
 
@@ -129,7 +129,7 @@ function handleRestoreClick(row: BaseTableRow) {
 function confirmRestore() {
   if (!pendingRestoreVersion.value || !selectedTemplate.value) return;
   const v = pendingRestoreVersion.value;
-  const now = new Date().toISOString().slice(0, 16).replace('T', ' ');
+  const now = new Date().toLocaleString('sv-SE').slice(0, 16);
   const updatedBy = authStore.user?.loginId ?? 'admin';
   const templateId = selectedTemplate.value.id;
 

@@ -25,9 +25,9 @@ const isEditModalOpen = ref(false);
 const isLoading = ref(false);
 const isSaving = ref(false);
 const errorMessage = ref<string | null>(null);
-const validationStatus = ref({
-  state: 'success' as 'success' | 'warning',
-});
+const validationStatus = computed(() => ({
+  state: missingRequiredCount.value > 0 ? ('warning' as const) : ('success' as const),
+}));
 const changeHistories = ref<
   Array<{
     id: string;
@@ -126,9 +126,6 @@ async function loadMappings() {
 
   try {
     mappings.value = await fetchMesFieldMappings(currentFabId.value);
-    validationStatus.value = {
-      state: missingRequiredCount.value > 0 ? 'warning' : 'success',
-    };
   } catch {
     errorMessage.value = 'MES 필드 매핑을 불러오지 못했습니다.';
     mappings.value = [];
@@ -166,9 +163,6 @@ async function saveEdit() {
       transformRule: draft.value.transformRule,
     });
     mappings.value = mappings.value.map((mapping) => (mapping.id === saved.id ? saved : mapping));
-    validationStatus.value = {
-      state: missingRequiredCount.value > 0 ? 'warning' : 'success',
-    };
     changeHistories.value = [
       {
         id: `mes-history-${Date.now()}`,

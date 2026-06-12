@@ -26,7 +26,9 @@ export function useAgentTask() {
         activeTask.value = task;
       }
 
-      if (task.status === 'FAILED') {
+      if (task.status === 'QUEUED' || task.status === 'RUNNING') {
+        agentTaskError.value = 'AI Agent 작업 대기 시간이 초과되었습니다.';
+      } else if (task.status === 'FAILED') {
         agentTaskError.value = task.errorMessage ?? 'AI Agent 작업을 완료하지 못했습니다.';
       }
 

@@ -18,9 +18,6 @@ export interface FetchBncCasesParams {
   size?: number;
 }
 
-type BackendBncCaseListData = BncCaseListData;
-type BackendBncCaseDetail = BncCaseDetail;
-
 interface BackendCauseAnalysis {
   caseId: string;
   analysisId: string;
@@ -1129,12 +1126,12 @@ function mapReport(data: BackendReportPayload): BncReportPayload {
 }
 
 export async function fetchBncCases(params: FetchBncCasesParams = {}): Promise<BncCaseListData> {
-  const { data } = await api.get<BackendBncCaseListData>('/v1/response-center/cases', { params });
+  const { data } = await api.get<BncCaseListData>('/v1/response-center/cases', { params });
   return data;
 }
 
 export async function fetchBncCaseDetail(caseId: string): Promise<BncCaseDetail> {
-  const { data } = await api.get<BackendBncCaseDetail>(`/v1/response-center/cases/${caseId}`);
+  const { data } = await api.get<BncCaseDetail>(`/v1/response-center/cases/${caseId}`);
   return data;
 }
 

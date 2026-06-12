@@ -2,21 +2,24 @@
 import { computed, ref } from 'vue';
 
 import type {
-  MachineAnalysisPreset,
   MachineAnalysisSeries,
   MachineAnalysisTargetType,
   MachineComparisonTarget,
   MachineMetricDefinition,
   MachineMetricKey,
   MachinePeriodPreset,
+  MachinePeriodRange,
 } from '@/types/machine';
 
 import MachineComparisonChart from '@/components/machine/MachineComparisonChart.vue';
+import MachineOperationRangeCard from '@/components/machine/MachineOperationRangeCard.vue';
 import MetricPalette from '@/components/machine/MetricPalette.vue';
 
 interface Props {
   targetType: MachineAnalysisTargetType;
   periodPreset: MachinePeriodPreset;
+  periodRange: MachinePeriodRange | null;
+  measuredAt: string;
   metrics: MachineMetricDefinition[];
   selectedMetricKeys: MachineMetricKey[];
   toolGroupTargets: MachineComparisonTarget[];
@@ -25,8 +28,6 @@ interface Props {
   selectedToolIds: string[];
   analysisSeries: MachineAnalysisSeries[];
   trendLabels: string[];
-  analysisPresets: MachineAnalysisPreset[];
-  selectedAnalysisPresetKey: string | null;
   analysisInsight: string | null;
   maxCompare: number;
 }
@@ -36,12 +37,11 @@ const props = defineProps<Props>();
 const emit = defineEmits<{
   'update:targetType': [value: MachineAnalysisTargetType];
   'update:periodPreset': [value: MachinePeriodPreset];
+  'update:periodRange': [value: MachinePeriodRange];
   toggleMetric: [metricKey: MachineMetricKey];
   toggleToolGroup: [tgId: string];
   toggleTool: [toolId: string];
   clearTargets: [];
-  applyPreset: [presetKey: string];
-  resetPreset: [];
 }>();
 
 // ── 목록 검색 ────────────────────────────────────────────────────────
@@ -77,6 +77,14 @@ function findTarget(id: string): MachineComparisonTarget | undefined {
 
 <template>
   <div class="analysis-tab">
+    <MachineOperationRangeCard
+      :measured-at="measuredAt"
+      :period-preset="periodPreset"
+      :period-range="periodRange"
+      @update:period-preset="emit('update:periodPreset', $event)"
+      @update:period-range="emit('update:periodRange', $event)"
+    />
+
     <!-- 비교 단위 토글 -->
     <div class="analysis-tab__header">
       <div class="analysis-tab__segmented" role="group" aria-label="비교 단위">
@@ -97,48 +105,7 @@ function findTarget(id: string): MachineComparisonTarget | undefined {
           Tool
         </button>
       </div>
-
-      <select
-        class="analysis-tab__period"
-        :value="periodPreset"
-        @change="emit('update:periodPreset', ($event.target as HTMLSelectElement).value as MachinePeriodPreset)"
-      >
-        <option value="6H">최근 6시간</option>
-        <option value="24H">최근 24시간</option>
-        <option value="7D">최근 7일</option>
-        <option value="30D">최근 30일</option>
-      </select>
     </div>
-
-    <section v-if="analysisPresets.length" class="analysis-tab__preset-section" aria-label="추천 분석">
-      <div class="analysis-tab__preset-head">
-        <strong>추천 분석</strong>
-        <button
-          type="button"
-          class="analysis-tab__preset-reset"
-          :class="{ 'analysis-tab__preset-reset--active': selectedAnalysisPresetKey === null }"
-          @click="emit('resetPreset')"
-        >
-          초기화
-        </button>
-      </div>
-      <div class="analysis-tab__presets">
-        <button
-          v-for="preset in analysisPresets"
-          :key="preset.key"
-          type="button"
-          class="analysis-tab__preset"
-          :class="{ 'analysis-tab__preset--active': selectedAnalysisPresetKey === preset.key }"
-          @click="emit('applyPreset', preset.key)"
-        >
-          <span class="analysis-tab__preset-title">
-            <i>{{ preset.targetType === 'toolGroup' ? 'TG' : 'Tool' }}</i>
-            <b>{{ preset.label }}</b>
-          </span>
-          <span class="analysis-tab__preset-desc">{{ preset.description }}</span>
-        </button>
-      </div>
-    </section>
 
     <p v-if="analysisInsight" class="analysis-tab__insight">
       {{ analysisInsight }}
@@ -267,162 +234,6 @@ function findTarget(id: string): MachineComparisonTarget | undefined {
 .analysis-tab__seg-btn--active {
   background: var(--color-action-primary);
   color: var(--color-text-inverse);
-}
-
-.analysis-tab__period {
-  margin-left: auto;
-  height: 34px;
-  border: var(--border-width-default) solid var(--color-border-default);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-card);
-  padding: 0 var(--space-2);
-  color: var(--color-fg);
-  font-size: var(--font-size-base);
-  cursor: pointer;
-  outline: none;
-}
-
-/* 추천 분석 */
-.analysis-tab__preset-section {
-  display: grid;
-  gap: var(--space-2);
-  border: var(--border-width-default) solid var(--color-border-default);
-  border-radius: var(--radius-lg);
-  background: var(--color-bg-card);
-  padding: var(--space-3);
-}
-
-.analysis-tab__preset-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-
-.analysis-tab__preset-head strong {
-  color: var(--color-fg-strong);
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-bold);
-}
-
-.analysis-tab__preset-reset {
-  border: var(--border-width-default) solid var(--color-border-default);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-surface);
-  padding: 5px 12px;
-  color: var(--color-fg-muted);
-  cursor: pointer;
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-semibold);
-  transition:
-    border-color 0.1s,
-    background 0.1s,
-    color 0.1s;
-}
-
-.analysis-tab__preset-reset:hover {
-  border-color: var(--color-border-strong);
-  background: var(--color-state-hover);
-  color: var(--color-fg);
-}
-
-.analysis-tab__preset-reset--active {
-  border-color: var(--color-border-default);
-  background: var(--color-bg-surface);
-  color: var(--color-fg-muted);
-  cursor: default;
-}
-
-.analysis-tab__presets {
-  display: flex;
-  gap: var(--space-2);
-  overflow-x: auto;
-  padding-bottom: 2px;
-}
-
-.analysis-tab__preset {
-  display: grid;
-  gap: 4px;
-  flex: 0 0 236px;
-  min-height: 76px;
-  min-width: 0;
-  border: var(--border-width-default) solid var(--color-border-default);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-surface);
-  padding: var(--space-2) var(--space-3);
-  color: var(--color-fg);
-  cursor: pointer;
-  text-align: left;
-  transition:
-    border-color 0.1s,
-    background 0.1s,
-    box-shadow 0.1s,
-    transform 0.1s;
-}
-
-.analysis-tab__preset:hover {
-  border-color: var(--color-action-primary);
-  background: var(--color-state-hover);
-  transform: translateY(-1px);
-}
-
-.analysis-tab__preset--active {
-  border-color: var(--color-action-primary);
-  background: color-mix(in srgb, var(--color-action-primary) 9%, var(--color-bg-card));
-  box-shadow: inset 0 0 0 1px var(--color-action-primary);
-}
-
-.analysis-tab__preset-title {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: var(--space-1);
-  min-width: 0;
-  color: var(--color-fg-strong);
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-bold);
-  line-height: 1.2;
-}
-
-.analysis-tab__preset-title i {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 42px;
-  height: 22px;
-  box-sizing: border-box;
-  border: var(--border-width-default) solid var(--color-border-default);
-  border-radius: var(--radius-pill);
-  background: var(--color-bg-surface);
-  color: var(--color-fg-muted);
-  font-size: var(--font-size-base);
-  font-style: normal;
-  font-weight: var(--font-weight-bold);
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-
-.analysis-tab__preset-title b {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.analysis-tab__preset--active .analysis-tab__preset-title i {
-  border-color: var(--color-action-primary);
-  background: color-mix(in srgb, var(--color-action-primary) 10%, var(--color-bg-card));
-  color: var(--color-action-primary);
-}
-
-.analysis-tab__preset-desc {
-  display: -webkit-box;
-  overflow: hidden;
-  color: var(--color-fg-muted);
-  font-size: var(--font-size-base);
-  line-height: 1.35;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
 }
 
 .analysis-tab__insight {
@@ -658,19 +469,9 @@ function findTarget(id: string): MachineComparisonTarget | undefined {
   background: color-mix(in srgb, var(--color-action-primary) 35%, transparent);
 }
 
-@media (max-width: 1280px) {
-  .analysis-tab__preset {
-    flex-basis: 236px;
-  }
-}
-
 @media (max-width: 980px) {
   .analysis-tab__workspace {
     grid-template-columns: 1fr;
-  }
-
-  .analysis-tab__preset {
-    flex-basis: 248px;
   }
 }
 
@@ -678,23 +479,6 @@ function findTarget(id: string): MachineComparisonTarget | undefined {
   .analysis-tab__header {
     align-items: stretch;
     flex-direction: column;
-  }
-
-  .analysis-tab__period {
-    margin-left: 0;
-  }
-
-  .analysis-tab__preset-head {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .analysis-tab__preset-reset {
-    width: 100%;
-  }
-
-  .analysis-tab__preset {
-    flex-basis: 86%;
   }
 }
 </style>

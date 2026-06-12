@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 
-import { getProcessAreaDisplayCode } from '@/constants/processArea';
+import { fetchEquipmentOverview } from '@/services/machineService';
+
+import { getProcessAreaDisplayCode, getProcessAreaNameKo } from '@/constants/processArea';
 import { riskGradeToLevel } from '@/constants/riskLevel';
 
-import type { MachineEquipmentItem, MachineSummary, MachineToolGroupItem, MachineTrendPoint } from '@/types/machine';
+import type { EquipmentOverviewPayload, MachineEquipmentStatus, MachineSummary } from '@/types/machine';
+import type { MesRiskGrade } from '@/types/mes';
 
 import BaseBadge from '@/components/base/BaseBadge.vue';
 import KpiCard from '@/components/base/KpiCard.vue';
@@ -14,34 +17,43 @@ import { formatNumber, formatRatioPercent } from '@/utils/format';
 
 interface Props {
   summary: MachineSummary;
-  toolGroups: MachineToolGroupItem[];
-  overviewEquipments: MachineEquipmentItem[];
-  trendsByToolId: Record<string, MachineTrendPoint[]>;
 }
 
 const props = defineProps<Props>();
 
-type OverviewRange = '24H' | '7D' | '30D';
+type OverviewRange = '6H' | '24H' | '7D' | '30D';
 
-interface ToolPeriodRow extends MachineEquipmentItem {
+// 서버 /equipment/overview 집계를 그대로 소비. (클라이언트 단일 스냅샷 집계 제거)
+interface ToolRow {
+  toolId: string;
+  toolCode: string;
+  toolName: string;
+  tgId: string;
+  status: MachineEquipmentStatus;
   avgUtilizationRate: number;
   deltaUtilizationRate: number;
   avgOeeEstimate: number | null;
   avgQueueLotCount: number;
   maxQueueLotCount: number;
   avgDownRatio: number;
-  issueScore: number;
-  trends: MachineTrendPoint[];
 }
 
-interface ToolGroupPeriodRow extends MachineToolGroupItem {
+interface ToolGroupRow {
+  tgId: string;
+  tgCode: string;
+  tgName: string;
+  areaCode: string;
+  areaNameKo: string;
+  toolCount: number;
+  runToolCount: number;
+  idleToolCount: number;
+  downToolCount: number;
   avgUtilizationRate: number;
-  currentUtilizationRate: number;
   deltaUtilizationRate: number;
   avgWipCount: number;
   maxWipCount: number;
   avgBottleneckProb: number;
-  repeatIssueToolCount: number;
+  riskGrade: MesRiskGrade;
 }
 
 interface ProcessRow {
@@ -50,7 +62,6 @@ interface ProcessRow {
   tgCount: number;
   toolCount: number;
   avgUtilizationRate: number;
-  currentUtilizationRate: number;
   deltaUtilizationRate: number;
   avgWipCount: number;
   maxWipCount: number;
@@ -62,6 +73,7 @@ interface ProcessRow {
 const overviewRange = ref<OverviewRange | 'CUSTOM'>('24H');
 
 const rangeOptions: { value: OverviewRange; label: string }[] = [
+  { value: '6H', label: '최근 6시간' },
   { value: '24H', label: '최근 24시간' },
   { value: '7D', label: '최근 7일' },
   { value: '30D', label: '최근 30일' },
@@ -88,6 +100,7 @@ function getReferenceEndDate(): Date {
 }
 
 function getRangeStartDate(range: OverviewRange, endDate: Date): Date {
+  if (range === '6H') return addHours(endDate, -6);
   if (range === '7D') return addHours(endDate, -24 * 7);
   if (range === '30D') return addHours(endDate, -24 * 30);
   return addHours(endDate, -24);
@@ -114,6 +127,42 @@ const appliedFrom = ref(draftFrom.value);
 const appliedTo = ref(draftTo.value);
 const rangeErrorMessage = ref<string | null>(null);
 
+// ── 서버 기간 통계 (/equipment/overview) ─────────────────────────────
+const overviewData = ref<EquipmentOverviewPayload | null>(null);
+const isOverviewLoading = ref(false);
+const overviewError = ref(false);
+
+async function loadOverview() {
+  const from = parseDateTimeLocal(appliedFrom.value);
+  const to = parseDateTimeLocal(appliedTo.value);
+  if (!from || !to) return;
+  isOverviewLoading.value = true;
+  overviewError.value = false;
+  try {
+    const rangeParam = overviewRange.value === 'CUSTOM' ? 'CUSTOM' : overviewRange.value;
+    overviewData.value = await fetchEquipmentOverview(rangeParam, from.toISOString(), to.toISOString());
+  } catch (error) {
+    console.warn('[MachineOverview] /equipment/overview 조회 실패', error);
+    overviewData.value = null;
+    overviewError.value = true;
+  } finally {
+    isOverviewLoading.value = false;
+  }
+}
+
+onMounted(() => {
+  void loadOverview();
+});
+
+watch(
+  () => props.summary.measuredAt,
+  (newMeasuredAt) => {
+    if (newMeasuredAt && overviewRange.value !== 'CUSTOM') {
+      applyQuickRange(overviewRange.value);
+    }
+  }
+);
+
 const selectedRangeLabel = computed(() => {
   if (overviewRange.value === 'CUSTOM') return '직접 설정';
   return rangeOptions.find((option) => option.value === overviewRange.value)?.label ?? '최근 24시간';
@@ -122,13 +171,6 @@ const selectedRangeLabel = computed(() => {
 const appliedRangeLabel = computed(
   () => `${formatAppliedDateTime(appliedFrom.value)} ~ ${formatAppliedDateTime(appliedTo.value)}`
 );
-
-const appliedDurationHours = computed(() => {
-  const from = parseDateTimeLocal(appliedFrom.value);
-  const to = parseDateTimeLocal(appliedTo.value);
-  if (!from || !to) return 24;
-  return Math.max((to.getTime() - from.getTime()) / 3_600_000, 1);
-});
 
 function applyQuickRange(range: OverviewRange) {
   const endDate = getReferenceEndDate();
@@ -139,6 +181,7 @@ function applyQuickRange(range: OverviewRange) {
   appliedFrom.value = draftFrom.value;
   appliedTo.value = draftTo.value;
   rangeErrorMessage.value = null;
+  void loadOverview();
 }
 
 function applyCustomRange() {
@@ -159,6 +202,7 @@ function applyCustomRange() {
   appliedFrom.value = draftFrom.value;
   appliedTo.value = draftTo.value;
   rangeErrorMessage.value = null;
+  void loadOverview();
 }
 
 // ── 네비게이션 상태 ──────────────────────────────────────────────────
@@ -185,149 +229,76 @@ function goProcess() {
   selectedTgId.value = null;
 }
 
-// ── Level 1: 공정별 집계 ──────────────────────────────────────────────
-function avg(vals: number[]): number {
-  return vals.length === 0 ? 0 : vals.reduce((a, b) => a + b, 0) / vals.length;
-}
-
-function max(vals: number[]): number {
-  return vals.length === 0 ? 0 : Math.max(...vals);
-}
-
-function avgNullable(vals: (number | null)[]): number | null {
-  const numbers = vals.filter((value): value is number => typeof value === 'number');
-  return numbers.length === 0 ? null : avg(numbers);
-}
-
 function formatDeltaPercentPoint(value: number): string {
   const sign = value >= 0 ? '+' : '';
   return `${sign}${(value * 100).toFixed(1)}pp`;
 }
 
-function fallbackTrendPointLimit(durationHours: number): number {
-  if (durationHours <= 24) return 4;
-  if (durationHours <= 24 * 7) return 7;
-  return Number.POSITIVE_INFINITY;
-}
+const n = (v: number | null | undefined): number => (typeof v === 'number' ? v : 0);
 
-function periodTrendPoints(points: MachineTrendPoint[]): MachineTrendPoint[] {
-  if (points.length === 0) return [];
-
-  const from = parseDateTimeLocal(appliedFrom.value);
-  const to = parseDateTimeLocal(appliedTo.value);
-  const datedPoints = points
-    .map((point) => ({ point, measuredAt: new Date(point.measuredAt) }))
-    .filter(({ measuredAt }) => !Number.isNaN(measuredAt.getTime()));
-
-  if (from && to && datedPoints.length > 0) {
-    const filtered = datedPoints
-      .filter(({ measuredAt }) => measuredAt >= from && measuredAt <= to)
-      .map(({ point }) => point);
-    return filtered.length > 0 ? filtered : datedPoints.slice(-1).map(({ point }) => point);
-  }
-
-  const limit = fallbackTrendPointLimit(appliedDurationHours.value);
-  return Number.isFinite(limit) ? points.slice(-limit) : points;
-}
-
-const toolPeriodRows = computed<ToolPeriodRow[]>(() =>
-  props.overviewEquipments.map((equipment) => {
-    const trends = periodTrendPoints(props.trendsByToolId[equipment.toolId] ?? []);
-    const utilValues = trends.length ? trends.map((point) => point.utilizationRate) : [equipment.utilizationRate];
-    const oeeValues = trends.length ? trends.map((point) => point.oeeEstimate) : [equipment.oeeEstimate];
-    const queueValues = trends.length ? trends.map((point) => point.queueLotCount) : [equipment.queueLotCount];
-    const downValues = trends.length ? trends.map((point) => point.downRatio) : [equipment.downRatio];
-
-    const avgUtilizationRate = avg(utilValues);
-    const avgOeeEstimate = avgNullable(oeeValues);
-    const avgQueueLotCount = avg(queueValues);
-    const avgDownRatio = avg(downValues);
-    const deltaUtilizationRate = equipment.utilizationRate - avgUtilizationRate;
-    const issueScore =
-      Math.max(-deltaUtilizationRate, 0) * 2 +
-      avgDownRatio * 4 +
-      avgQueueLotCount * 0.08 +
-      (avgOeeEstimate !== null ? Math.max(0.78 - avgOeeEstimate, 0) : 0);
-
-    return {
-      ...equipment,
-      avgUtilizationRate,
-      deltaUtilizationRate,
-      avgOeeEstimate,
-      avgQueueLotCount,
-      maxQueueLotCount: max(queueValues),
-      avgDownRatio,
-      issueScore,
-      trends,
-    };
-  })
+// ── 서버 /equipment/overview 집계 → 행 매핑 ──────────────────────────
+const allToolRows = computed<ToolRow[]>(() =>
+  (overviewData.value?.tools ?? []).map((t) => ({
+    toolId: t.toolId,
+    toolCode: t.toolCode,
+    toolName: t.toolName,
+    tgId: t.tgId,
+    status: t.currentStatus,
+    avgUtilizationRate: n(t.avgUtilizationRate),
+    deltaUtilizationRate: n(t.deltaUtilizationRate),
+    avgOeeEstimate: t.avgOeeEstimate,
+    avgQueueLotCount: n(t.avgQueueLotCount),
+    maxQueueLotCount: n(t.maxQueueLotCount),
+    avgDownRatio: n(t.avgDownRatio),
+  }))
 );
 
-const toolGroupRows = computed<ToolGroupPeriodRow[]>(() =>
-  props.toolGroups
-    .map((tg) => {
-      const tools = toolPeriodRows.value.filter((tool) => tool.tgId === tg.tgId);
-      const avgQueueSum = tools.reduce((sum, tool) => sum + tool.avgQueueLotCount, 0);
-      const maxQueueSum = tools.reduce((sum, tool) => sum + tool.maxQueueLotCount, 0);
-      const avgUtilizationRate = tools.length ? avg(tools.map((tool) => tool.avgUtilizationRate)) : tg.utilizationRate;
-      const repeatIssueToolCount = tools.filter(
-        (tool) =>
-          tool.avgDownRatio >= 0.05 ||
-          (tool.avgOeeEstimate !== null && tool.avgOeeEstimate < 0.78) ||
-          tool.maxQueueLotCount >= 10
-      ).length;
-
-      return {
-        ...tg,
-        avgUtilizationRate,
-        currentUtilizationRate: tg.utilizationRate,
-        deltaUtilizationRate: tg.utilizationRate - avgUtilizationRate,
-        avgWipCount: avgQueueSum || tg.queueLotCount,
-        maxWipCount: Math.max(maxQueueSum, tg.queueLotCount),
-        avgBottleneckProb: tg.bottleneckProb,
-        repeatIssueToolCount,
-      };
-    })
-    .sort((a, b) => b.avgBottleneckProb - a.avgBottleneckProb || b.avgWipCount - a.avgWipCount)
+const toolGroupRows = computed<ToolGroupRow[]>(() =>
+  (overviewData.value?.toolGroups ?? []).map((tg) => ({
+    tgId: tg.tgId,
+    tgCode: tg.tgCode,
+    tgName: tg.tgName,
+    areaCode: tg.areaCode,
+    areaNameKo: getProcessAreaNameKo(tg.areaCode),
+    toolCount: tg.toolCount,
+    runToolCount: tg.runToolCount,
+    idleToolCount: tg.idleToolCount,
+    downToolCount: tg.downToolCount,
+    avgUtilizationRate: n(tg.avgUtilizationRate),
+    deltaUtilizationRate: n(tg.deltaUtilizationRate),
+    avgWipCount: n(tg.avgWipCount),
+    maxWipCount: n(tg.maxWipCount),
+    avgBottleneckProb: n(tg.avgBottleneckProb),
+    riskGrade: tg.riskGrade,
+  }))
 );
 
-const overviewSummary = computed(() => ({
-  avgUtilizationRate: avg(toolGroupRows.value.map((row) => row.avgUtilizationRate)),
-  avgWipCount: avg(toolGroupRows.value.map((row) => row.avgWipCount)),
-  avgDownRatio: avg(toolPeriodRows.value.map((row) => row.avgDownRatio)),
-  repeatIssueToolCount: toolPeriodRows.value.filter((row) => row.issueScore >= 0.35).length,
-}));
-
-const processRows = computed<ProcessRow[]>(() => {
-  const map = new Map<string, { label: string; tgs: MachineToolGroupItem[] }>();
-  toolGroupRows.value.forEach((tg) => {
-    if (!map.has(tg.areaCode)) map.set(tg.areaCode, { label: tg.areaNameKo, tgs: [] });
-    map.get(tg.areaCode)!.tgs.push(tg);
-  });
-  return [...map.entries()]
-    .map(([areaCode, { label, tgs }]) => {
-      const periodTgs = tgs as ToolGroupPeriodRow[];
-      const topBurden = [...periodTgs].sort(
-        (a, b) => b.avgWipCount + b.avgBottleneckProb * 100 - (a.avgWipCount + a.avgBottleneckProb * 100)
-      )[0];
-
-      return {
-        areaCode,
-        areaNameKo: label,
-        tgCount: periodTgs.length,
-        toolCount: periodTgs.reduce((s, t) => s + t.toolCount, 0),
-        avgUtilizationRate: avg(periodTgs.map((t) => t.avgUtilizationRate)),
-        currentUtilizationRate: avg(periodTgs.map((t) => t.currentUtilizationRate)),
-        deltaUtilizationRate: avg(periodTgs.map((t) => t.deltaUtilizationRate)),
-        avgWipCount: avg(periodTgs.map((t) => t.avgWipCount)),
-        maxWipCount: max(periodTgs.map((t) => t.maxWipCount)),
-        avgBottleneckProb: avg(periodTgs.map((t) => t.avgBottleneckProb)),
-        riskTgCount: periodTgs.filter((t) => t.riskGrade === 'CRITICAL' || t.riskGrade === 'HIGH').length,
-        topBurdenToolGroupCode: topBurden?.tgCode ?? '-',
-      };
-    })
-    .sort((a, b) => b.riskTgCount - a.riskTgCount || b.avgBottleneckProb - a.avgBottleneckProb);
+const overviewSummary = computed(() => {
+  const s = overviewData.value?.summary;
+  return {
+    avgUtilizationRate: n(s?.avgUtilizationRate),
+    avgWipCount: n(s?.avgWipCount),
+    riskToolGroupCount: s?.riskToolGroupCount ?? 0,
+  };
 });
+
+const processRows = computed<ProcessRow[]>(() =>
+  (overviewData.value?.processes ?? [])
+    .map((p) => ({
+      areaCode: p.areaCode,
+      areaNameKo: getProcessAreaNameKo(p.areaCode),
+      tgCount: p.toolGroupCount,
+      toolCount: p.toolCount,
+      avgUtilizationRate: n(p.avgUtilizationRate),
+      deltaUtilizationRate: n(p.deltaUtilizationRate),
+      avgWipCount: n(p.avgWipCount),
+      maxWipCount: n(p.maxWipCount),
+      avgBottleneckProb: n(p.avgBottleneckProb),
+      riskTgCount: p.riskToolGroupCount,
+      topBurdenToolGroupCode: p.topBurdenToolGroupCode ?? '-',
+    }))
+    .sort((a, b) => b.riskTgCount - a.riskTgCount || b.avgBottleneckProb - a.avgBottleneckProb)
+);
 
 // ── Level 2: 선택 공정의 TG ───────────────────────────────────────────
 const selectedProcess = computed(() => processRows.value.find((p) => p.areaCode === selectedProcessCode.value) ?? null);
@@ -341,27 +312,17 @@ const tgRows = computed(() =>
 // ── Level 3: 선택 TG의 장비 ──────────────────────────────────────────
 const selectedTg = computed(() => toolGroupRows.value.find((tg) => tg.tgId === selectedTgId.value) ?? null);
 
+// 정렬: 문제 설비 우선 — 다운율 desc → 최대 Queue desc (서버 지표만 사용)
 const toolRows = computed(() =>
-  toolPeriodRows.value.filter((eq) => eq.tgId === selectedTgId.value).sort((a, b) => b.issueScore - a.issueScore)
+  allToolRows.value
+    .filter((eq) => eq.tgId === selectedTgId.value)
+    .sort((a, b) => b.avgDownRatio - a.avgDownRatio || b.maxQueueLotCount - a.maxQueueLotCount)
 );
 
-const anomalyMax = computed(() => Math.max(...toolRows.value.map((e) => e.issueScore), 0.01));
-
 // ── 유틸 ──────────────────────────────────────────────────────────────
+// 모든 공정을 "코드 · 한글명"으로 일관 표기 (예: DRY_ETCH · 식각, DEF_MET · 결함 계측).
 function formatProcessLabel(areaCode: string, areaNameKo: string): string {
   return `${getProcessAreaDisplayCode(areaCode)} · ${areaNameKo}`;
-}
-
-function sparkline(trends: MachineTrendPoint[]): string {
-  if (trends.length < 2) return '';
-  const W = 44,
-    H = 12;
-  const vals = trends.map((t) => t.utilizationRate);
-  const min = Math.min(...vals);
-  const range = Math.max(...vals) - min || 0.01;
-  return vals
-    .map((v, i) => `${((i / (vals.length - 1)) * W).toFixed(1)},${(H - ((v - min) / range) * H).toFixed(1)}`)
-    .join(' ');
 }
 </script>
 
@@ -427,12 +388,19 @@ function sparkline(trends: MachineTrendPoint[]): string {
         :subtitle="`${selectedRangeLabel} TG 평균`"
       />
       <KpiCard
-        title="반복 이슈 Tool"
-        :value="`${formatNumber(overviewSummary.repeatIssueToolCount)}대`"
-        value-color="var(--color-status-down)"
-        :subtitle="`OEE·Queue·Down 기준`"
+        title="위험 TG"
+        :value="`${formatNumber(overviewSummary.riskToolGroupCount)}개`"
+        value-color="var(--color-status-danger)"
+        :subtitle="`${selectedRangeLabel} 위험등급 TG`"
       />
     </section>
+
+    <!-- 로딩/에러 상태 -->
+    <p v-if="isOverviewLoading" class="overview-tab__status">기간 통계를 불러오는 중입니다…</p>
+    <p v-else-if="overviewError" class="overview-tab__status overview-tab__status--error">
+      기간 통계를 불러오지 못했습니다.
+      <button type="button" class="overview-tab__retry" @click="loadOverview">다시 시도</button>
+    </p>
 
     <!-- Breadcrumb -->
     <nav class="overview-tab__breadcrumb">
@@ -530,13 +498,12 @@ function sparkline(trends: MachineTrendPoint[]): string {
             <th>평균 WIP</th>
             <th>최대 WIP</th>
             <th>평균 병목률</th>
-            <th>반복 이슈 Tool</th>
             <th>위험도</th>
           </tr>
         </thead>
         <tbody>
           <tr v-if="tgRows.length === 0">
-            <td colspan="9" class="overview-tab__empty">TG 없음</td>
+            <td colspan="8" class="overview-tab__empty">TG 없음</td>
           </tr>
           <tr
             v-for="tg in tgRows"
@@ -571,12 +538,6 @@ function sparkline(trends: MachineTrendPoint[]): string {
             <td>{{ formatNumber(tg.maxWipCount) }}</td>
             <td>{{ formatRatioPercent(tg.avgBottleneckProb) }}</td>
             <td>
-              <span v-if="tg.repeatIssueToolCount > 0" class="overview-tab__risk-count">
-                {{ tg.repeatIssueToolCount }}대
-              </span>
-              <span v-else class="overview-tab__ok">—</span>
-            </td>
-            <td>
               <BaseBadge :variant="riskGradeToLevel(tg.riskGrade)">{{ tg.riskGrade }}</BaseBadge>
             </td>
           </tr>
@@ -597,12 +558,11 @@ function sparkline(trends: MachineTrendPoint[]): string {
             <th>평균 Queue</th>
             <th>최대 Queue</th>
             <th>평균 Down</th>
-            <th>이슈 점수</th>
           </tr>
         </thead>
         <tbody>
           <tr v-if="toolRows.length === 0">
-            <td colspan="9" class="overview-tab__empty">장비 없음</td>
+            <td colspan="8" class="overview-tab__empty">장비 없음</td>
           </tr>
           <tr
             v-for="eq in toolRows"
@@ -618,19 +578,11 @@ function sparkline(trends: MachineTrendPoint[]): string {
             <td>
               <MesToolStatusBadge :status="eq.status" />
             </td>
-            <td class="overview-tab__util-inline">
-              <span>{{ formatRatioPercent(eq.avgUtilizationRate) }}</span>
-              <svg class="overview-tab__sparkline" viewBox="0 0 44 12" preserveAspectRatio="none" aria-hidden="true">
-                <polyline
-                  v-if="sparkline(eq.trends)"
-                  :points="sparkline(eq.trends)"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  stroke-linejoin="round"
-                  stroke-linecap="round"
-                />
-              </svg>
+            <td>
+              <div class="overview-tab__util">
+                <span>{{ formatRatioPercent(eq.avgUtilizationRate) }}</span>
+                <span class="overview-tab__util-bar"><i :style="{ width: `${eq.avgUtilizationRate * 100}%` }" /></span>
+              </div>
             </td>
             <td>
               <span class="overview-tab__delta" :class="eq.deltaUtilizationRate >= 0 ? 'delta--pos' : 'delta--neg'">
@@ -641,12 +593,6 @@ function sparkline(trends: MachineTrendPoint[]): string {
             <td>{{ formatNumber(Number(eq.avgQueueLotCount.toFixed(1))) }}</td>
             <td>{{ formatNumber(eq.maxQueueLotCount) }}</td>
             <td>{{ formatRatioPercent(eq.avgDownRatio) }}</td>
-            <td class="overview-tab__anomaly-cell">
-              <span class="overview-tab__anomaly-bar">
-                <i :style="{ width: `${(eq.issueScore / anomalyMax) * 100}%` }" />
-              </span>
-              <span>{{ eq.issueScore.toFixed(2) }}</span>
-            </td>
           </tr>
         </tbody>
       </table>
@@ -993,25 +939,6 @@ function sparkline(trends: MachineTrendPoint[]): string {
   color: var(--color-fg-muted);
 }
 
-/* Tool — 가동률 + sparkline */
-.overview-tab__util-inline {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.overview-tab__sparkline {
-  width: 44px;
-  height: 12px;
-  color: var(--color-chart-blue);
-  flex-shrink: 0;
-  opacity: 0.75;
-}
-
-.overview-tab__row--down .overview-tab__sparkline {
-  color: var(--color-status-down);
-}
-
 /* delta */
 .overview-tab__delta {
   font-weight: var(--font-weight-bold);
@@ -1026,38 +953,31 @@ function sparkline(trends: MachineTrendPoint[]): string {
   color: var(--color-status-down);
 }
 
-/* 이상도 */
-.overview-tab__anomaly-cell {
+.overview-tab__status {
+  margin: 0;
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  min-width: 72px;
-}
-
-.overview-tab__anomaly-bar {
-  flex: 1;
-  height: 4px;
-  border-radius: var(--radius-pill);
-  background: var(--color-border-subtle);
-  overflow: hidden;
-}
-
-.overview-tab__anomaly-bar i {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--color-risk-high);
-  min-width: 2px;
-}
-
-.overview-tab__row--down .overview-tab__anomaly-bar i {
-  background: var(--color-risk-critical);
-}
-
-.overview-tab__anomaly-cell > span:last-child {
+  border: var(--border-width-default) solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+  padding: var(--space-2) var(--space-3);
   color: var(--color-fg-muted);
   font-size: var(--font-size-base);
-  font-variant-numeric: tabular-nums;
+}
+.overview-tab__status--error {
+  border-color: var(--color-status-danger);
+  color: var(--color-status-danger);
+}
+.overview-tab__retry {
+  border: var(--border-width-default) solid currentColor;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  padding: 2px 10px;
+  color: inherit;
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
 }
 
 .overview-tab__empty {

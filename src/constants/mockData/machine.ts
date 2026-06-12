@@ -19,6 +19,8 @@ import type {
 } from '@/types/machine';
 import type { MesToolStatus } from '@/types/mes';
 
+import { DEFAULT_MACHINE_PERIOD_PRESET } from '@/utils/machinePeriod';
+
 const TREND_OFFSETS = [-0.03, -0.01, 0.02, -0.04, 0.01, -0.02, 0.03, -0.01, 0];
 
 function getRoleCode(tgCode: string): string {
@@ -321,7 +323,7 @@ function seededRng(seed: number) {
   };
 }
 
-const RANGE_CONFIG: Record<MachinePeriodPreset, { bucketMin: number; nPoints: number }> = {
+const RANGE_CONFIG: Partial<Record<MachinePeriodPreset, { bucketMin: number; nPoints: number }>> = {
   '6H': { bucketMin: 60, nPoints: 6 },
   '24H': { bucketMin: 60, nPoints: 24 },
   '7D': { bucketMin: 60, nPoints: 168 },
@@ -392,7 +394,7 @@ export function generateMockEquipmentTrends(
   targets: MockTrendMeta[],
   range: MachinePeriodPreset
 ): MachineEquipmentTrendsPayload {
-  const { bucketMin, nPoints } = RANGE_CONFIG[range] ?? RANGE_CONFIG['24H'];
+  const { bucketMin, nPoints } = RANGE_CONFIG[range] ?? RANGE_CONFIG[DEFAULT_MACHINE_PERIOD_PRESET]!;
 
   const series = targets.map((target) => {
     const seed = target.code.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
@@ -439,5 +441,5 @@ export function generateMockEquipmentTrends(
     }
   });
 
-  return { type, range, series };
+  return { type, effectiveBucket: `${bucketMin} minutes`, series };
 }

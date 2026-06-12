@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 145" width="120" height="145" role="img" aria-label="bear paw print">
+  <g fill="#E3CF9F">
+    <path d="M60,140 C32,140 18,118 23,96 C27,78 44,72 60,72 C76,72 93,78 97,96 C102,118 88,140 60,140 Z"/>
+    <ellipse cx="26" cy="58" rx="9.5" ry="13.5" transform="rotate(-22 26 58)"/>
+    <ellipse cx="47" cy="42" rx="9.5" ry="14.5" transform="rotate(-8 47 42)"/>
+    <ellipse cx="71" cy="42" rx="9.5" ry="14.5" transform="rotate(8 71 42)"/>
+    <ellipse cx="93" cy="58" rx="9.5" ry="13.5" transform="rotate(22 93 58)"/>
+  </g>
+</svg>

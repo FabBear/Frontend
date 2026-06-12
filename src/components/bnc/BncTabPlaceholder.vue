@@ -28,7 +28,8 @@ const content = computed(() => BNC_TAB_EMPTY_STATE[props.activeTab]);
   padding: var(--space-5);
   background: var(--color-bg-surface);
   border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-lg);
+  border-top: none;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
 
 .bnc-tab-placeholder h3,

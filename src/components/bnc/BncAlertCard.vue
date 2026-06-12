@@ -8,7 +8,7 @@ import type { BncAlertCase } from '@/types/bnc';
 
 import BaseBadge from '@/components/base/BaseBadge.vue';
 
-import { formatKoMonthDayTime, formatNumber, formatRatioPercent } from '@/utils/format';
+import { formatKoMonthDayTime, formatRatioPercent } from '@/utils/format';
 
 const props = defineProps<{
   item: BncAlertCase;
@@ -27,7 +27,7 @@ const progressRate = computed(() => {
 });
 const statusMeta = computed(() => BNC_STATUS_META[props.item.status]);
 const currentStepLabel = computed(() =>
-  props.item.currentStepName ? (BNC_STEP_LABELS[props.item.currentStepName] ?? props.item.currentStepName) : '-'
+  props.item.currentStepName ? (BNC_STEP_LABELS[props.item.currentStepName] ?? props.item.currentStepName) : null
 );
 </script>
 
@@ -40,15 +40,15 @@ const currentStepLabel = computed(() =>
     :aria-pressed="selected"
     @click="$emit('select', item.caseId)"
   >
-    <span class="bnc-alert-card__top">
-      <span>
+    <div class="bnc-alert-card__top">
+      <div class="bnc-alert-card__id">
         <strong class="bnc-alert-card__title">{{ item.tgName }}</strong>
         <span class="bnc-alert-card__meta">{{ item.areaName }} · {{ formatKoMonthDayTime(item.detectedAt) }}</span>
-      </span>
+      </div>
       <BaseBadge :variant="riskLevel">{{ riskMeta.label }}</BaseBadge>
-    </span>
+    </div>
 
-    <span class="bnc-alert-card__metrics">
+    <div class="bnc-alert-card__metrics">
       <span>
         <b>{{ formatRatioPercent(item.bottleneckProb) }}</b>
         <small>병목 확률</small>
@@ -58,21 +58,22 @@ const currentStepLabel = computed(() =>
         <small>가동률</small>
       </span>
       <span>
-        <b>{{ formatNumber(item.wipCount) }}</b>
+        <b>{{ item.wipCount.toLocaleString() }}</b>
         <small>WIP</small>
       </span>
-    </span>
+    </div>
 
-    <span class="bnc-alert-card__bottom">
+    <div class="bnc-alert-card__footer">
       <BaseBadge :variant="statusMeta.variant">{{ statusMeta.label }}</BaseBadge>
-      <span class="bnc-alert-card__progress"
-        >{{ currentStepLabel }} · {{ item.stepProgress }}/{{ item.totalSteps }}</span
-      >
-    </span>
+      <span v-if="currentStepLabel" class="bnc-alert-card__step">
+        {{ currentStepLabel }} · {{ item.stepProgress }}/{{ item.totalSteps }}
+      </span>
+      <span v-else class="bnc-alert-card__step">{{ item.stepProgress }}/{{ item.totalSteps }} 완료</span>
+    </div>
 
-    <span class="bnc-alert-card__bar" aria-hidden="true">
+    <div class="bnc-alert-card__bar" aria-hidden="true">
       <span :style="{ width: `${progressRate}%` }" />
-    </span>
+    </div>
   </button>
 </template>
 
@@ -80,67 +81,99 @@ const currentStepLabel = computed(() =>
 .bnc-alert-card {
   display: grid;
   width: 100%;
-  gap: var(--space-3);
-  padding: var(--space-4);
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-3) var(--space-2);
   color: var(--color-fg);
   text-align: left;
   background: var(--color-bg-card);
   border: 1px solid var(--color-border-default);
-  border-left: 4px solid var(--bnc-alert-accent);
+  border-left: 3px solid var(--bnc-alert-accent);
   border-radius: var(--radius-lg);
   cursor: pointer;
   transition:
     border-color var(--transition-fast),
-    box-shadow var(--transition-fast),
-    transform var(--transition-fast);
+    box-shadow var(--transition-fast);
 }
 
-.bnc-alert-card:hover,
+.bnc-alert-card:hover {
+  box-shadow: var(--shadow-sm);
+}
+
 .bnc-alert-card--selected {
   border-color: var(--color-state-selected-border);
-  box-shadow: var(--shadow-sm);
-  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--color-action-primary-soft) 36%, var(--color-bg-card));
 }
 
-.bnc-alert-card--selected {
-  background: color-mix(in srgb, var(--color-action-primary-soft) 42%, var(--color-bg-card));
-}
-
-.bnc-alert-card__top,
-.bnc-alert-card__bottom,
-.bnc-alert-card__metrics {
+.bnc-alert-card__top {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: var(--space-3);
+  gap: var(--space-2);
+}
+
+.bnc-alert-card__id {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
 }
 
 .bnc-alert-card__title {
   display: block;
+  overflow: hidden;
   color: var(--color-fg-strong);
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.bnc-alert-card__meta,
-.bnc-alert-card__progress,
-.bnc-alert-card__metrics small {
+.bnc-alert-card__meta {
   color: var(--color-fg-muted);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
+}
+
+.bnc-alert-card__metrics {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--color-border-subtle);
+  border-bottom: 1px solid var(--color-border-subtle);
 }
 
 .bnc-alert-card__metrics span {
-  display: grid;
+  display: flex;
+  align-items: baseline;
   gap: var(--space-1);
 }
 
 .bnc-alert-card__metrics b {
   color: var(--color-fg-strong);
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+}
+
+.bnc-alert-card__metrics small {
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-xs);
+}
+
+.bnc-alert-card__footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.bnc-alert-card__step {
+  overflow: hidden;
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .bnc-alert-card__bar {
   display: block;
-  height: 4px;
+  height: 3px;
   overflow: hidden;
   background: var(--color-border-subtle);
   border-radius: var(--radius-pill);

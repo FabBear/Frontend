@@ -17,13 +17,51 @@ export const BNC_STATUS_META: Record<
   RESOLVED: { label: '보고서 완료', variant: 'success', priority: 9 },
 };
 
-export const BNC_STEP_LABELS: Record<string, string> = {
-  DIFFUSION_ANALYSIS: '확산 영향 분석',
-  CAUSE_ANALYSIS: '원인 분석',
-  ACTION_PLAN_GENERATION: '대응안 생성',
-  HITL_REVIEW: '승인 검토',
-  REPORT_GENERATION: '리포트 생성',
+export const BNC_AGENT_STEP_NAMES = [
+  'BOTTLENECK_DETECTOR',
+  'CASCADE_ANALYZER',
+  'CAUSE_ANALYZER',
+  'SOLUTION_GENERATOR',
+  'COMPARE_AGENT',
+  'REPORT_AGENT',
+] as const;
+
+export const BNC_STEP_META: Record<string, { label: string; description: string; sourcePath: string }> = {
+  BOTTLENECK_DETECTOR: {
+    label: '병목 감지',
+    description: 'XGBoost 기반 KPI 스냅샷에서 잠재 병목 TG 감지',
+    sourcePath: 'AI-Agent/agents/bottleneck_detector',
+  },
+  CASCADE_ANALYZER: {
+    label: '연쇄 영향 분석',
+    description: '후속 TG 전파 경로와 영향 Lot 규모 산출',
+    sourcePath: 'AI-Agent/agents/cascade_analyzer',
+  },
+  CAUSE_ANALYZER: {
+    label: '원인 분석',
+    description: 'SHAP · trend · upstream · Forward Sim 기반 원인 후보 도출',
+    sourcePath: 'AI-Agent/agents/cause_analyzer',
+  },
+  SOLUTION_GENERATOR: {
+    label: '대응안 생성',
+    description: 'RAG + LLM 기반 대응 후보 생성',
+    sourcePath: 'AI-Agent/agents/solution_generator',
+  },
+  COMPARE_AGENT: {
+    label: '대응안 비교',
+    description: '디지털 트윈 시뮬레이션으로 대응안별 KPI 개선폭 비교',
+    sourcePath: 'AI-Agent/agents/compare_agent',
+  },
+  REPORT_AGENT: {
+    label: '보고서 작성',
+    description: 'HITL 검토 이력을 포함한 최종 대응 보고서 생성',
+    sourcePath: 'AI-Agent/agents/report_agent',
+  },
 };
+
+export const BNC_STEP_LABELS: Record<string, string> = Object.fromEntries(
+  Object.entries(BNC_STEP_META).map(([key, value]) => [key, value.label])
+);
 
 export const BNC_TAB_EMPTY_STATE: Record<BncTabId, { title: string; description: string }> = {
   progress: {

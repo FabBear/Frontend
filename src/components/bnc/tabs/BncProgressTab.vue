@@ -1,0 +1,223 @@
+<script setup lang="ts">
+import { computed } from 'vue';
+
+import { BNC_STEP_META } from '@/constants/bnc';
+
+import type { BncCaseDetail } from '@/types/bnc';
+
+import AgentProgressStep from '@/components/bnc/AgentProgressStep.vue';
+
+import { formatNumber, formatRatioPercent } from '@/utils/format';
+
+const props = defineProps<{
+  detail: BncCaseDetail | null;
+  loading?: boolean;
+  errorMessage?: string | null;
+}>();
+
+defineEmits<{
+  explainStep: [step: BncCaseDetail['agentProgress'][number]];
+}>();
+
+const orderedSteps = computed(() => [...(props.detail?.agentProgress ?? [])].sort((a, b) => a.stepOrder - b.stepOrder));
+const doneCount = computed(() => orderedSteps.value.filter((step) => step.status === 'DONE').length);
+const progressRate = computed(() => {
+  if (orderedSteps.value.length === 0) return 0;
+  return Math.round((doneCount.value / orderedSteps.value.length) * 100);
+});
+const currentStep = computed(
+  () =>
+    orderedSteps.value.find((s) => s.status === 'RUNNING') ??
+    orderedSteps.value.find((s) => s.status === 'WAITING') ??
+    null
+);
+const currentStepLabel = computed(() =>
+  currentStep.value ? (BNC_STEP_META[currentStep.value.stepName]?.label ?? currentStep.value.stepName) : '완료'
+);
+const isAllDone = computed(() => !currentStep.value);
+</script>
+
+<template>
+  <section class="bnc-progress-tab">
+    <p v-if="loading" class="bnc-progress-tab__state">Agent 진행 상세를 불러오는 중입니다.</p>
+    <p v-else-if="errorMessage" class="bnc-progress-tab__state bnc-progress-tab__state--error">
+      {{ errorMessage }}
+    </p>
+    <p v-else-if="!detail" class="bnc-progress-tab__state">선택된 병목 케이스가 없습니다.</p>
+    <p v-else-if="orderedSteps.length === 0" class="bnc-progress-tab__state">
+      이 케이스에는 진행 중인 Agent 단계가 없습니다.
+    </p>
+
+    <template v-else>
+      <!-- 상태 헤더 -->
+      <header class="bnc-progress-tab__header">
+        <div class="bnc-progress-tab__status">
+          <span class="bnc-progress-tab__status-badge" :class="{ 'bnc-progress-tab__status-badge--done': isAllDone }">
+            {{ isAllDone ? '완료' : currentStep?.status === 'RUNNING' ? '실행 중' : '대기' }}
+          </span>
+          <span class="bnc-progress-tab__status-step">{{ currentStepLabel }}</span>
+        </div>
+        <span class="bnc-progress-tab__rate">{{ progressRate }}%</span>
+      </header>
+
+      <!-- 프로그레스 바 -->
+      <div class="bnc-progress-tab__bar" aria-hidden="true">
+        <span :style="{ width: `${progressRate}%` }" />
+      </div>
+
+      <!-- 요약 KPI -->
+      <dl class="bnc-progress-tab__summary">
+        <div>
+          <dt>완료 단계</dt>
+          <dd>{{ doneCount }} / {{ orderedSteps.length }}</dd>
+        </div>
+        <div>
+          <dt>병목 TG</dt>
+          <dd>{{ formatNumber(detail.agentSummary.bottleneckCount) }}</dd>
+        </div>
+        <div>
+          <dt>Critical</dt>
+          <dd>{{ formatNumber(detail.agentSummary.criticalCount) }}</dd>
+        </div>
+        <div>
+          <dt>최대 WIP</dt>
+          <dd>{{ formatNumber(detail.agentSummary.maxWipCount) }} Lot</dd>
+        </div>
+        <div>
+          <dt>최대 가동률</dt>
+          <dd>{{ formatRatioPercent(detail.agentSummary.maxUtilizationRate) }}</dd>
+        </div>
+      </dl>
+
+      <!-- 타임라인 -->
+      <div class="bnc-progress-tab__steps">
+        <AgentProgressStep
+          v-for="step in orderedSteps"
+          :key="step.stepOrder"
+          :step="step"
+          @click="$emit('explainStep', step)"
+        />
+      </div>
+    </template>
+  </section>
+</template>
+
+<style scoped>
+.bnc-progress-tab {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-default);
+  border-top: none;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+.bnc-progress-tab__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.bnc-progress-tab__status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.bnc-progress-tab__status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-action-primary);
+  background: var(--color-action-primary-soft);
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+
+.bnc-progress-tab__status-badge--done {
+  color: var(--color-status-success);
+  background: var(--color-status-success-soft);
+}
+
+.bnc-progress-tab__status-step {
+  color: var(--color-fg-strong);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+}
+
+.bnc-progress-tab__rate {
+  color: var(--color-action-primary);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+}
+
+.bnc-progress-tab__bar {
+  height: 4px;
+  overflow: hidden;
+  background: var(--color-border-subtle);
+  border-radius: var(--radius-pill);
+}
+
+.bnc-progress-tab__bar span {
+  display: block;
+  height: 100%;
+  background: var(--color-action-primary);
+  border-radius: inherit;
+  transition: width var(--transition-normal);
+}
+
+.bnc-progress-tab__state {
+  margin: 0;
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-base);
+}
+
+.bnc-progress-tab__state--error {
+  color: var(--color-status-danger);
+}
+
+.bnc-progress-tab__summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.bnc-progress-tab__summary div {
+  min-width: 0;
+  padding: var(--space-3);
+  background: var(--color-bg-page);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.bnc-progress-tab__summary dt {
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-xs);
+}
+
+.bnc-progress-tab__summary dd {
+  margin: var(--space-1) 0 0;
+  overflow: hidden;
+  color: var(--color-fg-strong);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bnc-progress-tab__steps {
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 900px) {
+  .bnc-progress-tab__summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+</style>

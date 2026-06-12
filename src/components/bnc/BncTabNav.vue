@@ -4,6 +4,7 @@ import type { BncTabId, BncTabOption } from '@/types/bnc';
 defineProps<{
   tabs: BncTabOption[];
   activeTab: BncTabId;
+  disabledTabs?: Set<BncTabId>;
 }>();
 
 defineEmits<{
@@ -12,63 +13,60 @@ defineEmits<{
 </script>
 
 <template>
-  <div class="bnc-tab-nav" role="tablist" aria-label="병목 대응 센터 탭">
+  <nav class="bnc-tab-nav" role="tablist" aria-label="병목 대응 센터 탭">
     <button
       v-for="tab in tabs"
       :key="tab.id"
-      class="bnc-tab-nav__button"
-      :class="{ 'bnc-tab-nav__button--active': tab.id === activeTab }"
+      class="bnc-tab-nav__tab"
+      :class="{ 'bnc-tab-nav__tab--active': tab.id === activeTab }"
       type="button"
       role="tab"
       :aria-selected="tab.id === activeTab"
+      :disabled="disabledTabs?.has(tab.id)"
       @click="$emit('select', tab.id)"
     >
-      <span class="bnc-tab-nav__label">{{ tab.label }}</span>
-      <span class="bnc-tab-nav__description">{{ tab.description }}</span>
+      {{ tab.label }}
     </button>
-  </div>
+  </nav>
 </template>
 
 <style scoped>
 .bnc-tab-nav {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-2);
-}
-
-.bnc-tab-nav__button {
-  display: grid;
+  display: flex;
+  border-bottom: 1px solid var(--color-border-default);
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: 0 var(--space-4);
   gap: var(--space-1);
-  min-height: 68px;
-  padding: var(--space-3);
-  color: var(--color-fg);
-  text-align: left;
-  background: var(--color-bg-card);
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-md);
-  cursor: pointer;
 }
 
-.bnc-tab-nav__button:hover,
-.bnc-tab-nav__button--active {
-  border-color: var(--color-state-selected-border);
-  background: var(--color-state-selected-bg);
-}
-
-.bnc-tab-nav__label {
-  color: var(--color-fg-strong);
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-semibold);
-}
-
-.bnc-tab-nav__description {
+.bnc-tab-nav__tab {
+  padding: var(--space-3) var(--space-3);
   color: var(--color-fg-muted);
   font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast);
 }
 
-@media (max-width: 1100px) {
-  .bnc-tab-nav {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+.bnc-tab-nav__tab:hover {
+  color: var(--color-fg);
+}
+
+.bnc-tab-nav__tab:disabled {
+  cursor: not-allowed;
+  opacity: var(--opacity-disabled);
+}
+
+.bnc-tab-nav__tab--active {
+  color: var(--color-action-primary);
+  border-bottom-color: var(--color-action-primary);
 }
 </style>

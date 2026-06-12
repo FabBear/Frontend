@@ -14,13 +14,17 @@ defineProps<{
 defineEmits<{
   select: [planId: string];
 }>();
+
+function formatConfidence(confidence: BncActionPlan['confidence']) {
+  return confidence === null ? '-' : formatRatioPercent(confidence);
+}
 </script>
 
 <template>
   <article class="solution-compare-card" :class="{ 'solution-compare-card--selected': selected }">
     <header class="solution-compare-card__header">
       <div>
-        <span class="solution-compare-card__eyebrow">신뢰도 {{ formatRatioPercent(plan.confidence) }}</span>
+        <span class="solution-compare-card__eyebrow">신뢰도 {{ formatConfidence(plan.confidence) }}</span>
         <h4>{{ plan.title }}</h4>
       </div>
       <BaseBadge v-if="plan.recommended" variant="success">추천</BaseBadge>

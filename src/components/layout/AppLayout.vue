@@ -19,7 +19,7 @@ const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
 const isNotificationOpen = ref(false);
-const { isOpen: isChatOpen, open: openChat } = useChatDrawer();
+const { isOpen: isChatOpen, open: openChat, close: closeChat } = useChatDrawer();
 const {
   notifications,
   unreadCount,
@@ -102,7 +102,7 @@ async function handleLogout() {
       @open-case="handleOpenNotificationCase"
       @open-monitoring="handleOpenNotificationMonitoring"
     />
-    <ChatDrawer :open="isChatOpen" :context-title="pageTitle" @close="isChatOpen = false" />
+    <ChatDrawer :open="isChatOpen" :context-title="pageTitle" @close="closeChat" />
     <aside
       v-if="latestCriticalUnread && !isNotificationOpen"
       class="app-layout__critical-alert"

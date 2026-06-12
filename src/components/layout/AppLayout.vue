@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { useAuthStore } from '@/stores/auth';
 
+import { useChatDrawer } from '@/composables/useChatDrawer';
 import { useNotifications } from '@/composables/useNotifications';
 
 import { ROUTE_NAMES } from '@/constants/routes';
+
+import ChatDrawer from '@/components/chatbot/ChatDrawer.vue';
 
 import TheHeader from './TheHeader.vue';
 import TheNotificationPanel from './TheNotificationPanel.vue';
@@ -16,6 +19,7 @@ const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
 const isNotificationOpen = ref(false);
+const { isOpen: isChatOpen, open: openChat } = useChatDrawer();
 const {
   notifications,
   unreadCount,
@@ -29,6 +33,18 @@ const {
 const pageTitle = computed(() => {
   return typeof route.meta.title === 'string' ? route.meta.title : 'Dashboard';
 });
+
+watch(
+  () => route.query.chat,
+  (chat) => {
+    if (chat !== 'open') return;
+    openChat();
+    const query = { ...route.query };
+    delete query.chat;
+    void router.replace({ query });
+  },
+  { immediate: true }
+);
 
 function handleToggleNotifications() {
   isNotificationOpen.value = !isNotificationOpen.value;
@@ -65,7 +81,9 @@ async function handleLogout() {
         :title="pageTitle"
         :notification-count="unreadCount"
         :notification-open="isNotificationOpen"
+        :chat-open="isChatOpen"
         :user="authStore.user"
+        @open-chat="openChat"
         @toggle-notifications="handleToggleNotifications"
         @logout="handleLogout"
       />
@@ -84,6 +102,7 @@ async function handleLogout() {
       @open-case="handleOpenNotificationCase"
       @open-monitoring="handleOpenNotificationMonitoring"
     />
+    <ChatDrawer :open="isChatOpen" :context-title="pageTitle" @close="isChatOpen = false" />
     <aside
       v-if="latestCriticalUnread && !isNotificationOpen"
       class="app-layout__critical-alert"

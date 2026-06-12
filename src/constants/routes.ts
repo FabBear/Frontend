@@ -4,7 +4,10 @@ export const ROUTE_NAMES = {
   bottleneckMonitoring: 'bottlenecks',
   mesMonitoring: 'mesMonitoring',
   machineMonitoring: 'machineMonitoring',
+  fab3d: 'fab3d',
   bottleneckCenter: 'bottleneckCenter',
-  causeReport: 'causeReport',
+  reportArchive: 'reportArchive',
+  actionHistory: 'actionHistory',
+  aiChatbot: 'aiChatbot',
   notFound: 'notFound',
 } as const;

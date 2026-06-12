@@ -4,11 +4,9 @@ import { RouterLink } from 'vue-router';
 
 import {
   Activity,
-  Building2,
   ClipboardList,
   Factory,
   FileClock,
-  FileSearch,
   Gauge,
   History,
   LayoutDashboard,
@@ -37,8 +35,7 @@ const navSections: NavSection[] = [
       { label: '장비 모니터링', to: '/monitoring/machines', icon: Wrench },
       { label: '3D FAB 뷰', to: '/monitoring/fab-3d', icon: Factory },
       { label: '병목 대응 센터', to: '/response/bottleneck-center', icon: Gauge, badge: '3' },
-      { label: '원인 분석 리포트', to: '/reports/cause', icon: FileSearch },
-      { label: '대응 이력', to: '/reports/action-history', icon: History },
+      { label: '리포트 아카이브', to: '/reports/archive', icon: History },
     ],
   },
   {
@@ -47,7 +44,6 @@ const navSections: NavSection[] = [
       { label: '임계값 관리', to: '/admin/thresholds', icon: SlidersHorizontal },
       { label: 'MLflow 모니터링', to: '/admin/mlflow', icon: ClipboardList },
       { label: '권한 관리', to: '/admin/access', icon: LockKeyhole },
-      { label: '공장 관리', to: '/admin/sites', icon: Building2 },
       { label: 'MES 인터페이스', to: '/admin/mes-interface', icon: Settings2 },
       { label: '프롬프트 관리', to: '/admin/prompts', icon: MessagesSquare },
       { label: '데이터 수집', to: '/admin/ingestion', icon: FileClock },
@@ -69,8 +65,8 @@ const visibleNavSections = computed(() => {
 <template>
   <aside class="the-sidebar" aria-label="Main navigation">
     <RouterLink class="the-sidebar__brand" to="/dashboard">
-      <span class="the-sidebar__logo">FB</span>
-      <span>fabBear</span>
+      <img class="the-sidebar__brand-symbol" src="@/assets/fabbear-symbol.svg" alt="" aria-hidden="true" />
+      <img class="the-sidebar__brand-wordmark" src="@/assets/fabbear-wordmark.svg" alt="fabBear" />
     </RouterLink>
 
     <nav class="the-sidebar__nav">
@@ -118,14 +114,21 @@ const visibleNavSections = computed(() => {
   font-weight: var(--font-weight-extrabold);
 }
 
-.the-sidebar__logo {
-  display: inline-grid;
-  width: 28px;
-  height: 28px;
-  place-items: center;
-  border-radius: var(--radius-md);
-  background: var(--color-action-primary-soft);
-  font-size: var(--font-size-sm);
+.the-sidebar__brand-symbol {
+  display: block;
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  object-position: center;
+  flex-shrink: 0;
+}
+
+.the-sidebar__brand-wordmark {
+  display: block;
+  width: min(132px, calc(100% - 44px));
+  height: auto;
+  object-fit: contain;
+  object-position: left center;
 }
 
 .the-sidebar__nav {

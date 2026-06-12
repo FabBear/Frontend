@@ -8,6 +8,27 @@ export interface BottleneckSnapshotResponse {
   fabId: string;
 }
 
+export interface BottleneckAlertsResponse {
+  items: BottleneckAlertResponseItem[];
+  pageInfo: BottleneckPageInfoResponse;
+}
+
+export interface BottleneckAlertResponseItem {
+  caseId: string;
+  tgId: string;
+  tgName: string;
+  areaName: string;
+  riskGrade: BottleneckRiskGrade;
+  riskLevel: string | null;
+  bottleneckProb: number | null;
+  detectedAt: string;
+  estDelayHours: number | null;
+  affectedTgCount: number | null;
+  mainCause: string | null;
+  status: string | null;
+  currentStepName: string | null;
+}
+
 export interface BottleneckProcessMapResponse {
   snapshotId: string | null;
   capturedAt: string;

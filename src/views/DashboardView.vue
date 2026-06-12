@@ -5,6 +5,7 @@ import { useDashboardData } from '@/composables/useDashboardData';
 
 import { ROUTE_NAMES } from '@/constants/routes';
 
+import FabBearProgressLoader from '@/components/base/FabBearProgressLoader.vue';
 import BottleneckAlertList from '@/components/dashboard/BottleneckAlertList.vue';
 import DashboardKpiSummary from '@/components/dashboard/DashboardKpiSummary.vue';
 import KpiSparklineChart from '@/components/dashboard/KpiSparklineChart.vue';
@@ -28,7 +29,7 @@ function handleSelectArea(areaCode: string) {
 
 <template>
   <div class="dashboard-view">
-    <p v-if="isLoading && !hasLoadedAnySection" class="dashboard-view__state">대시보드 데이터를 불러오는 중입니다.</p>
+    <FabBearProgressLoader v-if="isLoading && !hasLoadedAnySection" label="대시보드 데이터를 불러오는 중입니다" />
     <p v-else-if="errorMessage" class="dashboard-view__state dashboard-view__state--error">{{ errorMessage }}</p>
 
     <template v-if="hasLoadedAnySection">

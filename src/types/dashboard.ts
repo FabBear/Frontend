@@ -25,6 +25,7 @@ export interface BottleneckAlertItem {
   riskLevel: RiskLevel;
   bottleneckProb: number;
   estDelayHours: number;
+  affectedTgCount: number;
   affectedLotCount: number;
   mainCause: string;
   status: string;

@@ -52,10 +52,13 @@ export interface DashboardRiskAlertItem {
   tgName: string;
   areaName: string;
   riskGrade: string;
+  riskLevel?: string | null;
   bottleneckProb: number | null;
   detectedAt: string;
-  estimatedDelayMin: number | null;
-  affectedLotCount: number | null;
+  estimatedDelayMin?: number | null;
+  estDelayHours?: number | null;
+  affectedLotCount?: number | null;
+  affectedTgCount?: number | null;
   mainCause: string | null;
   status: string | null;
   currentStepName: string | null;

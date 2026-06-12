@@ -13,7 +13,6 @@ import {
   mapBottleneckToolGroupsToDashboardAreas,
   normalizeBottleneckRiskSummary,
 } from '@/services/mappers/bottleneckMonitoringMapper';
-import { fetchMesMonitoringData } from '@/services/mesService';
 
 import { getProcessAreaNameKo } from '@/constants/processArea';
 import { RISK_LEVEL_META, riskGradeToLevel } from '@/constants/riskLevel';
@@ -28,11 +27,10 @@ import type {
   BottleneckToolGroupItem,
 } from '@/types/bottleneckMonitoring';
 import type { DashboardProcessAreaData } from '@/types/dashboard';
-import type { MesRiskGrade, MesToolGroupMetric } from '@/types/mes';
 
 const RISK_GRADES: BottleneckRiskGrade[] = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
 
-export function toRiskLevel(riskGrade: BottleneckRiskGrade | MesRiskGrade): RiskLevel {
+export function toRiskLevel(riskGrade: BottleneckRiskGrade): RiskLevel {
   return riskGradeToLevel(riskGrade);
 }
 
@@ -42,80 +40,6 @@ function getMaxRiskLevel(summary: Record<BottleneckRiskGrade, number>): RiskLeve
   }
 
   return 'low';
-}
-
-function hasRankingSignal(ranking: BottleneckToolGroupItem | undefined): ranking is BottleneckToolGroupItem {
-  return !!ranking && (ranking.bottleneckProb > 0 || ranking.riskGrade !== 'LOW');
-}
-
-function mapMesToolGroup(
-  toolGroup: MesToolGroupMetric,
-  ranking: BottleneckToolGroupItem | undefined
-): BottleneckToolGroupItem {
-  const shouldUseRanking = hasRankingSignal(ranking);
-
-  return {
-    tgId: toolGroup.tgId,
-    tgCode: toolGroup.tgCode,
-    tgName: toolGroup.tgName,
-    status: ranking?.status ?? null,
-    riskGrade: shouldUseRanking ? ranking.riskGrade : (toolGroup.riskGrade as BottleneckRiskGrade),
-    utilizationRate: ranking?.utilizationRate ?? toolGroup.utilizationRate,
-    wipCount: ranking?.wipCount ?? toolGroup.wipCount,
-    avgQtimeMin: toolGroup.avgQtimeMin,
-    setupRatio: toolGroup.setupRatio,
-    waitRatio: toolGroup.waitRatio,
-    availableToolRatio: toolGroup.availableToolRatio,
-    bottleneckProb: shouldUseRanking ? ranking.bottleneckProb : toolGroup.bottleneckProb,
-    measuredAt: ranking?.measuredAt ?? toolGroup.measuredAt,
-    areaId: toolGroup.areaId,
-    areaCode: toolGroup.areaCode,
-    areaName: toolGroup.areaNameKo || getProcessAreaNameKo(toolGroup.areaCode),
-  };
-}
-
-function calculateScenarioScore(toolGroup: MesToolGroupMetric, maxWipCount: number): number {
-  const qtimeScore = Math.min((toolGroup.avgQtimeMin ?? 0) / 1440, 1);
-  const wipScore = maxWipCount > 0 ? toolGroup.wipCount / maxWipCount : 0;
-
-  return (
-    toolGroup.utilizationRate * 0.45 +
-    qtimeScore * 0.2 +
-    toolGroup.waitRatio * 0.15 +
-    toolGroup.setupRatio * 0.1 +
-    wipScore * 0.1
-  );
-}
-
-function getScenarioRiskGrade(score: number, rank: number): BottleneckRiskGrade {
-  if (rank === 0 || score >= 0.9) return 'CRITICAL';
-  if (rank <= 3 || score >= 0.85) return 'HIGH';
-  if (rank <= 7 || score >= 0.7) return 'MEDIUM';
-  return 'LOW';
-}
-
-function createScenarioToolGroups(toolGroups: MesToolGroupMetric[]): BottleneckToolGroupItem[] {
-  const maxWipCount = Math.max(...toolGroups.map((toolGroup) => toolGroup.wipCount), 0);
-  const ranked = toolGroups
-    .map((toolGroup) => ({
-      toolGroup,
-      score: calculateScenarioScore(toolGroup, maxWipCount),
-    }))
-    .sort((a, b) => b.score - a.score);
-
-  const rankByTgId = new Map(ranked.map((item, index) => [item.toolGroup.tgId, { index, score: item.score }]));
-
-  return toolGroups.map((toolGroup) => {
-    const scenario = rankByTgId.get(toolGroup.tgId);
-    const riskGrade = getScenarioRiskGrade(scenario?.score ?? 0, scenario?.index ?? 999);
-
-    return {
-      ...mapMesToolGroup(toolGroup, undefined),
-      status: riskGrade === 'CRITICAL' || riskGrade === 'HIGH' ? 'DETECTED' : null,
-      riskGrade,
-      bottleneckProb: Math.min(Math.max(scenario?.score ?? 0, riskGrade === 'LOW' ? 0 : 0.5), 0.98),
-    };
-  });
 }
 
 function createAreaSummaries(processAreas: DashboardProcessAreaData[]): BottleneckAreaSummary[] {
@@ -210,7 +134,6 @@ export function useBottleneckMonitoring() {
   const selectedToolGroupId = ref<string | null>(null);
   const selectedToolGroupDetail = shallowRef<BottleneckToolGroupDetail | null>(null);
   const isLoading = ref(false);
-  const isScenarioMode = ref(false);
   const errorMessage = ref<string | null>(null);
   const toolGroupErrorMessage = ref<string | null>(null);
   const detailErrorMessage = ref<string | null>(null);
@@ -237,12 +160,16 @@ export function useBottleneckMonitoring() {
     applyAreaFilter(initialAreaCode);
   }
 
-  async function loadScenarioData(initialAreaCode: string | null) {
-    const mesData = await fetchMesMonitoringData();
-    isScenarioMode.value = true;
+  function clearMonitoringData() {
     snapshot.value = null;
-    toolGroupErrorMessage.value = '감지된 병목 스냅샷이 없어 MES 운영 지표 기반 시나리오로 표시합니다.';
-    applyToolGroups(createScenarioToolGroups(mesData.toolGroups), initialAreaCode);
+    allToolGroups.value = [];
+    toolGroups.value = [];
+    processMapAreas.value = [];
+    areas.value = [];
+    areaFilters.value = [];
+    selectedAreaCode.value = null;
+    selectedToolGroupId.value = null;
+    selectedToolGroupDetail.value = null;
   }
 
   async function loadMonitoringData(initialAreaCode: string | null = null, caseId: string | null = null) {
@@ -261,23 +188,14 @@ export function useBottleneckMonitoring() {
       ]);
       const rankings = mapBottleneckRankings(rankingsRaw, processMapData.areas);
 
-      isScenarioMode.value = false;
       snapshot.value = snapshotData;
       applyToolGroups(rankings, initialAreaCode);
     } catch (error) {
       if (isNoSnapshotError(error)) {
-        try {
-          await loadScenarioData(initialAreaCode);
-        } catch (scenarioError) {
-          errorMessage.value = getBottleneckErrorMessage(scenarioError);
-        }
+        clearMonitoringData();
       } else {
         errorMessage.value = getBottleneckErrorMessage(error);
-        allToolGroups.value = [];
-        toolGroups.value = [];
-        processMapAreas.value = [];
-        areas.value = [];
-        areaFilters.value = [];
+        clearMonitoringData();
       }
     } finally {
       isLoading.value = false;
@@ -321,7 +239,6 @@ export function useBottleneckMonitoring() {
     selectedToolGroupId,
     selectedToolGroupDetail,
     isLoading,
-    isScenarioMode,
     errorMessage,
     toolGroupErrorMessage,
     detailErrorMessage,

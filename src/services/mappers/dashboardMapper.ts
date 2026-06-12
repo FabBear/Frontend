@@ -65,6 +65,7 @@ export function mapRiskAlerts(alerts: DashboardRiskAlertsResponse): BottleneckAl
 function mapAlert(alert: DashboardRiskAlertItem): BottleneckAlertItem {
   const currentStepName = alert.currentStepName ?? '-';
   const hasCause = Boolean(alert.mainCause);
+  const affectedTgCount = alert.affectedTgCount ?? alert.affectedLotCount ?? 0;
 
   return {
     caseId: alert.caseId,
@@ -74,8 +75,9 @@ function mapAlert(alert: DashboardRiskAlertItem): BottleneckAlertItem {
     riskGrade: alert.riskGrade,
     riskLevel: riskGradeToLevel(alert.riskGrade),
     bottleneckProb: alert.bottleneckProb ?? 0,
-    estDelayHours: minutesToHours(alert.estimatedDelayMin ?? 0),
-    affectedLotCount: alert.affectedLotCount ?? 0,
+    estDelayHours: alert.estDelayHours ?? minutesToHours(alert.estimatedDelayMin ?? 0),
+    affectedTgCount,
+    affectedLotCount: alert.affectedLotCount ?? affectedTgCount,
     mainCause: alert.mainCause ?? '원인 분석 진행 중',
     status: alert.status ?? '-',
     currentStepName,

@@ -48,7 +48,7 @@ function addFiles(fileList: FileList | File[]) {
   attachments.value = [
     ...attachments.value,
     ...Array.from(fileList).map((file) => ({
-      id: `file-${Date.now()}-${file.name}`,
+      id: `file-${Date.now()}-${index}-${file.name}`,
       name: file.name,
       size: file.size,
       type: file.type || file.name.split('.').pop() || 'file',

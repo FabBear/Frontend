@@ -137,12 +137,20 @@ watch(
   }
 );
 
+let resizeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+function handleWindowResize() {
+  ensureDrawerInViewport(false);
+  if (resizeDebounceTimer !== null) clearTimeout(resizeDebounceTimer);
+  resizeDebounceTimer = setTimeout(persistGeometry, 200);
+}
+
 if (typeof window !== 'undefined') {
-  window.addEventListener('resize', ensureDrawerInViewport);
+  window.addEventListener('resize', handleWindowResize);
 }
 onBeforeUnmount(() => {
   if (typeof window === 'undefined') return;
-  window.removeEventListener('resize', ensureDrawerInViewport);
+  if (resizeDebounceTimer !== null) clearTimeout(resizeDebounceTimer);
+  window.removeEventListener('resize', handleWindowResize);
   window.removeEventListener('pointermove', handlePointerMove);
   window.removeEventListener('pointerup', stopDrag);
   window.removeEventListener('pointermove', handleResizeMove);
@@ -253,7 +261,7 @@ function clampGeometry(next: DrawerGeometry): DrawerGeometry {
   return { ...boundedPosition, ...boundedSize };
 }
 
-function ensureDrawerInViewport() {
+function ensureDrawerInViewport(persist = true) {
   const bounded = clampGeometry({
     left: position.value.left,
     top: position.value.top,
@@ -262,7 +270,7 @@ function ensureDrawerInViewport() {
   });
   position.value = { left: bounded.left, top: bounded.top };
   size.value = { width: bounded.width, height: bounded.height };
-  persistGeometry();
+  if (persist) persistGeometry();
 }
 
 function ensureModeControlsVisible(mode: 'text' | 'voice' = chatMode.value) {

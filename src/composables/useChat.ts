@@ -347,32 +347,38 @@ export function useChat() {
     if (sessionId.startsWith('local-') || sessionId.startsWith('agent-')) return;
     try {
       const loadedMessages = await fetchChatSessionMessages(sessionId);
-      const current = sessions.value.find((s) => s.sessionId === sessionId);
-      let seeds = (current?.messages ?? []).filter(
-        (message) =>
-          message.messageId.startsWith('agent-result-') &&
-          !loadedMessages.some((loaded) => loaded.messageId === message.messageId)
-      );
+
+      // rehydrateAgentResult를 불필요하게 호출하지 않도록 첫 번째 await 직후에 확인.
+      const preAwaitSession = sessions.value.find((s) => s.sessionId === sessionId);
+      const hasLocalAgentResult =
+        preAwaitSession?.messages.some((m) => m.messageId.startsWith('agent-result-')) ?? false;
+      const hasLoadedAgentResult = loadedMessages.some((m) => m.messageId.startsWith('agent-result-'));
+
       // 시드가 없으면(새로고침 등) 저장된 taskId로 브리핑 카드를 복원.
-      let restoredContext: AgentContext | null = null;
-      if (seeds.length === 0) {
-        const rehydrated = await rehydrateAgentResult(sessionId, loadedMessages);
-        if (rehydrated) {
-          seeds = [rehydrated.message];
-          restoredContext = rehydrated.context;
-        }
+      let restored: { message: ChatMessage; context: AgentContext } | null = null;
+      if (!hasLocalAgentResult && !hasLoadedAgentResult) {
+        restored = await rehydrateAgentResult(sessionId, loadedMessages);
       }
-      sessions.value = sessions.value.map((session) =>
-        session.sessionId === sessionId
-          ? {
-              ...session,
-              agentContext: restoredContext ?? session.agentContext ?? null,
-              messages: mergeMessages(seeds, loadedMessages),
-            }
-          : session
-      );
-      if (restoredContext && activeSessionId.value === sessionId) {
-        agentContext.value = restoredContext;
+
+      // seeds는 .map() 콜백 안에서 최신 session.messages를 참조해 계산한다.
+      // 두 번의 await 사이에 유저 메시지가 추가되어도 유실되지 않는다.
+      sessions.value = sessions.value.map((session) => {
+        if (session.sessionId !== sessionId) return session;
+        const seeds = session.messages.filter(
+          (message) =>
+            message.messageId.startsWith('agent-result-') &&
+            !loadedMessages.some((loaded) => loaded.messageId === message.messageId)
+        );
+        if (restored) seeds.push(restored.message);
+        return {
+          ...session,
+          agentContext: restored?.context ?? session.agentContext ?? null,
+          messages: mergeMessages(seeds, loadedMessages),
+        };
+      });
+
+      if (restored && activeSessionId.value === sessionId) {
+        agentContext.value = restored.context;
       }
     } catch {
       // Keep the current local messages if history fetch fails.

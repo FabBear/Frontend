@@ -334,13 +334,13 @@ function causeLabel(key: string): string {
 }
 
 function formatActionName(label: string): string {
-  const plan = label.match(/[A-Z]/)?.[0] ?? label;
-  return `플랜 ${plan}`;
+  const plan = label.match(/\b[A-Z]\b/)?.[0] ?? label;
+  return plan.length === 1 ? `플랜 ${plan}` : label;
 }
 
 function isRecommended(action: { label: string }): boolean {
-  const plan = action.label.match(/[A-Z]/)?.[0] ?? '';
-  return plan === props.report.recommendation.action_label;
+  const plan = action.label.match(/\b[A-Z]\b/)?.[0] ?? action.label;
+  return plan === props.report.recommendation.action_label || action.label === props.report.recommendation.action_label;
 }
 
 function formatMinutes(value: number | null | undefined): string {

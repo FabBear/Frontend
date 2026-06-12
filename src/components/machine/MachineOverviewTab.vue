@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 
 import { fetchEquipmentOverview } from '@/services/machineService';
 
@@ -153,6 +153,15 @@ async function loadOverview() {
 onMounted(() => {
   void loadOverview();
 });
+
+watch(
+  () => props.summary.measuredAt,
+  (newMeasuredAt) => {
+    if (newMeasuredAt && overviewRange.value !== 'CUSTOM') {
+      applyQuickRange(overviewRange.value);
+    }
+  }
+);
 
 const selectedRangeLabel = computed(() => {
   if (overviewRange.value === 'CUSTOM') return '직접 설정';

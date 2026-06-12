@@ -292,8 +292,9 @@ export function useMachineMonitoring() {
     isLoading.value = true;
     errorMessage.value = null;
     try {
-      data.value = await fetchMachineMonitoringData();
-      periodRange.value = createMachinePeriodRange(data.value.summary.measuredAt, periodPreset.value);
+      const monitoringData = await fetchMachineMonitoringData();
+      data.value = monitoringData;
+      periodRange.value = createMachinePeriodRange(monitoringData.summary.measuredAt, periodPreset.value);
 
       if (selectedCompareToolGroupIds.value.length === 0) {
         selectedCompareToolGroupIds.value = [...toolGroups.value]

@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue';
 
-import { fetchDashboardRiskAlertsPage } from '@/services/dashboardService';
+import { fetchBottleneckAlertsPage } from '@/services/bottleneckMonitoringService';
 
 import type { BottleneckAlertItem } from '@/types/dashboard';
 import type { DashboardPageInfo } from '@/types/dashboardApi';
@@ -45,6 +45,7 @@ function formatDateInputValue(timestamp: number) {
 export function useBottleneckAlertList() {
   const alerts = ref<BottleneckAlertItem[]>([]);
   const isLoading = ref(false);
+  const hasLoaded = ref(false);
   const errorMessage = ref<string | null>(null);
   const filterStartDate = ref('');
   const filterEndDate = ref('');
@@ -95,7 +96,7 @@ export function useBottleneckAlertList() {
     errorMessage.value = null;
 
     try {
-      const result = await fetchDashboardRiskAlertsPage({
+      const result = await fetchBottleneckAlertsPage({
         page: nextPage,
         size: ALERT_PAGE_SIZE,
         detectedFrom: getDateRangeParam(filterStartDate.value),
@@ -112,6 +113,7 @@ export function useBottleneckAlertList() {
       page.value = 0;
     } finally {
       isLoading.value = false;
+      hasLoaded.value = true;
     }
   }
 
@@ -143,6 +145,7 @@ export function useBottleneckAlertList() {
   return {
     alerts,
     isLoading,
+    hasLoaded,
     errorMessage,
     filterStartDate,
     filterEndDate,

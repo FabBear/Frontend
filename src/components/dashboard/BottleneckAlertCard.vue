@@ -88,8 +88,8 @@ function handleCardClick() {
         <dd :style="delayStyle">{{ alert.estDelayHours.toFixed(1) }}<span>시간</span></dd>
       </div>
       <div class="bottleneck-alert-card__metric">
-        <dt>영향 Lot</dt>
-        <dd>{{ formatNumber(alert.affectedLotCount) }}<span>개</span></dd>
+        <dt>영향 TG</dt>
+        <dd>{{ formatNumber(alert.affectedTgCount) }}<span>개</span></dd>
       </div>
       <div class="bottleneck-alert-card__metric">
         <dt>병목 확률</dt>

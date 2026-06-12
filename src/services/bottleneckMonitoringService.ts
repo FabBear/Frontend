@@ -4,6 +4,7 @@ import {
   mapBottleneckSnapshot,
   mapBottleneckToolGroupDetail,
 } from '@/services/mappers/bottleneckMonitoringMapper';
+import { mapRiskAlerts } from '@/services/mappers/dashboardMapper';
 
 import type {
   BottleneckProcessMapData,
@@ -11,15 +12,51 @@ import type {
   BottleneckToolGroupDetail,
 } from '@/types/bottleneckMonitoring';
 import type {
+  BottleneckAlertsResponse,
   BottleneckProcessMapResponse,
   BottleneckRankingsResponse,
   BottleneckSnapshotResponse,
   BottleneckToolGroupDetailResponse,
 } from '@/types/bottleneckMonitoringApi';
+import type { BottleneckAlertItem } from '@/types/dashboard';
+import type { DashboardPageInfo } from '@/types/dashboardApi';
 
 const DEFAULT_SORT = 'bottleneckProb,desc';
 const DEFAULT_PAGE = 0;
 const DEFAULT_PAGE_SIZE = 200; // 전체 TG를 한 번에 받아 클라이언트 필터로 처리
+
+export interface BottleneckAlertsPage {
+  items: BottleneckAlertItem[];
+  pageInfo: DashboardPageInfo;
+}
+
+interface BottleneckAlertParams {
+  page?: number;
+  size?: number;
+  detectedFrom?: string | null;
+  detectedTo?: string | null;
+}
+
+export async function fetchBottleneckAlertsPage({
+  page = 0,
+  size = 10,
+  detectedFrom,
+  detectedTo,
+}: BottleneckAlertParams = {}): Promise<BottleneckAlertsPage> {
+  const { data } = await api.get<BottleneckAlertsResponse>('/v1/monitoring/bottleneck/alerts', {
+    params: {
+      page,
+      size,
+      sort: 'detectedAt,desc',
+      ...(detectedFrom ? { detectedFrom } : {}),
+      ...(detectedTo ? { detectedTo } : {}),
+    },
+  });
+  return {
+    items: mapRiskAlerts(data),
+    pageInfo: data.pageInfo,
+  };
+}
 
 export async function fetchBottleneckSnapshot(caseId?: string | null): Promise<BottleneckSnapshot> {
   const { data } = caseId

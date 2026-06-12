@@ -5,7 +5,7 @@ interface Props {
   title: string;
   subtitle: string;
   delayHours: number | null;
-  affectedLots: number | null;
+  affectedTgCount: number | null;
   bottleneckProb: number | null;
   statusText: string | null;
   causeText: string | null;
@@ -42,8 +42,8 @@ const emit = defineEmits<{
         <dd>{{ delayHours === null ? '-' : `${delayHours.toFixed(1)}시간` }}</dd>
       </div>
       <div class="bottleneck-snapshot-card__kpi">
-        <dt>영향 Lot</dt>
-        <dd>{{ affectedLots === null ? '-' : `${formatNumber(affectedLots)}개` }}</dd>
+        <dt>영향 TG</dt>
+        <dd>{{ affectedTgCount === null ? '-' : `${formatNumber(affectedTgCount)}개` }}</dd>
       </div>
       <div class="bottleneck-snapshot-card__kpi">
         <dt>병목 확률</dt>

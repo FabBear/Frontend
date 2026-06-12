@@ -58,6 +58,16 @@ let _border: THREE.Line | null = null;
 let _cornerLights: THREE.PointLight[] = [];
 let _amhsTracks: THREE.Mesh[] = [];
 const _bayFloors: { mesh: THREE.Mesh; areaCode: string }[] = [];
+
+type DisposableResource = { dispose: () => void };
+type SceneObjectWithResources = THREE.Object3D & {
+  geometry?: THREE.BufferGeometry;
+  material?: THREE.Material | THREE.Material[];
+};
+
+function isDisposableResource(value: unknown): value is DisposableResource {
+  return Boolean(value && typeof value === 'object' && 'dispose' in value && typeof value.dispose === 'function');
+}
 const _zoneFloors: { mesh: THREE.Mesh; type: string }[] = [];
 const _zoneDividers: THREE.Line[] = [];
 const _utilityChases: THREE.Mesh[] = [];
@@ -198,9 +208,11 @@ function v3(point: Fab3dPoint) {
 onMounted(async () => {
   if (!containerRef.value) return;
   await nextTick();
+  const el = containerRef.value;
+  if (!el) return;
   let sceneReady = false;
   try {
-    initScene();
+    initScene(el);
     buildFab();
     buildAMRs();
     buildOHTVehicles();
@@ -219,11 +231,19 @@ onBeforeUnmount(() => {
   cancelAnimationFrame(animId);
   controls?.dispose();
   scene?.traverse((obj) => {
-    if (obj instanceof THREE.Mesh || obj instanceof THREE.Line || obj instanceof THREE.LineSegments) {
-      obj.geometry.dispose();
-      const mat = obj.material;
-      if (Array.isArray(mat)) mat.forEach((m) => (m as THREE.Material).dispose());
-      else (mat as THREE.Material).dispose();
+    const resourceObject = obj as SceneObjectWithResources;
+    if (resourceObject.geometry) {
+      resourceObject.geometry.dispose();
+    }
+    if (resourceObject.material) {
+      const materials = Array.isArray(resourceObject.material) ? resourceObject.material : [resourceObject.material];
+      materials.forEach((mat) => {
+        if (!mat) return;
+        mat.dispose();
+        Object.values(mat).forEach((value) => {
+          if (isDisposableResource(value)) value.dispose();
+        });
+      });
     }
   });
   renderer?.dispose();
@@ -235,8 +255,7 @@ onBeforeUnmount(() => {
 });
 
 // ── Scene setup ────────────────────────────────────────────────────────
-function initScene() {
-  const el = containerRef.value!;
+function initScene(el: HTMLElement) {
   const W = el.clientWidth || el.offsetWidth || 1200;
   const H = el.clientHeight || el.offsetHeight || 700;
   const t = sceneTheme();
@@ -871,6 +890,11 @@ function clearSelection() {
   if (_selectionRing) {
     scene.remove(_selectionRing);
     _selectionRing.geometry.dispose();
+    if (Array.isArray(_selectionRing.material)) {
+      _selectionRing.material.forEach((m) => m.dispose());
+    } else {
+      _selectionRing.material.dispose();
+    }
     _selectionRing = null;
   }
   _flowHighlights.forEach((mesh) => {

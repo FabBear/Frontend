@@ -489,7 +489,7 @@ function focusAgentToolGroup(tgNameOrId: string) {
 }
 
 const REFRESH_MS = 8000;
-let refreshTimer: ReturnType<typeof setInterval> | null = null;
+let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 
 async function loadFab3dData(background = false) {
   if (!background) isLoadingCurrent.value = true;
@@ -511,10 +511,14 @@ async function loadFab3dData(background = false) {
 
 onMounted(() => {
   void loadFab3dData();
-  refreshTimer = setInterval(() => void loadFab3dData(true), REFRESH_MS);
+  const poll = async () => {
+    await loadFab3dData(true);
+    refreshTimer = setTimeout(poll, REFRESH_MS);
+  };
+  refreshTimer = setTimeout(poll, REFRESH_MS);
 });
 onBeforeUnmount(() => {
-  if (refreshTimer) clearInterval(refreshTimer);
+  if (refreshTimer) clearTimeout(refreshTimer);
 });
 
 watch(sceneKey, () => {

@@ -1,6 +1,3 @@
-import compareDefMetFe118ClearWinner from '@/constants/mockData/compare_v2_DefMEt_FE_118_clear_winner_20260610_211827.json';
-import compareDefMetFe118Equivalent from '@/constants/mockData/compare_v2_DefMEt_FE_118_equivalent_20260610_211842.json';
-import compareDefMetFe118NoEffect from '@/constants/mockData/compare_v2_DefMEt_FE_118_no_effect_20260610_211735.json';
 import { MOCK_FINAL_BOTTLENECK_REPORT } from '@/constants/mockData/finalBottleneckReport';
 
 import type {
@@ -176,11 +173,7 @@ interface CompareV2Output {
   };
 }
 
-const MOCK_COMPARE_AGENT_OUTPUTS: Record<string, CompareV2Output> = {
-  [COMPARE_CASE_ID]: compareDefMetFe118ClearWinner as CompareV2Output,
-  [COMPARE_EQUIVALENT_CASE_ID]: compareDefMetFe118Equivalent as CompareV2Output,
-  [COMPARE_NO_EFFECT_CASE_ID]: compareDefMetFe118NoEffect as CompareV2Output,
-};
+const MOCK_COMPARE_AGENT_OUTPUTS: Partial<Record<string, CompareV2Output>> = {};
 
 const KPI_LABELS: Record<string, string> = {
   q_time_min: '평균 대기시간',
@@ -413,6 +406,9 @@ function isRecommendedAction(label: string) {
 
 function buildCompareActionPlans(caseId: string): BncActionPlansPayload {
   const compare = MOCK_COMPARE_AGENT_OUTPUTS[caseId] ?? MOCK_COMPARE_AGENT_OUTPUTS[COMPARE_CASE_ID];
+  if (!compare) {
+    return buildGenericActionPlans(caseId);
+  }
   const currentEffect = compare.action_options.find(isNoActionCompareEffect) ?? null;
   const currentMetrics = buildCompareCurrentMetrics(compare);
   const candidateEffects = compare.action_options.filter((effect) => effect !== currentEffect);
@@ -650,6 +646,68 @@ function buildReportActionPlans(caseId: string): BncActionPlansPayload {
   };
 }
 
+function buildGenericActionPlans(caseId: string): BncActionPlansPayload {
+  return {
+    caseId,
+    baseline: {
+      throughput: 3468,
+      avgWaitDay: 10.551,
+      deliveryCompliance: 95,
+      avgDelayDay: 0.078,
+    },
+    plans: [
+      {
+        planId: `${caseId}-plan-a`,
+        title: 'A. REQUEUE_TOOL',
+        summary: '대기 Lot 일부를 가용 Tool로 재배정해 병목 TG의 queue를 낮춤.',
+        expectedImpact: 'avg queue time 45분 감소, WIP 3 Lot 감소',
+        riskText: '대체 Tool recipe/qualification 확인 필요',
+        confidence: 0.91,
+        recommended: true,
+        metrics: [
+          { label: 'Avg Queue', before: '187분', after: '142분', delta: '-45분' },
+          { label: 'WIP', before: '18', after: '15', delta: '-3' },
+          { label: 'Throughput', before: '8', after: '10', delta: '+2' },
+        ],
+      },
+      {
+        planId: `${caseId}-plan-b`,
+        title: 'B. LOT_HOLD',
+        summary: '급하지 않은 Lot을 일시 보류해 병목 구간 유입을 제한.',
+        expectedImpact: 'queue time 10분 감소',
+        riskText: 'Q-time 조건 미달 Lot 발생 가능',
+        confidence: 0.85,
+        recommended: false,
+        metrics: [
+          { label: 'Avg Queue', before: '187분', after: '177분', delta: '-10분' },
+          { label: 'WIP', before: '18', after: '17', delta: '-1' },
+          { label: 'Throughput', before: '8', after: '7', delta: '-1' },
+        ],
+      },
+      {
+        planId: `${caseId}-plan-c`,
+        title: 'C. DISPATCH_RULE_OVERRIDE',
+        summary: 'SuperHotLot과 setup avoidance 규칙을 일시 적용.',
+        expectedImpact: 'queue time 22분 감소, CQT violation 1건 감소',
+        riskText: '규칙 적용 범위를 좁게 유지해야 함',
+        confidence: 0.78,
+        recommended: false,
+        metrics: [
+          { label: 'Avg Queue', before: '187분', after: '165분', delta: '-22분' },
+          { label: 'WIP', before: '18', after: '16', delta: '-2' },
+          { label: 'Throughput', before: '8', after: '9', delta: '+1' },
+        ],
+      },
+    ],
+    hitlStatus: {
+      hasDecision: false,
+      latestDecision: null,
+      selectedPlanId: null,
+      comment: null,
+    },
+  };
+}
+
 export const MOCK_BNC_CAUSE_ANALYSIS: Record<string, BncCauseAnalysis> = Object.fromEntries(
   DEFAULT_CASE_IDS.map((caseId, index) => {
     const tgName = REPORT_TG_NAMES[index];
@@ -736,7 +794,7 @@ export const MOCK_BNC_CAUSE_ANALYSIS: Record<string, BncCauseAnalysis> = Object.
 
 export const MOCK_BNC_ACTION_PLANS: Record<string, BncActionPlansPayload> = Object.fromEntries(
   DEFAULT_CASE_IDS.map((caseId) => {
-    if (caseId === COMPARE_CASE_ID) {
+    if (MOCK_COMPARE_AGENT_OUTPUTS[caseId]) {
       return [caseId, buildCompareActionPlans(caseId)];
     }
 
@@ -744,68 +802,7 @@ export const MOCK_BNC_ACTION_PLANS: Record<string, BncActionPlansPayload> = Obje
       return [caseId, buildReportActionPlans(caseId)];
     }
 
-    return [
-      caseId,
-      {
-        caseId,
-        baseline: {
-          throughput: 3468,
-          avgWaitDay: 10.551,
-          deliveryCompliance: 95,
-          avgDelayDay: 0.078,
-        },
-        plans: [
-          {
-            planId: `${caseId}-plan-a`,
-            title: 'A. REQUEUE_TOOL',
-            summary: '대기 Lot 일부를 가용 Tool로 재배정해 병목 TG의 queue를 낮춤.',
-            expectedImpact: 'avg queue time 45분 감소, WIP 3 Lot 감소',
-            riskText: '대체 Tool recipe/qualification 확인 필요',
-            confidence: 0.91,
-            recommended: true,
-            metrics: [
-              { label: 'Avg Queue', before: '187분', after: '142분', delta: '-45분' },
-              { label: 'WIP', before: '18', after: '15', delta: '-3' },
-              { label: 'Throughput', before: '8', after: '10', delta: '+2' },
-            ],
-          },
-          {
-            planId: `${caseId}-plan-b`,
-            title: 'B. LOT_HOLD',
-            summary: '급하지 않은 Lot을 일시 보류해 병목 구간 유입을 제한.',
-            expectedImpact: 'queue time 10분 감소',
-            riskText: 'Q-time 조건 미달 Lot 발생 가능',
-            confidence: 0.85,
-            recommended: false,
-            metrics: [
-              { label: 'Avg Queue', before: '187분', after: '177분', delta: '-10분' },
-              { label: 'WIP', before: '18', after: '17', delta: '-1' },
-              { label: 'Throughput', before: '8', after: '7', delta: '-1' },
-            ],
-          },
-          {
-            planId: `${caseId}-plan-c`,
-            title: 'C. DISPATCH_RULE_OVERRIDE',
-            summary: 'SuperHotLot과 setup avoidance 규칙을 일시 적용.',
-            expectedImpact: 'queue time 22분 감소, CQT violation 1건 감소',
-            riskText: '규칙 적용 범위를 좁게 유지해야 함',
-            confidence: 0.78,
-            recommended: false,
-            metrics: [
-              { label: 'Avg Queue', before: '187분', after: '165분', delta: '-22분' },
-              { label: 'WIP', before: '18', after: '16', delta: '-2' },
-              { label: 'Throughput', before: '8', after: '9', delta: '+1' },
-            ],
-          },
-        ],
-        hitlStatus: {
-          hasDecision: false,
-          latestDecision: null,
-          selectedPlanId: null,
-          comment: null,
-        },
-      },
-    ];
+    return [caseId, buildGenericActionPlans(caseId)];
   })
 );
 

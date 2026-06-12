@@ -23,6 +23,7 @@ import type {
   ToolActivity,
 } from '@/types/fab3d';
 
+import AgentTraceList from '@/components/agent/AgentTraceList.vue';
 import ChatStatusIndicator from '@/components/chatbot/ChatStatusIndicator.vue';
 import Fab3dScene from '@/components/fab3d/Fab3dScene.vue';
 import { ZONE_BANDS, hexToCss } from '@/components/fab3d/fab3dLayoutConfig';
@@ -966,6 +967,7 @@ watch(requestedTgName, () => {
           <p v-else-if="agentTaskError" class="fab3d__agent-error">{{ agentTaskError }}</p>
           <template v-else-if="fabAgentTask?.result">
             <p class="fab3d__agent-summary">{{ fabAgentTask.result.summary }}</p>
+            <AgentTraceList :steps="fabAgentTask.progress ?? []" />
 
             <div class="fab3d__agent-section">
               <span>{{ agentEvidenceLabel }}</span>

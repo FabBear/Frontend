@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 
-import { Bot, Search, Sparkles } from '@lucide/vue';
+import { Search, Sparkles } from '@lucide/vue';
 
 import { buildReportPeriodContext } from '@/services/agentContextBuilders';
 import { fetchActionHistory, fetchActionHistoryDetail } from '@/services/reportService';
@@ -19,6 +19,7 @@ import type {
   ReportSortOrder,
 } from '@/types/report';
 
+import AgentTraceList from '@/components/agent/AgentTraceList.vue';
 import BaseButton from '@/components/base/BaseButton.vue';
 import BaseInput from '@/components/base/BaseInput.vue';
 import FabBearProgressLoader from '@/components/base/FabBearProgressLoader.vue';
@@ -27,10 +28,10 @@ import ActionHistoryTable from '@/components/report/ActionHistoryTable.vue';
 
 const route = useRoute();
 const { runAgentTask, isAgentTaskRunning, agentTaskError } = useAgentTask();
-const { openWithAgentTask } = useChatDrawer();
+const { openWithAgentTask, openWithCasePrompt } = useChatDrawer();
 
 type PageButton = number | 'ellipsis-start' | 'ellipsis-end';
-type ReportAgentIntent = 'monthly' | 'summary' | 'pattern' | 'retrospective' | 'qa';
+type ReportAgentIntent = 'monthly' | 'summary';
 
 const PAGE_GROUP_SIZE = 10;
 
@@ -251,7 +252,7 @@ async function runReportAgent(intent: ReportAgentIntent, detail: ActionHistoryDe
   }
 
   const task = await runAgentTask({
-    taskType: intent === 'qa' ? 'REPORT_CASE_QA' : 'REPORT_PERIOD_SUMMARY',
+    taskType: 'REPORT_PERIOD_SUMMARY',
     sourcePage: 'REPORT_ARCHIVE',
     context: buildReportPeriodContext({
       filters: filters.value,
@@ -266,6 +267,17 @@ async function runReportAgent(intent: ReportAgentIntent, detail: ActionHistoryDe
     reportAgentTask.value = task;
     if (task.status === 'SUCCEEDED') openWithAgentTask(task);
   }
+}
+
+function askAiAboutDetail(detail: ActionHistoryDetail) {
+  const label = detail.tgName || detail.targetTgText || detail.caseId || '선택 케이스';
+  openWithCasePrompt({
+    caseId: detail.caseId ?? null,
+    caseLabel: label,
+    sourcePage: 'REPORT_ARCHIVE',
+    title: `${label} 리포트 질의`,
+    prompt: `${label} 케이스 리포트를 요약하고 핵심 원인·대응안을 설명해줘.`,
+  });
 }
 
 onMounted(async () => {
@@ -416,20 +428,6 @@ onMounted(async () => {
           <Sparkles :size="14" aria-hidden="true" />
           기간 요약 보고서
         </button>
-        <button type="button" :disabled="isAgentTaskRunning || items.length === 0" @click="runReportAgent('pattern')">
-          반복 병목 패턴
-        </button>
-        <button
-          type="button"
-          :disabled="isAgentTaskRunning || items.length === 0"
-          @click="runReportAgent('retrospective')"
-        >
-          조치 효과 회고
-        </button>
-        <button type="button" :disabled="isAgentTaskRunning || !selectedDetail" @click="runReportAgent('qa')">
-          <Bot :size="14" aria-hidden="true" />
-          선택 리포트 질의
-        </button>
         <span>{{
           isAgentTaskRunning
             ? 'AI Agent가 리포트 묶음을 분석 중입니다...'
@@ -458,6 +456,7 @@ onMounted(async () => {
       </p>
       <template v-else-if="reportAgentTask?.result">
         <p>{{ reportAgentTask.result.summary }}</p>
+        <AgentTraceList :steps="reportAgentTask.progress ?? []" />
         <div class="action-history-view__agent-grid">
           <div v-for="item in reportAgentTask.result.evidence" :key="`${item.label}-${item.value}`">
             <span>{{ item.label }}</span>
@@ -547,7 +546,7 @@ onMounted(async () => {
           v-else
           :detail="selectedDetail"
           :ai-busy="isAgentTaskRunning"
-          @ask-ai="runReportAgent('qa', $event)"
+          @ask-ai="askAiAboutDetail"
           @back="handleCloseDetail"
         />
       </div>

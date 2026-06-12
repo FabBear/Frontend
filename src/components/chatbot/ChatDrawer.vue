@@ -23,7 +23,7 @@ defineEmits<{
   close: [];
 }>();
 
-const { consumePendingReport, consumePendingAgentTask } = useChatDrawer();
+const { consumePendingReport, consumePendingAgentTask, consumePendingCasePrompt } = useChatDrawer();
 const {
   sessions,
   activeSessionId,
@@ -40,6 +40,7 @@ const {
   sendMessage,
   initWithReport,
   initWithAgentTask,
+  initWithCasePrompt,
   clearReportContext,
   clearAgentContext,
 } = useChat();
@@ -131,8 +132,10 @@ watch(
       ensureModeControlsVisible(chatMode.value);
       const report = consumePendingReport();
       const agentTask = consumePendingAgentTask();
+      const casePrompt = consumePendingCasePrompt();
       if (report) initWithReport(report);
       if (agentTask) initWithAgentTask(agentTask);
+      if (casePrompt) void initWithCasePrompt(casePrompt);
     }
   }
 );

@@ -6,7 +6,7 @@ export type MachineSortDirection = 'desc' | 'asc';
 export type MachineRiskFilter = 'ALL' | 'RISK' | 'MEDIUM' | 'LOW';
 export type MachineEquipmentStatus = 'RUN' | 'IDLE' | 'DOWN';
 export type MachineEquipmentStatusFilter = MachineEquipmentStatus | 'ALL';
-export type MachinePeriodPreset = '6H' | '24H' | '7D' | '30D';
+export type MachinePeriodPreset = '6H' | '24H' | '7D' | '30D' | 'CUSTOM';
 export type MachineCompareMode = 'PREVIOUS_SNAPSHOT' | 'ONE_HOUR_AGO' | 'SAME_TIME_YESTERDAY' | 'TG_AVERAGE';
 // TG 전용 지표
 export type MachineTgMetricKey =
@@ -214,6 +214,90 @@ export interface MachineEquipmentTrendSeries {
 
 export interface MachineEquipmentTrendsPayload {
   type: MachineAnalysisTargetType;
-  range: MachinePeriodPreset;
+  from?: string;
+  to?: string;
+  effectiveBucket?: string;
   series: MachineEquipmentTrendSeries[];
+}
+
+export interface MachinePeriodRange {
+  preset: MachinePeriodPreset;
+  from: string;
+  to: string;
+}
+
+// ── 장비 현황 기간 통계 (GET /v1/monitoring/equipment/overview) ──────────
+// 백엔드 EquipmentOverviewResponse 미러. 공정>TG>Tool 기간 집계를 서버에서 계산해 내려준다.
+export interface EquipmentOverviewSummary {
+  toolGroupCount: number;
+  toolCount: number;
+  avgUtilizationRate: number | null;
+  avgWipCount: number | null;
+  maxWipCount: number | null;
+  avgDownRatio: number | null;
+  riskToolGroupCount: number;
+}
+
+export interface EquipmentOverviewArea {
+  areaCode: string;
+  areaName: string;
+  toolGroupCount: number;
+  toolCount: number;
+  avgUtilizationRate: number | null;
+  currentUtilizationRate: number | null;
+  deltaUtilizationRate: number | null;
+  avgWipCount: number | null;
+  maxWipCount: number | null;
+  avgBottleneckProb: number | null;
+  riskToolGroupCount: number;
+  topBurdenToolGroupCode: string | null;
+}
+
+export interface EquipmentOverviewTg {
+  tgId: string;
+  tgCode: string;
+  tgName: string;
+  areaCode: string;
+  areaName: string;
+  toolCount: number;
+  runToolCount: number;
+  idleToolCount: number;
+  downToolCount: number;
+  avgUtilizationRate: number | null;
+  currentUtilizationRate: number | null;
+  deltaUtilizationRate: number | null;
+  avgWipCount: number | null;
+  maxWipCount: number | null;
+  avgAvailableToolRatio: number | null;
+  avgBottleneckProb: number | null;
+  riskGrade: MesRiskGrade;
+}
+
+export interface EquipmentOverviewTool {
+  toolId: string;
+  toolCode: string;
+  toolName: string;
+  tgId: string;
+  tgCode: string;
+  areaCode: string;
+  areaName: string;
+  currentStatus: MachineEquipmentStatus;
+  avgUtilizationRate: number | null;
+  currentUtilizationRate: number | null;
+  deltaUtilizationRate: number | null;
+  avgOeeEstimate: number | null;
+  avgQueueLotCount: number | null;
+  maxQueueLotCount: number | null;
+  avgDownRatio: number | null;
+}
+
+export interface EquipmentOverviewPayload {
+  from: string;
+  to: string;
+  range: string | null;
+  dataCadence: string | null;
+  summary: EquipmentOverviewSummary;
+  processes: EquipmentOverviewArea[];
+  toolGroups: EquipmentOverviewTg[];
+  tools: EquipmentOverviewTool[];
 }

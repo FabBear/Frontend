@@ -1,16 +1,17 @@
 import api from '@/services/api';
 
-import { MACHINE_METRIC_DEFINITIONS, MOCK_MACHINE_MONITORING_DATA } from '@/constants/mockData/machine';
+import { MACHINE_METRIC_DEFINITIONS } from '@/constants/mockData/machine';
 import { getProcessAreaNameKo } from '@/constants/processArea';
 
 import type {
+  EquipmentOverviewPayload,
   MachineAnalysisTargetType,
   MachineEquipmentItem,
   MachineEquipmentStatus,
   MachineEquipmentTrendsPayload,
   MachineEventLog,
   MachineMonitoringData,
-  MachinePeriodPreset,
+  MachinePeriodRange,
   MachineSummary,
   MachineToolGroupItem,
   MachineTrendPoint,
@@ -76,8 +77,8 @@ function getToolNumber(toolCode: string): string {
 
 function inferStatus(tool: EquipmentRealtimeTool): MachineEquipmentStatus {
   if ((tool.downRatio ?? 0) > 0) return 'DOWN';
-  if ((tool.queueLotCount ?? 0) > 0) return 'IDLE';
-  return 'RUN';
+  if ((tool.utilizationRate ?? 0) > 0) return 'RUN';
+  return 'IDLE';
 }
 
 function normalizeRiskGrade(value: MesRiskGrade | null, utilizationRate: number): MesRiskGrade {
@@ -154,22 +155,21 @@ function toEquipment(
 }
 
 function createTrend(equipment: MachineEquipmentItem): MachineTrendPoint[] {
-  return (
-    MOCK_MACHINE_MONITORING_DATA.trendsByToolId[equipment.toolId] ?? [
-      {
-        measuredAt: equipment.measuredAt,
-        status: equipment.status,
-        utilizationRate: equipment.utilizationRate,
-        oeeEstimate: equipment.oeeEstimate,
-        queueLotCount: equipment.queueLotCount,
-        downRatio: equipment.downRatio,
-      },
-    ]
-  );
+  return [
+    {
+      measuredAt: equipment.measuredAt,
+      status: equipment.status,
+      utilizationRate: equipment.utilizationRate,
+      oeeEstimate: equipment.oeeEstimate,
+      queueLotCount: equipment.queueLotCount,
+      downRatio: equipment.downRatio,
+    },
+  ];
 }
 
 function createEvents(equipment: MachineEquipmentItem): MachineEventLog[] {
-  return MOCK_MACHINE_MONITORING_DATA.eventsByToolId[equipment.toolId] ?? [];
+  void equipment;
+  return [];
 }
 
 function mapEquipmentPayload(payload: EquipmentRealtimePayload): MachineMonitoringData {
@@ -232,6 +232,22 @@ export async function fetchMachineMonitoringData(): Promise<MachineMonitoringDat
 }
 
 /**
+ * 장비 현황 탭 기간 통계 조회 — GET /v1/monitoring/equipment/overview.
+ * 공정>TG>Tool의 기간 평균/최대/현재대비를 서버에서 집계해 반환한다.
+ * (클라이언트 단일 스냅샷 집계를 대체)
+ */
+export async function fetchEquipmentOverview(
+  range: string,
+  from: string,
+  to: string
+): Promise<EquipmentOverviewPayload> {
+  const { data } = await api.get<EquipmentOverviewPayload>('/v1/monitoring/equipment/overview', {
+    params: { from, to, range },
+  });
+  return data;
+}
+
+/**
  * TG 또는 Tool 단위 시계열 KPI 트렌드를 조회한다.
  * 백엔드 GET /v1/monitoring/equipment/trends 에 대응.
  * 엔드포인트가 아직 없으면 404/500이 발생하므로 호출 측에서 try-catch 처리.
@@ -239,10 +255,16 @@ export async function fetchMachineMonitoringData(): Promise<MachineMonitoringDat
 export async function fetchEquipmentTrends(
   type: MachineAnalysisTargetType,
   ids: string[],
-  range: MachinePeriodPreset
+  periodRange: MachinePeriodRange
 ): Promise<MachineEquipmentTrendsPayload> {
   const { data } = await api.get<MachineEquipmentTrendsPayload>('/v1/monitoring/equipment/trends', {
-    params: { type, ids: ids.join(','), range },
+    params: {
+      type,
+      ids: ids.join(','),
+      range: periodRange.preset,
+      from: periodRange.from,
+      to: periodRange.to,
+    },
   });
   return data;
 }

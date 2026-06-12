@@ -2,12 +2,7 @@ import { computed, ref, shallowRef, watch } from 'vue';
 
 import { fetchEquipmentTrends, fetchMachineMonitoringData } from '@/services/machineService';
 
-import {
-  MACHINE_TG_METRIC_DEFINITIONS,
-  MACHINE_TOOL_METRIC_DEFINITIONS,
-  type MockTrendMeta,
-  generateMockEquipmentTrends,
-} from '@/constants/mockData/machine';
+import { MACHINE_TG_METRIC_DEFINITIONS, MACHINE_TOOL_METRIC_DEFINITIONS } from '@/constants/mockData/machine';
 
 import type {
   MachineAnalysisPreset,
@@ -21,9 +16,11 @@ import type {
   MachineMonitoringData,
   MachinePageTab,
   MachinePeriodPreset,
+  MachinePeriodRange,
 } from '@/types/machine';
 
 import { formatNumber, formatRatioPercent } from '@/utils/format';
+import { DEFAULT_MACHINE_PERIOD_PRESET, createMachinePeriodRange } from '@/utils/machinePeriod';
 
 function includesKeyword(values: string[], keyword: string) {
   if (!keyword) return true;
@@ -65,7 +62,8 @@ export function useMachineMonitoring() {
   const analysisTargetType = ref<MachineAnalysisTargetType>('toolGroup');
   const selectedCompareToolGroupIds = ref<string[]>([]);
   const selectedCompareToolIds = ref<string[]>([]);
-  const periodPreset = ref<MachinePeriodPreset>('24H');
+  const periodPreset = ref<MachinePeriodPreset>(DEFAULT_MACHINE_PERIOD_PRESET);
+  const periodRange = ref<MachinePeriodRange | null>(null);
 
   // 선택 타입별 기본 지표
   const MAX_COMPARE = 5;
@@ -270,35 +268,11 @@ export function useMachineMonitoring() {
 
     isTrendsLoading.value = true;
     try {
-      trendsData.value = await fetchEquipmentTrends(analysisTargetType.value, ids, periodPreset.value);
+      const effectiveRange =
+        periodRange.value ?? createMachinePeriodRange(data.value?.summary.measuredAt, periodPreset.value);
+      trendsData.value = await fetchEquipmentTrends(analysisTargetType.value, ids, effectiveRange);
     } catch {
-      // 백엔드 엔드포인트 미구현 시 실제 TG/Tool 메타데이터 기반 mock으로 폴백
-      const targets: MockTrendMeta[] = ids.map((id) => {
-        if (analysisTargetType.value === 'toolGroup') {
-          const tg = toolGroups.value.find((t) => t.tgId === id);
-          return {
-            id,
-            code: tg?.tgCode ?? id,
-            groupLabel: tg?.areaNameKo ?? '',
-            baseUtil: tg?.utilizationRate,
-            baseWip: tg?.queueLotCount,
-            baseAvailRatio: tg?.availableToolRatio,
-            baseBottleneckProb: tg?.bottleneckProb,
-          };
-        } else {
-          const eq = equipments.value.find((e) => e.toolId === id);
-          return {
-            id,
-            code: eq?.toolCode ?? id,
-            groupLabel: eq?.tgCode ?? '',
-            baseUtil: eq?.utilizationRate,
-            baseOee: eq?.oeeEstimate,
-            baseQueue: eq?.queueLotCount,
-            isDown: eq?.status === 'DOWN',
-          };
-        }
-      });
-      trendsData.value = generateMockEquipmentTrends(analysisTargetType.value, targets, periodPreset.value);
+      trendsData.value = null;
     } finally {
       isTrendsLoading.value = false;
     }
@@ -306,7 +280,7 @@ export function useMachineMonitoring() {
 
   // 선택 변경 시 자동 리로드
   watch(
-    [selectedCompareToolGroupIds, selectedCompareToolIds, periodPreset],
+    [selectedCompareToolGroupIds, selectedCompareToolIds, periodRange],
     () => {
       void loadAnalysisTrends();
     },
@@ -319,6 +293,7 @@ export function useMachineMonitoring() {
     errorMessage.value = null;
     try {
       data.value = await fetchMachineMonitoringData();
+      periodRange.value = createMachinePeriodRange(data.value.summary.measuredAt, periodPreset.value);
 
       if (selectedCompareToolGroupIds.value.length === 0) {
         selectedCompareToolGroupIds.value = [...toolGroups.value]
@@ -354,6 +329,23 @@ export function useMachineMonitoring() {
     // 타입 전환 시 지표 기본값 초기화
     selectedMetricKeys.value = type === 'toolGroup' ? DEFAULT_TG_METRICS : DEFAULT_TOOL_METRICS;
     void loadAnalysisTrends();
+  }
+
+  function setAnalysisPeriodPreset(preset: MachinePeriodPreset) {
+    periodPreset.value = preset;
+    periodRange.value = createMachinePeriodRange(data.value?.summary.measuredAt, preset);
+  }
+
+  function setAnalysisPeriodRange(range: MachinePeriodRange) {
+    if (
+      periodRange.value?.preset === range.preset &&
+      periodRange.value.from === range.from &&
+      periodRange.value.to === range.to
+    ) {
+      return;
+    }
+    periodPreset.value = range.preset;
+    periodRange.value = range;
   }
 
   function toggleMetric(key: MachineMetricKey) {
@@ -442,6 +434,7 @@ export function useMachineMonitoring() {
     selectedCompareToolGroupIds,
     selectedCompareToolIds,
     periodPreset,
+    periodRange,
     isTrendsLoading,
     activeMetricDefinitions,
     toolGroupTargets,
@@ -456,6 +449,8 @@ export function useMachineMonitoring() {
     loadMachineMonitoringData,
     setActiveTab,
     setAnalysisTargetType,
+    setAnalysisPeriodPreset,
+    setAnalysisPeriodRange,
     toggleMetric,
     toggleCompareToolGroup,
     toggleCompareTool,

@@ -3,6 +3,7 @@ import { onMounted } from 'vue';
 
 import { useMachineMonitoring } from '@/composables/useMachineMonitoring';
 
+import FabBearProgressLoader from '@/components/base/FabBearProgressLoader.vue';
 import MachineAnalysisTab from '@/components/machine/MachineAnalysisTab.vue';
 import MachineOverviewTab from '@/components/machine/MachineOverviewTab.vue';
 
@@ -13,35 +14,30 @@ const {
   isLoading,
   errorMessage,
   activeTab,
-  // 현황 탭
-  toolGroups,
-  overviewEquipments,
-  trendsByToolId,
   // 분석 탭
   analysisTargetType,
   selectedMetricKeys,
   selectedCompareToolGroupIds,
   selectedCompareToolIds,
   periodPreset,
+  periodRange,
   MAX_COMPARE,
   activeMetricDefinitions,
   toolGroupTargets,
   toolTargets,
   analysisSeries,
   trendLabels,
-  analysisPresets,
-  selectedAnalysisPresetKey,
   analysisInsight,
   // 액션
   loadMachineMonitoringData,
   setActiveTab,
   setAnalysisTargetType,
+  setAnalysisPeriodPreset,
+  setAnalysisPeriodRange,
   toggleMetric,
   toggleCompareToolGroup,
   toggleCompareTool,
   clearCompareTargets,
-  applyAnalysisPreset,
-  resetAnalysisPreset,
 } = useMachineMonitoring();
 
 onMounted(() => {
@@ -63,7 +59,7 @@ onMounted(() => {
       </p>
     </header>
 
-    <p v-if="isLoading" class="machine-monitor-view__state">장비 데이터를 불러오는 중입니다.</p>
+    <FabBearProgressLoader v-if="isLoading" label="장비 데이터를 불러오는 중입니다" />
     <p v-else-if="errorMessage" class="machine-monitor-view__state machine-monitor-view__state--error">
       {{ errorMessage }}
     </p>
@@ -86,18 +82,14 @@ onMounted(() => {
         </button>
       </nav>
 
-      <MachineOverviewTab
-        v-if="activeTab === 'overview'"
-        :summary="data.summary"
-        :tool-groups="toolGroups"
-        :overview-equipments="overviewEquipments"
-        :trends-by-tool-id="trendsByToolId"
-      />
+      <MachineOverviewTab v-if="activeTab === 'overview'" :summary="data.summary" />
 
       <MachineAnalysisTab
         v-else
         :target-type="analysisTargetType"
         :period-preset="periodPreset"
+        :period-range="periodRange"
+        :measured-at="data.summary.measuredAt"
         :metrics="activeMetricDefinitions"
         :selected-metric-keys="selectedMetricKeys"
         :tool-group-targets="toolGroupTargets"
@@ -106,18 +98,15 @@ onMounted(() => {
         :selected-tool-ids="selectedCompareToolIds"
         :analysis-series="analysisSeries"
         :trend-labels="trendLabels"
-        :analysis-presets="analysisPresets"
-        :selected-analysis-preset-key="selectedAnalysisPresetKey"
         :analysis-insight="analysisInsight"
         :max-compare="MAX_COMPARE"
         @update:target-type="setAnalysisTargetType"
-        @update:period-preset="periodPreset = $event"
+        @update:period-preset="setAnalysisPeriodPreset"
+        @update:period-range="setAnalysisPeriodRange"
         @toggle-metric="toggleMetric"
         @toggle-tool-group="toggleCompareToolGroup"
         @toggle-tool="toggleCompareTool"
         @clear-targets="clearCompareTargets"
-        @apply-preset="applyAnalysisPreset"
-        @reset-preset="resetAnalysisPreset"
       />
     </template>
   </div>

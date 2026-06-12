@@ -136,7 +136,7 @@ function handleSubmit() {
 
 .login-form__label {
   padding-left: var(--space-4);
-  color: var(--color-fg-muted);
+  color: color-mix(in srgb, var(--color-brand-brown) 44%, var(--color-fg-muted));
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
 }
@@ -151,7 +151,7 @@ function handleSubmit() {
   z-index: 1;
   top: 50%;
   left: var(--space-4);
-  color: color-mix(in srgb, var(--color-brand-red) 72%, var(--color-fg-muted));
+  color: color-mix(in srgb, var(--color-gold) 78%, var(--color-brand-brown));
   transform: translateY(-50%);
 }
 
@@ -159,7 +159,7 @@ function handleSubmit() {
   position: absolute;
   top: 50%;
   right: var(--space-4);
-  color: var(--color-brand-red);
+  color: var(--color-gold);
   pointer-events: none;
   transform: translateY(-50%);
 }
@@ -168,13 +168,11 @@ function handleSubmit() {
   min-height: 48px;
   border-color: transparent;
   border-radius: var(--radius-pill);
-  background:
-    linear-gradient(90deg, color-mix(in srgb, var(--color-brand-red) 5%, transparent), transparent 42%),
-    color-mix(in srgb, var(--color-brand-brown) 5%, var(--color-bg-surface));
+  background: linear-gradient(90deg, var(--color-login-control-glow), transparent 38%), var(--color-login-control-bg);
   padding-left: var(--space-10);
   box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--color-brand-red) 22%, var(--color-border-subtle)),
-    0 2px 8px color-mix(in srgb, var(--color-brand-red) 6%, transparent);
+    inset 0 0 0 1px var(--color-login-control-border),
+    0 2px 8px color-mix(in srgb, var(--color-gold) 8%, transparent);
 }
 
 .login-form__select {
@@ -183,10 +181,8 @@ function handleSubmit() {
   appearance: none;
   border: 0;
   border-radius: var(--radius-pill);
-  background:
-    linear-gradient(90deg, color-mix(in srgb, var(--color-brand-red) 5%, transparent), transparent 42%),
-    color-mix(in srgb, var(--color-brand-brown) 5%, var(--color-bg-surface));
-  box-shadow: inset 0 0 0 1px var(--color-border-subtle);
+  background: linear-gradient(90deg, var(--color-login-control-glow), transparent 46%), var(--color-login-control-bg);
+  box-shadow: inset 0 0 0 1px var(--color-login-control-border);
   color: var(--color-fg-muted);
   font: inherit;
   font-weight: var(--font-weight-semibold);
@@ -219,19 +215,20 @@ function handleSubmit() {
   margin-top: var(--space-2);
   background: linear-gradient(
     130deg,
-    color-mix(in srgb, var(--color-brand-red) 76%, var(--color-status-warning)),
-    var(--color-brand-red) 48%,
-    color-mix(in srgb, var(--color-brand-red) 55%, var(--color-brand-brown))
+    color-mix(in srgb, var(--color-brand-brown) 78%, var(--color-gold)),
+    var(--color-brand-brown) 52%,
+    color-mix(in srgb, var(--color-brand-brown) 82%, black)
   );
   border-radius: var(--radius-pill);
+  box-shadow: 0 12px 22px color-mix(in srgb, var(--color-brand-brown) 18%, transparent);
 }
 
 .login-form__submit:hover {
   border-color: transparent;
   background: linear-gradient(
     130deg,
-    color-mix(in srgb, var(--color-brand-red) 86%, var(--color-status-warning)),
-    color-mix(in srgb, var(--color-brand-red) 63%, var(--color-brand-brown))
+    color-mix(in srgb, var(--color-brand-brown) 68%, var(--color-gold)),
+    color-mix(in srgb, var(--color-brand-brown) 86%, black)
   );
 }
 </style>

@@ -47,7 +47,7 @@ function formatFileSize(size: number) {
 function addFiles(fileList: FileList | File[]) {
   attachments.value = [
     ...attachments.value,
-    ...Array.from(fileList).map((file) => ({
+    ...Array.from(fileList).map((file, index) => ({
       id: `file-${Date.now()}-${index}-${file.name}`,
       name: file.name,
       size: file.size,

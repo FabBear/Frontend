@@ -30,7 +30,7 @@ export type DashboardTrendKey = 'rtf' | 'throughput24h' | 'avgQtimeMin' | 'wip';
 
 export interface DashboardTrendPoint {
   measuredAt: string;
-  value: number;
+  value: number | null;
 }
 
 export interface DashboardRiskAlertsResponse {

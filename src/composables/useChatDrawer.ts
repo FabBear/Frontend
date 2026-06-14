@@ -1,6 +1,7 @@
 import { ref } from 'vue';
 
-import type { AgentTaskResponse, AgentTaskSourcePage } from '@/types/agentTask';
+import type { AgentTaskResponse } from '@/types/agentTask';
+import type { ChatReportContextInput } from '@/types/chatbot';
 import type { FinalBottleneckReport } from '@/types/report';
 
 export interface CasePromptPayload {
@@ -13,12 +14,21 @@ export interface CasePromptPayload {
 
 const isOpen = ref(false);
 const pendingReport = ref<FinalBottleneckReport | null>(null);
+const pendingReportContext = ref<ChatReportContextInput | null>(null);
 const pendingAgentTask = ref<AgentTaskResponse | null>(null);
 const pendingCasePrompt = ref<CasePromptPayload | null>(null);
 
 export function useChatDrawer() {
   function openWithReport(report: FinalBottleneckReport) {
     pendingReport.value = report;
+    pendingReportContext.value = null;
+    pendingAgentTask.value = null;
+    isOpen.value = true;
+  }
+
+  function openWithReportContext(context: ChatReportContextInput) {
+    pendingReport.value = null;
+    pendingReportContext.value = context;
     pendingAgentTask.value = null;
     pendingCasePrompt.value = null;
     isOpen.value = true;
@@ -27,19 +37,13 @@ export function useChatDrawer() {
   function openWithAgentTask(task: AgentTaskResponse) {
     pendingAgentTask.value = task;
     pendingReport.value = null;
-    pendingCasePrompt.value = null;
-    isOpen.value = true;
-  }
-
-  function openWithCasePrompt(payload: CasePromptPayload) {
-    pendingCasePrompt.value = payload;
-    pendingReport.value = null;
-    pendingAgentTask.value = null;
+    pendingReportContext.value = null;
     isOpen.value = true;
   }
 
   function open() {
     pendingReport.value = null;
+    pendingReportContext.value = null;
     pendingAgentTask.value = null;
     pendingCasePrompt.value = null;
     isOpen.value = true;
@@ -53,6 +57,12 @@ export function useChatDrawer() {
     const r = pendingReport.value;
     pendingReport.value = null;
     return r;
+  }
+
+  function consumePendingReportContext(): ChatReportContextInput | null {
+    const context = pendingReportContext.value;
+    pendingReportContext.value = null;
+    return context;
   }
 
   function consumePendingAgentTask(): AgentTaskResponse | null {
@@ -70,14 +80,17 @@ export function useChatDrawer() {
   return {
     isOpen,
     pendingReport,
+    pendingReportContext,
     pendingAgentTask,
     pendingCasePrompt,
     open,
     openWithReport,
+    openWithReportContext,
     openWithAgentTask,
     openWithCasePrompt,
     close,
     consumePendingReport,
+    consumePendingReportContext,
     consumePendingAgentTask,
     consumePendingCasePrompt,
   };

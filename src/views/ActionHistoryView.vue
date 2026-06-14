@@ -5,6 +5,8 @@ import { useRoute } from 'vue-router';
 import { Search, Sparkles } from '@lucide/vue';
 
 import { buildReportPeriodContext } from '@/services/agentContextBuilders';
+import { type AgentRunListItem, fetchAgentTask, listPeriodReports } from '@/services/agentTaskService';
+import { fetchPresentationNow } from '@/services/clockService';
 import { fetchActionHistory, fetchActionHistoryDetail } from '@/services/reportService';
 
 import { useAgentTask } from '@/composables/useAgentTask';
@@ -19,7 +21,7 @@ import type {
   ReportSortOrder,
 } from '@/types/report';
 
-import AgentTraceList from '@/components/agent/AgentTraceList.vue';
+import AgentRunHistoryList from '@/components/agent/AgentRunHistoryList.vue';
 import BaseButton from '@/components/base/BaseButton.vue';
 import BaseInput from '@/components/base/BaseInput.vue';
 import FabBearProgressLoader from '@/components/base/FabBearProgressLoader.vue';
@@ -28,7 +30,7 @@ import ActionHistoryTable from '@/components/report/ActionHistoryTable.vue';
 
 const route = useRoute();
 const { runAgentTask, isAgentTaskRunning, agentTaskError } = useAgentTask();
-const { openWithAgentTask, openWithCasePrompt } = useChatDrawer();
+const { openWithAgentTask, open: openChat } = useChatDrawer();
 
 type PageButton = number | 'ellipsis-start' | 'ellipsis-end';
 type ReportAgentIntent = 'monthly' | 'summary';
@@ -86,7 +88,9 @@ const DATE_PRESETS: { value: DatePreset; label: string }[] = [
   { value: 'custom', label: '직접 입력' },
 ];
 const datePreset = ref<DatePreset>('all');
-const selectedReportMonth = ref(toMonthValue(new Date()));
+// presentation(데모 2026) 기준 "현재 시각". 마운트 시 백엔드 시계로 보정한다.
+const presentationNow = ref<Date>(new Date());
+const selectedReportMonth = ref(toMonthValue(presentationNow.value));
 
 const sortOptions: { label: string; value: ReportSortOrder }[] = [
   { label: '최신순', value: 'DECIDED_DESC' },
@@ -113,7 +117,7 @@ function applyFilter(update: Partial<ActionHistoryFilters>) {
 function applyDatePreset(preset: DatePreset) {
   datePreset.value = preset;
   if (preset === 'custom') return;
-  const now = new Date();
+  const now = presentationNow.value;
   const end = now.toISOString().split('T')[0];
   if (preset === 'all') {
     applyFilter({ startDate: '', endDate: '' });
@@ -239,6 +243,12 @@ function handlePageGroupChange(direction: 'prev' | 'next') {
 }
 
 async function runReportAgent(intent: ReportAgentIntent, detail: ActionHistoryDetail | null = selectedDetail.value) {
+  // 선택 리포트 질의(qa)는 별도 Agent task 이력 없이 챗 전용으로 진입한다(챗봇이 케이스/리포트를 직접 그라운딩).
+  if (intent === 'qa') {
+    openChat();
+    return;
+  }
+
   const dateRange = intent === 'monthly' ? selectedMonthlyDateRange.value : selectedDateRange.value;
   const params: Record<string, unknown> = {
     intent,
@@ -266,6 +276,30 @@ async function runReportAgent(intent: ReportAgentIntent, detail: ActionHistoryDe
   if (task) {
     reportAgentTask.value = task;
     if (task.status === 'SUCCEEDED') openWithAgentTask(task);
+    void loadReportHistory();
+  }
+}
+
+const reportHistory = ref<AgentRunListItem[]>([]);
+const reportHistoryLoading = ref(false);
+
+async function loadReportHistory() {
+  reportHistoryLoading.value = true;
+  try {
+    const result = await listPeriodReports(0, 20);
+    reportHistory.value = result.items;
+  } catch {
+    reportHistory.value = [];
+  } finally {
+    reportHistoryLoading.value = false;
+  }
+}
+
+async function openReportFromHistory(item: AgentRunListItem) {
+  try {
+    reportAgentTask.value = await fetchAgentTask(item.id, 'REPORT_PERIOD_SUMMARY');
+  } catch {
+    // 미리보기 로드 실패 시 기존 상태 유지
   }
 }
 
@@ -281,6 +315,13 @@ function askAiAboutDetail(detail: ActionHistoryDetail) {
 }
 
 onMounted(async () => {
+  try {
+    presentationNow.value = new Date(await fetchPresentationNow());
+    selectedReportMonth.value = toMonthValue(presentationNow.value);
+  } catch {
+    // 시계 조회 실패 시 로컬 시각 기본값 유지
+  }
+  void loadReportHistory();
   await loadHistory();
   const targetId = route.query.caseId;
   if (typeof targetId === 'string' && targetId) {
@@ -472,6 +513,13 @@ onMounted(async () => {
         </div>
       </template>
     </section>
+
+    <AgentRunHistoryList
+      title="지난 리포트 실행 이력"
+      :items="reportHistory"
+      :loading="reportHistoryLoading"
+      @select="openReportFromHistory"
+    />
 
     <p v-if="errorMessage" class="action-history-view__state action-history-view__state--error">{{ errorMessage }}</p>
 
@@ -806,7 +854,9 @@ onMounted(async () => {
 .action-history-view__agent-preview {
   display: grid;
   gap: var(--space-3);
-  border-left: 3px solid var(--color-gold);
+  border: var(--border-width-default) solid color-mix(in srgb, var(--color-gold) 36%, var(--color-border-default));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-gold) 6%, var(--color-bg-card));
   padding: var(--space-4);
 }
 

@@ -103,7 +103,7 @@ const rankedToolGroups = computed(() =>
 }
 
 .bn-rank-section__toggle-btn + .bn-rank-section__toggle-btn {
-  border-left: var(--border-width-default) solid var(--color-border-default);
+  margin-left: 1px;
 }
 
 .bn-rank-section__toggle-btn--active {

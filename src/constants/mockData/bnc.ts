@@ -4,6 +4,21 @@ import type { BncAlertCase, BncCaseDetail, BncCaseListData } from '@/types/bnc';
 
 export const MOCK_BNC_ALERT_CASES: BncAlertCase[] = [
   {
+    caseId: '00000000-0000-0000-0000-000000000008',
+    tgId: '00000000-0000-0000-0000-000000000208',
+    tgName: 'WE_FE_8',
+    areaName: 'Wet Etch',
+    riskGrade: 'CRITICAL',
+    bottleneckProb: 0.9969,
+    utilizationRate: 0.9896,
+    wipCount: 15,
+    detectedAt: '2026-06-13T07:52:22Z',
+    status: 'AWAITING_HITL',
+    currentStepName: 'REPORT_AGENT',
+    stepProgress: 6,
+    totalSteps: 6,
+  },
+  {
     caseId: 'case-defmet-fe-118-clear-20260610-2118',
     tgId: 'tg-defmet-fe-118',
     tgName: 'DefMEt_FE_118 · clear winner',

@@ -1,32 +1,20 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 
-import { useAuthStore } from '@/stores/auth';
-
-import { deleteAdminAccessUser, fetchAdminAccessUsers, saveAdminAccessUser } from '@/services/adminService';
+import { fetchAdminAccessUsers } from '@/services/adminService';
 
 import type { AdminAccessUser, AdminUserRole } from '@/types/admin';
 
 import AdminAccessTable from '@/components/admin/AdminAccessTable.vue';
-import AdminAccessUserModal from '@/components/admin/AdminAccessUserModal.vue';
-import AdminDeleteUserModal from '@/components/admin/AdminDeleteUserModal.vue';
-import BaseButton from '@/components/base/BaseButton.vue';
 import BaseInput from '@/components/base/BaseInput.vue';
-
-const authStore = useAuthStore();
 
 const users = ref<AdminAccessUser[]>([]);
 const isLoading = ref(false);
+const loadError = ref<string | null>(null);
 const keyword = ref('');
 const statusFilters = ref<AdminAccessUser['status'][]>([]);
 const roleFilter = ref<AdminUserRole | 'ALL'>('ALL');
-const editingUser = ref<AdminAccessUser | null>(null);
-const editingOriginalId = ref<string | null>(null);
-const deleteTarget = ref<AdminAccessUser | null>(null);
-const defaultFactoryName = computed(
-  () => authStore.user?.fabName ?? authStore.user?.fabId ?? users.value[0]?.fabAccess ?? '현재 연결 공장'
-);
-const userIds = computed(() => users.value.map((user) => user.id));
+
 const filteredUsers = computed(() => {
   const value = keyword.value.trim().toLowerCase();
   const keywordMatchedUsers = value
@@ -40,21 +28,15 @@ const filteredUsers = computed(() => {
   return roleMatchedUsers.filter((user) => statusFilters.value.includes(user.status));
 });
 const adminCount = computed(() => users.value.filter((user) => user.role === 'ADMIN').length);
-const isLastAdminTarget = computed(() =>
-  Boolean(deleteTarget.value && deleteTarget.value.role === 'ADMIN' && adminCount.value <= 1)
-);
+// 활성(ACTIVE & 로그인 허용)이 아닌 계정 = 조치 필요. 라벨과 집계 기준을 일치시킨다.
 const actionNeededCount = computed(
-  () => users.value.filter((user) => user.status === 'LOCKED' || user.status === 'PENDING' || !user.isActive).length
+  () => users.value.filter((user) => user.status !== 'ACTIVE' || !user.isActive).length
 );
 const roleLabelMap: Record<AdminUserRole, string> = {
   ADMIN: '관리자',
   ENGINEER: '공정 엔지니어',
   VIEWER: '조회자',
 };
-const departmentSuggestions = computed(() => {
-  const departments = new Set(users.value.map((user) => user.department).filter(Boolean));
-  return [...departments];
-});
 const roleOptions = computed<Array<{ value: AdminUserRole | 'ALL'; label: string }>>(() => [
   { value: 'ALL', label: '전체' },
   ...(['ADMIN', 'ENGINEER', 'VIEWER'] as AdminUserRole[]).map((role) => ({ value: role, label: roleLabelMap[role] })),
@@ -80,40 +62,17 @@ function toggleStatusFilter(status: AdminAccessUser['status']) {
 function clearStatusFilters() {
   statusFilters.value = [];
 }
-function openCreateUser() {
-  editingOriginalId.value = null;
-  editingUser.value = {
-    id: '',
-    name: '',
-    role: 'ENGINEER' as AdminUserRole,
-    department: '',
-    fabAccess: defaultFactoryName.value,
-    lastLogin: '-',
-    status: 'ACTIVE',
-    isActive: true,
-  };
-}
-function openEditUser(user: AdminAccessUser) {
-  editingOriginalId.value = user.id;
-  editingUser.value = { ...user };
-}
 async function loadUsers() {
   isLoading.value = true;
+  loadError.value = null;
   try {
     users.value = await fetchAdminAccessUsers();
+  } catch {
+    loadError.value = '사용자 목록을 불러오지 못했습니다.';
+    users.value = [];
   } finally {
     isLoading.value = false;
   }
-}
-async function saveUser(savedUser: AdminAccessUser) {
-  users.value = await saveAdminAccessUser(savedUser, editingOriginalId.value);
-  editingUser.value = null;
-  editingOriginalId.value = null;
-}
-async function deleteUser() {
-  if (!deleteTarget.value) return;
-  users.value = await deleteAdminAccessUser(deleteTarget.value.id);
-  deleteTarget.value = null;
 }
 
 onMounted(loadUsers);
@@ -123,7 +82,7 @@ onMounted(loadUsers);
     <header class="admin-access-view__header">
       <div>
         <h1>권한 관리</h1>
-        <p>사용자 계정을 추가, 수정, 삭제하고 현장 역할과 계정 상태를 관리합니다.</p>
+        <p>사용자 계정과 현장 역할·계정 상태를 조회합니다. (조회 전용)</p>
       </div>
     </header>
     <section class="admin-access-view__overview">
@@ -140,7 +99,7 @@ onMounted(loadUsers);
       <div class="surface-card">
         <span>조치 필요</span>
         <strong>{{ actionNeededCount }}</strong>
-        <small>대기 · 잠김 · 로그인 차단</small>
+        <small>대기 · 잠김 · 비활성</small>
       </div>
     </section>
     <section class="admin-access-view__card surface-card">
@@ -155,7 +114,6 @@ onMounted(loadUsers);
             placeholder="ID, 이름, 부서 검색"
           />
         </div>
-        <BaseButton class="admin-access-view__create-button" @click="openCreateUser">사용자 추가</BaseButton>
       </div>
       <div class="admin-access-view__filters">
         <label>
@@ -185,24 +143,12 @@ onMounted(loadUsers);
         </div>
       </div>
       <p v-if="isLoading" class="admin-access-view__state">사용자 목록을 불러오는 중입니다.</p>
-      <AdminAccessTable :users="filteredUsers" @edit="openEditUser" @delete="deleteTarget = $event" />
+      <p v-else-if="loadError" class="admin-access-view__state admin-access-view__state--error">
+        {{ loadError }}
+        <button type="button" class="admin-access-view__retry" @click="loadUsers">다시 시도</button>
+      </p>
+      <AdminAccessTable v-else :users="filteredUsers" readonly />
     </section>
-    <AdminAccessUserModal
-      :model-value="Boolean(editingUser)"
-      :user="editingUser"
-      :existing-ids="userIds"
-      :original-id="editingOriginalId"
-      :department-suggestions="departmentSuggestions"
-      @update:model-value="editingUser = null"
-      @save="saveUser"
-    />
-    <AdminDeleteUserModal
-      :model-value="Boolean(deleteTarget)"
-      :user="deleteTarget"
-      :is-last-admin="isLastAdminTarget"
-      @update:model-value="deleteTarget = null"
-      @confirm="deleteUser"
-    />
   </div>
 </template>
 <style scoped>
@@ -233,6 +179,20 @@ onMounted(loadUsers);
   margin: 0;
   color: var(--color-fg-muted);
   font-size: var(--font-size-sm);
+}
+.admin-access-view__state--error {
+  color: var(--color-status-danger);
+}
+.admin-access-view__retry {
+  margin-left: var(--space-2);
+  border: 0;
+  background: transparent;
+  color: var(--color-action-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--font-size-sm);
+  padding: 0;
+  text-decoration: underline;
 }
 .admin-access-view__create-button {
   width: auto;

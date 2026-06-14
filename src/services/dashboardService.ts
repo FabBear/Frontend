@@ -79,7 +79,6 @@ export async function fetchDashboardProcessMap(): Promise<DashboardProcessAreaDa
 }
 
 export async function fetchDashboardTrends(): Promise<KpiTrendSeries[]> {
-  // throughput은 일 단위로 집계되므로 7d 범위로 별도 조회
   const [hourly, daily] = await Promise.all([
     api.get<DashboardTrendsResponse>('/v1/dashboard/trends', {
       params: { range: DASHBOARD_TRENDS_HOURLY_RANGE, kpi: DASHBOARD_TRENDS_HOURLY_KEYS.join(',') },
@@ -89,12 +88,7 @@ export async function fetchDashboardTrends(): Promise<KpiTrendSeries[]> {
     }),
   ]);
 
-  // 7d 응답에서 daily 키만 취함 (백엔드가 전체 KPI를 반환할 수 있으므로 필터)
-  const dailyTrends = mapTrends(daily.data).filter((t) =>
-    DASHBOARD_TRENDS_DAILY_KEYS.includes(t.key as (typeof DASHBOARD_TRENDS_DAILY_KEYS)[number])
-  );
-
-  return sortDashboardTrends([...mapTrends(hourly.data), ...dailyTrends]);
+  return sortDashboardTrends([...mapTrends(hourly.data), ...mapTrends(daily.data)]);
 }
 
 function sortDashboardTrends(trends: KpiTrendSeries[]): KpiTrendSeries[] {

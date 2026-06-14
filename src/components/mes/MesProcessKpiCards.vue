@@ -37,9 +37,10 @@ function getProcessRiskMeta(process: MesProcessSummary) {
 function getProcessCardStyle(process: MesProcessSummary) {
   const riskMeta = getProcessRiskMeta(process);
 
+  // 개별 tool 카드(MesToolCardGrid)와 동일한 디자인: soft 배경 + 3px 상단 등급색 액센트 + 톤 보더.
   return {
-    borderColor: `color-mix(in srgb, ${riskMeta.color} 24%, var(--color-border-default))`,
-    borderLeftColor: riskMeta.color,
+    borderColor: `color-mix(in srgb, ${riskMeta.color} 28%, var(--color-border-default))`,
+    borderTopColor: riskMeta.color,
     backgroundColor: riskMeta.background,
   };
 }
@@ -151,17 +152,19 @@ function getOee(process: MesProcessSummary) {
   display: grid;
   gap: var(--space-2);
   cursor: pointer;
-  border-left: 3px solid;
-  border-top: var(--border-width-default) solid var(--color-border-default);
-  border-right: var(--border-width-default) solid var(--color-border-default);
-  border-bottom: var(--border-width-default) solid var(--color-border-default);
+  border: var(--border-width-default) solid var(--color-border-default);
+  border-top-width: 3px;
   border-radius: var(--radius-lg);
   background: var(--color-bg-card);
   padding: var(--space-3);
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .mes-process-kpi-cards__card:hover {
-  background: var(--color-bg-subtle);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-panel);
 }
 
 .mes-process-kpi-cards__header {

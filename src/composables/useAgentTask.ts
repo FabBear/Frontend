@@ -22,7 +22,7 @@ export function useAgentTask() {
 
       for (let i = 0; i < MAX_POLLS && (task.status === 'QUEUED' || task.status === 'RUNNING'); i += 1) {
         await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
-        task = await fetchAgentTask(task.taskId);
+        task = await fetchAgentTask(task.taskId, task.taskType);
         activeTask.value = task;
       }
 

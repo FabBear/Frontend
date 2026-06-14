@@ -12,19 +12,12 @@ export type MachineCompareMode = 'PREVIOUS_SNAPSHOT' | 'ONE_HOUR_AGO' | 'SAME_TI
 export type MachineTgMetricKey =
   | 'utilizationRate'
   | 'wipCount'
-  | 'setupRatio'
   | 'avgQtimeMin'
   | 'availableToolRatio'
   | 'bottleneckProb';
 
 // Tool 전용 지표
-export type MachineToolMetricKey =
-  | 'utilizationRate'
-  | 'oeeEstimate'
-  | 'queueLotCount'
-  | 'setupRatio'
-  | 'downRatio'
-  | 'avgQtimeMin';
+export type MachineToolMetricKey = 'utilizationRate' | 'oeeEstimate' | 'queueLotCount' | 'downRatio' | 'avgQtimeMin';
 
 export type MachineMetricKey = MachineTgMetricKey | MachineToolMetricKey;
 export type MachineMetricGroup = 'production' | 'queue' | 'state';

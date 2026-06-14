@@ -5,6 +5,7 @@ import { useRoute } from 'vue-router';
 import { ChevronDown, ChevronUp, MessageCircle, Sparkles } from '@lucide/vue';
 
 import { buildFabSnapshotContext } from '@/services/agentContextBuilders';
+import { type AgentRunListItem, fetchAgentTask, listFabBriefings } from '@/services/agentTaskService';
 import { fetchFab3dMonitoringData, fetchTgRouteSteps, fetchToolActivity } from '@/services/fab3dService';
 
 import { useAgentTask } from '@/composables/useAgentTask';
@@ -23,7 +24,7 @@ import type {
   ToolActivity,
 } from '@/types/fab3d';
 
-import AgentTraceList from '@/components/agent/AgentTraceList.vue';
+import AgentRunHistoryList from '@/components/agent/AgentRunHistoryList.vue';
 import ChatStatusIndicator from '@/components/chatbot/ChatStatusIndicator.vue';
 import Fab3dScene from '@/components/fab3d/Fab3dScene.vue';
 import { ZONE_BANDS, hexToCss } from '@/components/fab3d/fab3dLayoutConfig';
@@ -53,6 +54,8 @@ const isLoadingCurrent = ref(false);
 const toolStatusFilter = ref<'ALL' | Fab3dToolDetail['status']>('ALL');
 const fabAgentTask = ref<AgentTaskResponse | null>(null);
 const isAgentCardCollapsed = ref(false);
+const briefingHistory = ref<AgentRunListItem[]>([]);
+const briefingHistoryLoading = ref(false);
 const toolStatuses: Fab3dToolDetail['status'][] = ['RUN', 'IDLE', 'SETUP', 'DOWN'];
 type UtilizationGrade = 'critical' | 'high' | 'medium' | 'low';
 
@@ -476,6 +479,28 @@ async function handleFabBriefing() {
     fabAgentTask.value = task;
     // 결과는 옆 패널 카드에만 표시한다. 대화는 사용자가 '대화에서 더 물어보기'로 직접 연다.
     if (task.status === 'SUCCEEDED') isAgentCardCollapsed.value = false;
+    void loadBriefingHistory();
+  }
+}
+
+async function loadBriefingHistory() {
+  briefingHistoryLoading.value = true;
+  try {
+    const result = await listFabBriefings(0, 20);
+    briefingHistory.value = result.items;
+  } catch {
+    briefingHistory.value = [];
+  } finally {
+    briefingHistoryLoading.value = false;
+  }
+}
+
+async function openBriefingFromHistory(item: AgentRunListItem) {
+  try {
+    fabAgentTask.value = await fetchAgentTask(item.id, 'FAB_SNAPSHOT_BRIEFING');
+    isAgentCardCollapsed.value = false;
+  } catch {
+    // 미리보기 로드 실패 시 기존 상태 유지
   }
 }
 
@@ -512,6 +537,7 @@ async function loadFab3dData(background = false) {
 
 onMounted(() => {
   void loadFab3dData();
+  void loadBriefingHistory();
   const poll = async () => {
     await loadFab3dData(true);
     refreshTimer = setTimeout(poll, REFRESH_MS);
@@ -627,9 +653,6 @@ watch(requestedTgName, () => {
         </button>
         <span class="fab3d__source" :class="{ 'fab3d__source--live': dataSource === 'current' }">
           {{ isLoadingCurrent ? '연결 중…' : dataSource === 'current' ? '실시간' : '데모' }}
-        </span>
-        <span v-if="measuredAt && dataSource === 'current'" class="fab3d__measured-at">
-          {{ formatEventTime(measuredAt) }} 기준
         </span>
         <button
           class="fab3d__info-btn"
@@ -1036,6 +1059,16 @@ watch(requestedTgName, () => {
         </div>
       </div>
 
+      <!-- 지난 현황 브리핑 이력 -->
+      <div v-if="briefingHistoryLoading || briefingHistory.length > 0" class="fab3d__ps">
+        <AgentRunHistoryList
+          title="지난 현황 브리핑"
+          :items="briefingHistory"
+          :loading="briefingHistoryLoading"
+          @select="openBriefingFromHistory"
+        />
+      </div>
+
       <!-- FAB 현황 -->
       <div v-if="!selectedTg && !selectedAsset" class="fab3d__ps">
         <div class="fab3d__ps-title">FAB 현황 · TG {{ summary.total }}개</div>
@@ -1286,7 +1319,6 @@ watch(requestedTgName, () => {
   width: 360px;
   flex-shrink: 0;
   background: var(--color-bg-surface);
-  border-left: 1px solid var(--color-border-default);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -1307,7 +1339,6 @@ watch(requestedTgName, () => {
      하단 tool 지표까지 모두 스크롤로 접근 가능. */
   display: flex;
   flex-direction: column;
-  border-left: 3px solid var(--color-border-default);
 }
 
 .fab3d__ps-title {
@@ -1385,7 +1416,10 @@ watch(requestedTgName, () => {
 .fab3d__agent-card {
   display: grid;
   gap: var(--space-3);
-  border-left: 3px solid var(--color-gold);
+  border: var(--border-width-default) solid color-mix(in srgb, var(--color-gold) 36%, var(--color-border-default));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-gold) 5%, transparent);
+  padding: var(--space-3);
 }
 
 .fab3d__agent-card-head {
@@ -1494,7 +1528,6 @@ watch(requestedTgName, () => {
   max-width: 100%;
   padding: 5px var(--space-2);
   border: 1px solid color-mix(in srgb, var(--watch-color) 45%, var(--color-border-default));
-  border-left: 3px solid var(--watch-color);
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--watch-color) 9%, var(--color-bg-surface));
   color: var(--color-fg);

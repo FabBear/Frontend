@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 
+import type { DashboardTrendKey } from '@/types/dashboardApi';
 import type {
+  MachineAnalysisPreset,
   MachineAnalysisSeries,
   MachineAnalysisTargetType,
   MachineComparisonTarget,
@@ -11,6 +13,7 @@ import type {
   MachinePeriodRange,
 } from '@/types/machine';
 
+import DashboardKpiAnalysisPanel from '@/components/machine/DashboardKpiAnalysisPanel.vue';
 import MachineComparisonChart from '@/components/machine/MachineComparisonChart.vue';
 import MachineOperationRangeCard from '@/components/machine/MachineOperationRangeCard.vue';
 import MetricPalette from '@/components/machine/MetricPalette.vue';
@@ -29,7 +32,10 @@ interface Props {
   analysisSeries: MachineAnalysisSeries[];
   trendLabels: string[];
   analysisInsight: string | null;
+  presets: MachineAnalysisPreset[];
+  selectedPresetKey: string | null;
   maxCompare: number;
+  dashboardKpiKey?: DashboardTrendKey | null;
 }
 
 const props = defineProps<Props>();
@@ -42,6 +48,8 @@ const emit = defineEmits<{
   toggleToolGroup: [tgId: string];
   toggleTool: [toolId: string];
   clearTargets: [];
+  applyPreset: [key: string];
+  resetPreset: [];
 }>();
 
 // ── 목록 검색 ────────────────────────────────────────────────────────
@@ -77,6 +85,8 @@ function findTarget(id: string): MachineComparisonTarget | undefined {
 
 <template>
   <div class="analysis-tab">
+    <DashboardKpiAnalysisPanel v-if="dashboardKpiKey" :kpi-key="dashboardKpiKey" />
+
     <MachineOperationRangeCard
       :measured-at="measuredAt"
       :period-preset="periodPreset"
@@ -84,6 +94,25 @@ function findTarget(id: string): MachineComparisonTarget | undefined {
       @update:period-preset="emit('update:periodPreset', $event)"
       @update:period-range="emit('update:periodRange', $event)"
     />
+
+    <!-- 빠른 보기 프리셋 (현장 엔지니어용 자주 보는 분석 묶음) -->
+    <div v-if="presets.length" class="analysis-tab__presets">
+      <span class="analysis-tab__presets-label">빠른 보기</span>
+      <button
+        v-for="preset in presets"
+        :key="preset.key"
+        type="button"
+        class="analysis-tab__preset"
+        :class="{ 'analysis-tab__preset--active': preset.key === selectedPresetKey }"
+        :title="preset.description"
+        @click="emit('applyPreset', preset.key)"
+      >
+        {{ preset.label }}
+      </button>
+      <button type="button" class="analysis-tab__preset analysis-tab__preset--reset" @click="emit('resetPreset')">
+        기본값
+      </button>
+    </div>
 
     <!-- 비교 단위 토글 -->
     <div class="analysis-tab__header">
@@ -234,6 +263,53 @@ function findTarget(id: string): MachineComparisonTarget | undefined {
 .analysis-tab__seg-btn--active {
   background: var(--color-action-primary);
   color: var(--color-text-inverse);
+}
+
+/* 빠른 보기 프리셋 */
+.analysis-tab__presets {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.analysis-tab__presets-label {
+  margin-right: var(--space-1);
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+}
+
+.analysis-tab__preset {
+  border: var(--border-width-default) solid var(--color-border-default);
+  border-radius: var(--radius-pill);
+  background: var(--color-bg-surface);
+  cursor: pointer;
+  padding: 4px 11px;
+  color: var(--color-fg);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  transition:
+    border-color 0.1s,
+    background 0.1s,
+    color 0.1s;
+}
+
+.analysis-tab__preset:hover {
+  border-color: var(--color-action-primary-border);
+  background: var(--color-action-primary-soft);
+}
+
+.analysis-tab__preset--active {
+  border-color: var(--color-action-primary);
+  background: var(--color-action-primary);
+  color: var(--color-text-inverse);
+}
+
+.analysis-tab__preset--reset {
+  color: var(--color-fg-muted);
 }
 
 .analysis-tab__insight {

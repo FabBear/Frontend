@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { computed } from 'vue';
+
 import type { AdminAccessUser } from '@/types/admin';
 
 import BaseBadge from '@/components/base/BaseBadge.vue';
@@ -6,8 +8,9 @@ import BaseButton from '@/components/base/BaseButton.vue';
 import BaseTable from '@/components/base/BaseTable.vue';
 import type { BaseTableColumn, BaseTableRow } from '@/components/base/BaseTable.vue';
 
-defineProps<{
+const props = defineProps<{
   users: AdminAccessUser[];
+  readonly?: boolean;
 }>();
 
 defineEmits<{
@@ -15,7 +18,7 @@ defineEmits<{
   delete: [user: AdminAccessUser];
 }>();
 
-const columns: BaseTableColumn[] = [
+const BASE_COLUMNS: BaseTableColumn[] = [
   { key: 'id', label: '로그인 ID' },
   { key: 'name', label: '이름' },
   { key: 'role', label: '역할' },
@@ -24,8 +27,11 @@ const columns: BaseTableColumn[] = [
   { key: 'lastLogin', label: '마지막 로그인' },
   { key: 'isActive', label: '로그인' },
   { key: 'status', label: '상태' },
-  { key: 'actions', label: '관리' },
 ];
+// 조회 전용일 때는 관리(수정/삭제) 열을 노출하지 않는다.
+const columns = computed<BaseTableColumn[]>(() =>
+  props.readonly ? BASE_COLUMNS : [...BASE_COLUMNS, { key: 'actions', label: '관리' }]
+);
 
 function toRow(user: AdminAccessUser): BaseTableRow {
   return { ...user };
@@ -79,8 +85,12 @@ function roleLabel(role: string) {
     </template>
     <template #cell-actions="{ row }">
       <div class="admin-access-table__actions">
-        <BaseButton variant="ghost" size="sm" @click="$emit('edit', getUser(row))">수정</BaseButton>
-        <BaseButton variant="ghost" size="sm" @click="$emit('delete', getUser(row))">삭제</BaseButton>
+        <BaseButton variant="ghost" size="sm" :disabled="readonly" @click="$emit('edit', getUser(row))"
+          >수정</BaseButton
+        >
+        <BaseButton variant="ghost" size="sm" :disabled="readonly" @click="$emit('delete', getUser(row))"
+          >삭제</BaseButton
+        >
       </div>
     </template>
   </BaseTable>

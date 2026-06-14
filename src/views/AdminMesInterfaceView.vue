@@ -4,7 +4,14 @@ import { RouterLink } from 'vue-router';
 
 import { useAuthStore } from '@/stores/auth';
 
-import { fetchMesFieldMappings, updateMesFieldMapping } from '@/services/adminService';
+import {
+  type AdminMesCollectJob,
+  type AdminMesHealth,
+  fetchMesCollectJobs,
+  fetchMesFieldMappings,
+  fetchMesHealth,
+  updateMesFieldMapping,
+} from '@/services/adminService';
 
 import type { AdminMesFieldMapping } from '@/types/admin';
 
@@ -14,6 +21,8 @@ import BaseInput from '@/components/base/BaseInput.vue';
 import BaseModal from '@/components/base/BaseModal.vue';
 import BaseTable from '@/components/base/BaseTable.vue';
 import type { BaseTableColumn, BaseTableRow } from '@/components/base/BaseTable.vue';
+
+import { formatKoMonthDayTime } from '@/utils/format';
 
 const authStore = useAuthStore();
 
@@ -28,17 +37,6 @@ const errorMessage = ref<string | null>(null);
 const validationStatus = computed(() => ({
   state: missingRequiredCount.value > 0 ? ('warning' as const) : ('success' as const),
 }));
-const changeHistories = ref<
-  Array<{
-    id: string;
-    changedAt: string;
-    changedBy: string;
-    fieldName: string;
-    changeType: string;
-    before: string;
-    after: string;
-  }>
->([]);
 
 const FIELD_CONSTRAINTS: Record<
   string,
@@ -66,20 +64,26 @@ const columns: BaseTableColumn[] = [
   { key: 'isActive', label: '상태' },
   { key: 'action', label: '' },
 ];
-const historyColumns: BaseTableColumn[] = [
-  { key: 'changedAt', label: '변경일' },
-  { key: 'changedBy', label: '변경자' },
-  { key: 'fieldName', label: 'MES 필드' },
-  { key: 'changeType', label: '변경 항목' },
-  { key: 'before', label: '이전 값' },
-  { key: 'after', label: '변경 값' },
+const mesHealth = ref<AdminMesHealth | null>(null);
+const collectJobs = ref<AdminMesCollectJob[]>([]);
+const jobColumns: BaseTableColumn[] = [
+  { key: 'scheduledAt', label: '예정시각' },
+  { key: 'status', label: '상태' },
+  { key: 'collectedCount', label: '수집건수' },
+  { key: 'errorCount', label: '오류' },
+  { key: 'retryCount', label: '재시도' },
 ];
+const jobRows = computed(() =>
+  collectJobs.value.map((j) => ({ ...j, scheduledAt: j.scheduledAt ? formatKoMonthDayTime(j.scheduledAt) : '-' }))
+);
+const recentSuccessPct = computed(() => (mesHealth.value ? Math.round(mesHealth.value.recentSuccessRate * 100) : 0));
 
 const currentFabName = computed(() => authStore.user?.fabName ?? authStore.user?.fabId ?? 'Demo FAB');
 const currentFabId = computed(() => authStore.user?.fabId ?? '');
 const requiredCount = computed(() => mappings.value.filter((mapping) => mapping.isRequired).length);
 const activeCount = computed(() => mappings.value.filter((mapping) => mapping.isActive).length);
-const editableMetricCount = computed(() => mappings.value.filter((mapping) => !mapping.isRequired).length);
+// 고객사 MES 필드명과 내부 표준 필드명이 실제로 다른(=이름 정규화가 일어나는) 매핑 수.
+const renamedCount = computed(() => mappings.value.filter((m) => m.externalField !== m.internalField).length);
 const missingRequiredCount = computed(
   () => mappings.value.filter((mapping) => mapping.isRequired && !mapping.isActive).length
 );
@@ -150,8 +154,6 @@ async function saveEdit() {
   if (original?.isRequired) {
     draft.value.isActive = true;
   }
-  const changedField = draft.value.customerMetricName || draft.value.externalField;
-  const originalTransformRule = original?.transformRule ?? '-';
 
   isSaving.value = true;
   errorMessage.value = null;
@@ -163,32 +165,12 @@ async function saveEdit() {
       transformRule: draft.value.transformRule,
     });
     mappings.value = mappings.value.map((mapping) => (mapping.id === saved.id ? saved : mapping));
-    changeHistories.value = [
-      {
-        id: `mes-history-${Date.now()}`,
-        changedAt: new Date().toISOString().slice(0, 10),
-        changedBy: authStore.user?.userName ?? 'admin',
-        fieldName: saved.externalField,
-        changeType: `${changedField} 매핑 수정`,
-        before: originalTransformRule,
-        after: saved.transformRule || '-',
-      },
-      ...changeHistories.value,
-    ];
     cancelEdit();
   } catch {
     errorMessage.value = 'MES 필드 매핑을 저장하지 못했습니다.';
   } finally {
     isSaving.value = false;
   }
-}
-
-function allowedDataTypes(mapping: AdminMesFieldMapping) {
-  return FIELD_CONSTRAINTS[mapping.internalField]?.dataTypes ?? ['STRING', 'NUMBER', 'BOOLEAN', 'DATETIME', 'ENUM'];
-}
-
-function allowedScopes(mapping: AdminMesFieldMapping) {
-  return FIELD_CONSTRAINTS[mapping.internalField]?.scopes ?? ['FAB', 'TOOL_GROUP', 'TOOL'];
 }
 
 function scopeLabel(scope: AdminMesFieldMapping['metricScope']) {
@@ -200,11 +182,36 @@ function scopeLabel(scope: AdminMesFieldMapping['metricScope']) {
   return labels[scope];
 }
 
-function toHistoryRow(history: (typeof changeHistories.value)[number]): BaseTableRow {
-  return { ...history };
+// 고객사 외부 필드명과 내부 표준 필드명이 동일하면(예: rtf=rtf) 변환이 불필요한 매핑이다.
+function isIdentityMapping(mapping: AdminMesFieldMapping): boolean {
+  return mapping.externalField === mapping.internalField;
 }
 
-onMounted(loadMappings);
+// 변환 규칙 표시: 명시 규칙이 있으면 그대로, 없으면 동일/정규화 여부로 파생 문구.
+function transformDisplay(mapping: AdminMesFieldMapping): string {
+  if (mapping.transformRule && mapping.transformRule.trim()) return mapping.transformRule;
+  return isIdentityMapping(mapping) ? '동일 · 변환 불필요' : '표준 필드로 정규화';
+}
+
+async function loadOps() {
+  if (!currentFabId.value) return;
+  try {
+    const [health, jobs] = await Promise.all([
+      fetchMesHealth(currentFabId.value),
+      fetchMesCollectJobs(currentFabId.value, 20),
+    ]);
+    mesHealth.value = health;
+    collectJobs.value = jobs;
+  } catch {
+    mesHealth.value = null;
+    collectJobs.value = [];
+  }
+}
+
+onMounted(() => {
+  void loadMappings();
+  void loadOps();
+});
 </script>
 
 <template>
@@ -231,9 +238,35 @@ onMounted(loadMappings);
         <strong>{{ requiredCount }}</strong>
       </div>
       <div class="surface-card">
-        <span>커스텀 필드</span>
-        <strong>{{ editableMetricCount }}</strong>
+        <span>이름 변환</span>
+        <strong>{{ renamedCount }}</strong>
+        <small>고객사 명칭 → 표준 명칭</small>
       </div>
+    </section>
+
+    <section v-if="mesHealth" class="admin-mes-view__overview">
+      <div class="surface-card">
+        <span>최근 수집 상태</span>
+        <strong>{{ mesHealth.lastStatus }}</strong>
+      </div>
+      <div class="surface-card">
+        <span>최근 성공률</span>
+        <strong>{{ recentSuccessPct }}%</strong>
+      </div>
+      <div class="surface-card">
+        <span>수집 작업(성공/실패)</span>
+        <strong>{{ mesHealth.successCount }} / {{ mesHealth.failedCount }}</strong>
+      </div>
+      <div class="surface-card">
+        <span>마지막 수집 건수</span>
+        <strong>{{ mesHealth.lastCollectedCount ?? '-' }}</strong>
+      </div>
+    </section>
+
+    <section v-if="collectJobs.length" class="admin-mes-view__card surface-card">
+      <h2>최근 수집 작업</h2>
+      <p class="admin-mes-view__hint">스케줄러가 기록한 MES 수집 작업 이력입니다.</p>
+      <BaseTable :columns="jobColumns" :rows="jobRows" />
     </section>
 
     <section class="admin-mes-view__bridge surface-card">
@@ -267,7 +300,9 @@ onMounted(loadMappings);
         </template>
 
         <template #cell-externalField="{ row }">
-          <code>{{ getMapping(row).externalField }}</code>
+          <code :class="{ 'admin-mes-view__field--identity': isIdentityMapping(getMapping(row)) }">{{
+            getMapping(row).externalField
+          }}</code>
         </template>
 
         <template #cell-internalField="{ row }">
@@ -279,11 +314,19 @@ onMounted(loadMappings);
         </template>
 
         <template #cell-metricScope="{ row }">
-          <span>{{ scopeLabel(getMapping(row).metricScope) }}</span>
+          <BaseBadge variant="info">{{ scopeLabel(getMapping(row).metricScope) }}</BaseBadge>
         </template>
 
         <template #cell-transformRule="{ row }">
-          <span>{{ getMapping(row).transformRule || '-' }}</span>
+          <span
+            v-if="isIdentityMapping(getMapping(row))"
+            class="admin-mes-view__transform admin-mes-view__transform--identity"
+          >
+            동일 · 변환 불필요
+          </span>
+          <span v-else class="admin-mes-view__transform admin-mes-view__transform--mapped">
+            {{ transformDisplay(getMapping(row)) }}
+          </span>
         </template>
 
         <template #cell-isRequired="{ row }">
@@ -305,8 +348,11 @@ onMounted(loadMappings);
     </section>
 
     <section class="admin-mes-view__card surface-card">
-      <h2>변경 이력</h2>
-      <BaseTable :columns="historyColumns" :rows="changeHistories.map(toHistoryRow)" row-key="id" />
+      <div class="admin-mes-view__section-head">
+        <h2>변경 이력</h2>
+        <BaseBadge variant="warning">준비중</BaseBadge>
+      </div>
+      <p class="admin-mes-view__state">매핑 변경 이력 보관은 준비 중입니다. (현재 매핑 수정은 즉시 반영됩니다.)</p>
     </section>
 
     <section class="admin-mes-view__links">
@@ -340,20 +386,14 @@ onMounted(loadMappings);
         </label>
 
         <div class="admin-mes-modal__row">
-          <label class="admin-mes-modal__field">
+          <div class="admin-mes-modal__field">
             <span>타입</span>
-            <select v-model="draft.dataType" class="input" disabled>
-              <option v-for="type in allowedDataTypes(editingMapping)" :key="type" :value="type">{{ type }}</option>
-            </select>
-          </label>
-          <label class="admin-mes-modal__field">
+            <div class="admin-mes-modal__readonly">{{ draft.dataType }}</div>
+          </div>
+          <div class="admin-mes-modal__field">
             <span>범위</span>
-            <select v-model="draft.metricScope" class="input" disabled>
-              <option v-for="scope in allowedScopes(editingMapping)" :key="scope" :value="scope">
-                {{ scopeLabel(scope) }}
-              </option>
-            </select>
-          </label>
+            <div class="admin-mes-modal__readonly">{{ scopeLabel(draft.metricScope) }}</div>
+          </div>
         </div>
 
         <label class="admin-mes-modal__field">
@@ -361,11 +401,13 @@ onMounted(loadMappings);
           <BaseInput v-model="draft.transformRule" placeholder="예: 0~100 입력 시 /100" />
         </label>
 
-        <label class="admin-mes-modal__toggle" :class="{ 'admin-mes-modal__toggle--disabled': draft.isRequired }">
-          <input v-model="draft.isActive" type="checkbox" disabled />
-          <span>활성화</span>
-          <small v-if="draft.isRequired">필수 필드는 비활성화할 수 없습니다</small>
-        </label>
+        <div class="admin-mes-modal__field">
+          <span>활성 상태</span>
+          <div class="admin-mes-modal__readonly">
+            {{ draft.isActive ? '활성' : '비활성' }}
+            <small v-if="draft.isRequired">· 필수 필드는 항상 활성</small>
+          </div>
+        </div>
       </div>
 
       <div class="admin-mes-modal__footer">
@@ -484,6 +526,49 @@ onMounted(loadMappings);
   background: var(--color-bg-page);
   padding: 0 var(--space-2);
   white-space: nowrap;
+}
+
+.admin-mes-view__section-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* 동일명(변환 불필요) 외부 필드는 흐리게 — 이름이 다른(정규화되는) 행을 상대적으로 부각 */
+.admin-mes-view__field--identity {
+  color: var(--color-fg-muted);
+  opacity: 0.75;
+}
+
+.admin-mes-view__transform {
+  font-size: var(--font-size-sm);
+}
+
+.admin-mes-view__transform--identity {
+  color: var(--color-fg-muted);
+}
+
+.admin-mes-view__transform--mapped {
+  color: var(--color-action-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.admin-mes-modal__readonly {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 36px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle);
+  padding: 0 var(--space-3);
+  color: var(--color-fg-strong);
+  font-size: var(--font-size-sm);
+}
+
+.admin-mes-modal__readonly small {
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-xs);
 }
 
 .admin-mes-view__links {

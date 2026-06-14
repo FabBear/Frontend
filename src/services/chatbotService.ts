@@ -260,6 +260,7 @@ export async function streamChatMessage(
     context?: string | null;
     liveStatus?: string | null;
     fabId?: string | null;
+    now?: string | null;
     generateTitle?: boolean;
   },
   callbacks: ChatStreamCallbacks
@@ -273,6 +274,7 @@ export async function streamChatMessage(
       context: payload.context ?? null,
       liveStatus: payload.liveStatus ?? null,
       fabId: payload.fabId ?? null,
+      now: payload.now ?? null,
       generateTitle: payload.generateTitle ?? false,
     }),
   });

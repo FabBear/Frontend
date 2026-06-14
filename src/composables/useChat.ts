@@ -3,7 +3,7 @@ import { useRouter } from 'vue-router';
 
 import { useAuthStore } from '@/stores/auth';
 
-import { fetchAgentTask } from '@/services/agentTaskService';
+import { fetchAgentRunResult } from '@/services/agentTaskService';
 import {
   buildLiveFabContext,
   deleteChatSession,
@@ -15,22 +15,25 @@ import {
   sendChatMessage,
   streamChatMessage,
 } from '@/services/chatbotService';
+import { fetchPresentationNow } from '@/services/clockService';
 
 import type { CasePromptPayload } from '@/composables/useChatDrawer';
 
 import { MOCK_CHAT_QUICK_PROMPTS } from '@/constants/mockData/chatbot';
 
 import type { AgentTaskResponse } from '@/types/agentTask';
-import type { ChatAttachment, ChatMessage, ChatQuickPrompt, ChatSession } from '@/types/chatbot';
+import type {
+  ChatAttachment,
+  ChatMessage,
+  ChatQuickPrompt,
+  ChatReportContextInput,
+  ChatSession,
+} from '@/types/chatbot';
 import type { FinalBottleneckReport } from '@/types/report';
 
 const MAX_QUICK_PROMPTS = 3;
 
-export interface ReportContext {
-  processName: string;
-  severity: string;
-  riskScore: number;
-  detectedAt: string;
+export interface ReportContext extends ChatReportContextInput {
   quickPrompts: ChatQuickPrompt[];
 }
 
@@ -63,25 +66,26 @@ async function rehydrateAgentResult(
   }
   if (!taskId) return null;
   try {
-    const task = await fetchAgentTask(taskId);
-    if (!task?.result) return null;
+    // 종류를 모르는 id → union 조회(/v1/agent-runs/{id})로 결과만 복원.
+    const result = await fetchAgentRunResult(taskId);
+    if (!result) return null;
     const context: AgentContext = {
-      taskId: task.taskId,
-      title: task.result.artifacts?.[0]?.title ?? 'AI Agent 결과',
-      sourcePage: task.sourcePage,
-      relatedCaseId: task.relatedCaseId,
-      relatedTgId: task.relatedTgId,
-      taskType: task.taskType,
-      followUpPrompts: task.result.followUpPrompts ?? [],
+      taskId,
+      title: result.artifacts?.[0]?.title ?? 'AI Agent 결과',
+      sourcePage: 'CHAT',
+      relatedCaseId: null,
+      relatedTgId: null,
+      taskType: undefined,
+      followUpPrompts: result.followUpPrompts ?? [],
     };
     const message: ChatMessage = {
-      messageId: `agent-result-${task.taskId}`,
+      messageId: `agent-result-${taskId}`,
       sessionId,
       role: 'ASSISTANT',
-      content: task.result.summary,
+      content: result.summary,
       references: { caseIds: [], docIds: [] },
-      agentResult: task.result,
-      createdAt: task.completedAt ?? task.createdAt ?? nowIso(),
+      agentResult: result,
+      createdAt: nowIso(),
     };
     return { message, context };
   } catch {
@@ -440,19 +444,11 @@ export function useChat() {
     }
   }
 
-  function initWithReport(report: FinalBottleneckReport) {
-    ensureLocalSession(`${report.meta.process_name} 리포트 분석`);
+  function initWithReportContext(context: ChatReportContextInput) {
+    ensureLocalSession(`${context.processName} 리포트 분석`);
     const nextContext: ReportContext = {
-      processName: report.meta.process_name,
-      severity: report.meta.severity,
-      riskScore: report.bottleneck_info.risk_score,
-      detectedAt: report.meta.detected_at,
-      quickPrompts: buildReportQuickPrompts({
-        processName: report.meta.process_name,
-        severity: report.meta.severity,
-        riskScore: report.bottleneck_info.risk_score,
-        detectedAt: report.meta.detected_at,
-      }),
+      ...context,
+      quickPrompts: buildReportQuickPrompts(context),
     };
     reportContext.value = nextContext;
     sessions.value = sessions.value.map((session) =>
@@ -460,6 +456,8 @@ export function useChat() {
         ? {
             ...session,
             reportContext: {
+              caseId: nextContext.caseId ?? null,
+              reportId: nextContext.reportId ?? null,
               processName: nextContext.processName,
               severity: nextContext.severity,
               riskScore: nextContext.riskScore,
@@ -470,6 +468,15 @@ export function useChat() {
         : session
     );
     agentContext.value = null;
+  }
+
+  function initWithReport(report: FinalBottleneckReport) {
+    initWithReportContext({
+      processName: report.meta.process_name,
+      severity: report.meta.severity,
+      riskScore: report.bottleneck_info.risk_score,
+      detectedAt: report.meta.detected_at,
+    });
   }
 
   function initWithAgentTask(task: AgentTaskResponse) {
@@ -604,9 +611,11 @@ export function useChat() {
       const scopedAgentContext = shouldUseAgentContextForMessage(userMessage, agentContext.value)
         ? agentContext.value
         : null;
+      const currentReportContext = reportContext.value;
+      const hasDbReportContext = Boolean(currentReportContext?.reportId || currentReportContext?.caseId);
 
       // 1순위: AI 직접 SSE 스트리밍(체감속도) → 완료 후 Spring에 저장만 요청(LLM 1회 호출).
-      const shouldStream = !requiresSpringGrounding(scopedAgentContext);
+      const shouldStream = !hasDbReportContext && !requiresSpringGrounding(scopedAgentContext);
       const streamed = shouldStream
         ? await tryStreamingSend(sessionId, backendSessionId, userMessage, clientSession, scopedAgentContext)
         : false;
@@ -616,8 +625,9 @@ export function useChat() {
       const response = await sendChatMessage({
         sessionId: backendSessionId,
         message: userMessage,
+        contextReportId: currentReportContext?.reportId ?? null,
         contextTaskId: scopedAgentContext?.taskId ?? null,
-        contextCaseId: scopedAgentContext?.relatedCaseId ?? null,
+        contextCaseId: currentReportContext?.caseId ?? scopedAgentContext?.relatedCaseId ?? null,
         contextTgId: scopedAgentContext?.relatedTgId ?? null,
         sourcePage: scopedAgentContext?.sourcePage ?? null,
       });
@@ -673,9 +683,10 @@ export function useChat() {
     appendMessage({ sessionId: localSessionId, role: 'ASSISTANT', content: '', messageId: streamingId, pending: true });
     let acc = '';
     try {
-      const [liveStatus, fabId] = await Promise.all([
+      const [liveStatus, fabId, now] = await Promise.all([
         buildLiveFabContext(),
         Promise.resolve(useAuthStore().user?.fabId ?? null),
+        fetchPresentationNow().catch(() => null),
       ]);
       const meta = await streamChatMessage(
         {
@@ -684,6 +695,7 @@ export function useChat() {
           context: currentAgentContext ? agentGroundingText(currentAgentContext) : null,
           liveStatus,
           fabId,
+          now,
           generateTitle: isNewSession,
         },
         {
@@ -932,6 +944,7 @@ export function useChat() {
     deleteSession,
     sendMessage,
     initWithReport,
+    initWithReportContext,
     initWithAgentTask,
     initWithCasePrompt,
     clearReportContext,

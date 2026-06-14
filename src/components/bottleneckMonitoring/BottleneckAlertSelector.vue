@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import { computed } from 'vue';
+
 import { formatAlertAreaDisplay } from '@/constants/processArea';
-import { RISK_LEVEL_META } from '@/constants/riskLevel';
 
 import type { BottleneckAlertItem } from '@/types/dashboard';
 import type { DashboardPageInfo } from '@/types/dashboardApi';
+
+import BottleneckCaseCard from '@/components/common/BottleneckCaseCard.vue';
 
 import { formatKoTime, formatRatioPercent } from '@/utils/format';
 
@@ -21,7 +24,7 @@ interface Props {
   pageButtons: PageButton[];
 }
 
-defineProps<Props>();
+const props = defineProps<Props>();
 
 const emit = defineEmits<{
   'update:filterStartDate': [value: string];
@@ -32,9 +35,14 @@ const emit = defineEmits<{
   selectAlert: [caseId: string];
 }>();
 
-function getAlertAreaDisplay(alert: BottleneckAlertItem) {
-  return formatAlertAreaDisplay(alert.areaName, alert.tgName);
-}
+const alertCards = computed(() =>
+  props.alerts.map((alert) => ({
+    alert,
+    subtitle: formatAlertAreaDisplay(alert.areaName, alert.tgName),
+    timeLabel: formatKoTime(alert.detectedAt),
+    statusText: `병목 확률 ${formatRatioPercent(alert.bottleneckProb)}`,
+  }))
+);
 </script>
 
 <template>
@@ -86,31 +94,21 @@ function getAlertAreaDisplay(alert: BottleneckAlertItem) {
 
     <template v-else>
       <div class="bottleneck-alert-selector__list" role="list">
-        <button
-          v-for="alert in alerts"
-          :key="alert.caseId"
-          class="bottleneck-alert-selector__row"
-          :class="{
-            'bottleneck-alert-selector__row--selected': alert.caseId === selectedCaseId,
-            [`bottleneck-alert-selector__row--${alert.riskLevel}`]: true,
-          }"
-          type="button"
+        <BottleneckCaseCard
+          v-for="card in alertCards"
+          :key="card.alert.caseId"
+          variant="selector"
+          :title="card.alert.tgName"
+          :subtitle="card.subtitle"
+          :risk-level="card.alert.riskLevel"
+          :time-label="card.timeLabel"
+          :time-datetime="card.alert.detectedAt"
+          :status-text="card.statusText"
+          :selected="card.alert.caseId === selectedCaseId"
+          selectable
           role="listitem"
-          :aria-pressed="alert.caseId === selectedCaseId"
-          @click="emit('selectAlert', alert.caseId)"
-        >
-          <span class="bottleneck-alert-selector__row-line bottleneck-alert-selector__row-line--top">
-            <span class="bottleneck-alert-selector__row-tg">{{ alert.tgName }}</span>
-            <span class="bottleneck-alert-selector__row-prob">{{ formatRatioPercent(alert.bottleneckProb) }}</span>
-          </span>
-          <span class="bottleneck-alert-selector__row-area">{{ getAlertAreaDisplay(alert) }}</span>
-          <span class="bottleneck-alert-selector__row-line">
-            <span class="bottleneck-alert-selector__row-chip">{{ RISK_LEVEL_META[alert.riskLevel].label }}</span>
-            <time class="bottleneck-alert-selector__row-time" :datetime="alert.detectedAt">
-              {{ formatKoTime(alert.detectedAt) }}
-            </time>
-          </span>
-        </button>
+          @select="emit('selectAlert', card.alert.caseId)"
+        />
       </div>
 
       <div class="bottleneck-alert-selector__pagination">
@@ -224,7 +222,7 @@ function getAlertAreaDisplay(alert: BottleneckAlertItem) {
 }
 
 .bottleneck-alert-selector__date-presets button + button {
-  border-left: var(--border-width-default) solid var(--color-border-default);
+  margin-left: 1px;
 }
 
 .bottleneck-alert-selector__date-presets button:hover,
@@ -289,119 +287,6 @@ function getAlertAreaDisplay(alert: BottleneckAlertItem) {
   gap: var(--space-1);
   overflow-y: auto;
   padding-right: 2px;
-}
-
-.bottleneck-alert-selector__row {
-  display: grid;
-  align-content: center;
-  gap: 4px;
-  min-width: 0;
-  min-height: 72px;
-  border: var(--border-width-default) solid var(--color-border-default);
-  border-left: 3px solid var(--color-risk-high);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-card);
-  padding: 10px 12px;
-  color: inherit;
-  cursor: pointer;
-  text-align: left;
-}
-
-.bottleneck-alert-selector__row--critical {
-  border-left-color: var(--color-risk-critical);
-}
-
-.bottleneck-alert-selector__row--medium {
-  border-left-color: var(--color-risk-medium);
-}
-
-.bottleneck-alert-selector__row--low {
-  border-left-color: var(--color-risk-low);
-}
-
-.bottleneck-alert-selector__row:hover,
-.bottleneck-alert-selector__row--selected {
-  border-color: var(--color-action-primary-border);
-  background: var(--color-action-primary-soft);
-}
-
-.bottleneck-alert-selector__row:focus-visible {
-  outline: 2px solid var(--color-action-primary-border);
-  outline-offset: 2px;
-}
-
-.bottleneck-alert-selector__row-line {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-width: 0;
-  gap: var(--space-2);
-}
-
-.bottleneck-alert-selector__row-line--top {
-  align-items: baseline;
-}
-
-.bottleneck-alert-selector__row-tg {
-  overflow: hidden;
-  color: var(--color-fg-strong);
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-bold);
-  line-height: var(--line-height-tight);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.bottleneck-alert-selector__row-area {
-  overflow: hidden;
-  color: var(--color-fg-muted);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  line-height: var(--line-height-tight);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.bottleneck-alert-selector__row-chip {
-  display: inline-flex;
-  align-items: center;
-  width: fit-content;
-  border: var(--border-width-default) solid currentColor;
-  border-radius: var(--radius-sm);
-  padding: 1px 6px;
-  color: var(--color-risk-high);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  line-height: var(--line-height-tight);
-}
-
-.bottleneck-alert-selector__row--critical .bottleneck-alert-selector__row-chip {
-  color: var(--color-risk-critical);
-}
-
-.bottleneck-alert-selector__row--medium .bottleneck-alert-selector__row-chip {
-  color: var(--color-risk-medium);
-}
-
-.bottleneck-alert-selector__row--low .bottleneck-alert-selector__row-chip {
-  color: var(--color-risk-low);
-}
-
-.bottleneck-alert-selector__row-time,
-.bottleneck-alert-selector__row-prob {
-  color: var(--color-fg-muted);
-  line-height: var(--line-height-tight);
-  white-space: nowrap;
-}
-
-.bottleneck-alert-selector__row-prob {
-  color: var(--color-fg-strong);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-}
-
-.bottleneck-alert-selector__row-time {
-  font-size: var(--font-size-xs);
 }
 
 .bottleneck-alert-selector__pagination {

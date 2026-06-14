@@ -273,8 +273,7 @@ function goToCase(caseId: string) {
   gap: var(--space-2);
   padding: var(--space-4);
   background: var(--color-bg-page);
-  border: 1px solid var(--color-border-subtle);
-  border-left: 3px solid var(--color-action-primary);
+  border: 1px solid color-mix(in srgb, var(--color-action-primary) 22%, var(--color-border-subtle));
   border-radius: var(--radius-md);
 }
 
@@ -685,7 +684,6 @@ function goToCase(caseId: string) {
   padding: var(--space-2) var(--space-3);
   background: var(--color-bg-page);
   border: 1px solid var(--color-border-subtle);
-  border-left: 3px solid var(--color-border-default);
   border-radius: var(--radius-md);
 }
 

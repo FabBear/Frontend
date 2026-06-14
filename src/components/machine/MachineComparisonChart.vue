@@ -448,12 +448,11 @@ function fmt(value: number | null, m: MachineMetricDefinition): string {
 }
 
 .comparison-chart__summary th.comparison-chart__summary-group {
-  border-left: var(--border-width-default) solid var(--color-border-default);
   text-align: left;
 }
 
 .comparison-chart__summary-metric-start {
-  border-left: var(--border-width-default) solid var(--color-border-default);
+  padding-left: var(--space-3);
 }
 
 .comparison-chart__summary th:first-child,

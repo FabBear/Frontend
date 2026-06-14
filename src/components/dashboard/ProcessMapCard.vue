@@ -36,6 +36,17 @@ const metricHint = computed(() =>
     ? '병목 확률 기준 · API 위험등급'
     : '가동률 기준 · Critical ≥90% · High ≥85% · Medium ≥70%'
 );
+const gradeCounts = computed<Record<ProcessRiskGrade, number>>(() => {
+  const counts = Object.fromEntries(PROCESS_RISK_GRADES.map((grade) => [grade, 0])) as Record<ProcessRiskGrade, number>;
+
+  for (const area of props.areas) {
+    for (const tg of area.toolGroups) {
+      counts[getTgRiskGrade(tg)] += 1;
+    }
+  }
+
+  return counts;
+});
 
 function handleToggleGrade(grade: ProcessRiskGrade) {
   const next = new Set(activeGrades.value);
@@ -129,6 +140,7 @@ const processedAreas = computed(() =>
       <ProcessMapToolbar
         class="process-map__toolbar"
         :active-grades="activeGrades"
+        :grade-counts="gradeCounts"
         :show-label="false"
         @toggle-grade="handleToggleGrade"
       />

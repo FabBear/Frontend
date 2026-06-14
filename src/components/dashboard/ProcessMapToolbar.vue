@@ -8,10 +8,12 @@ import {
 
 interface Props {
   activeGrades: Set<ProcessRiskGrade>;
+  gradeCounts?: Partial<Record<ProcessRiskGrade, number>>;
   showLabel?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  gradeCounts: () => ({}),
   showLabel: true,
 });
 
@@ -37,7 +39,9 @@ function isGradeActive(grade: ProcessRiskGrade): boolean {
         :aria-pressed="isGradeActive(grade)"
         @click="emit('toggleGrade', grade)"
       >
-        ● {{ PROCESS_RISK_META[grade].label }}
+        <span class="process-map-toolbar__dot" aria-hidden="true" />
+        {{ PROCESS_RISK_META[grade].label }}
+        <b>{{ gradeCounts[grade] ?? 0 }}</b>
       </button>
     </div>
   </div>
@@ -68,6 +72,7 @@ function isGradeActive(grade: ProcessRiskGrade): boolean {
 .process-map-toolbar__filter-btn {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   min-height: var(--space-8);
   border: var(--border-width-default) solid;
   border-radius: var(--radius-pill);
@@ -78,5 +83,23 @@ function isGradeActive(grade: ProcessRiskGrade): boolean {
   transition:
     background var(--transition-fast),
     opacity var(--transition-fast);
+}
+
+.process-map-toolbar__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: currentColor;
+}
+
+.process-map-toolbar__filter-btn b {
+  min-width: 18px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  padding: 1px 6px;
+  color: currentColor;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-tight);
+  text-align: center;
 }
 </style>

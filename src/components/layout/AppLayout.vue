@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { useAuthStore } from '@/stores/auth';
+
+import { fetchPresentationNow } from '@/services/clockService';
 
 import { useChatDrawer } from '@/composables/useChatDrawer';
 import { useNotifications } from '@/composables/useNotifications';
@@ -32,6 +34,24 @@ const {
 
 const pageTitle = computed(() => {
   return typeof route.meta.title === 'string' ? route.meta.title : 'Dashboard';
+});
+
+// 헤더에 "현재 데이터 기준 시각"(시뮬 커서)을 하나로 표시. 커서가 흐르므로 주기적으로 갱신.
+const presentationNow = ref<string | null>(null);
+let clockTimer: ReturnType<typeof setInterval> | undefined;
+async function refreshPresentationNow() {
+  try {
+    presentationNow.value = await fetchPresentationNow();
+  } catch {
+    // 실패 시 배지 미표시(무해)
+  }
+}
+onMounted(() => {
+  void refreshPresentationNow();
+  clockTimer = setInterval(() => void refreshPresentationNow(), 10000);
+});
+onUnmounted(() => {
+  if (clockTimer) clearInterval(clockTimer);
 });
 
 watch(
@@ -79,6 +99,7 @@ async function handleLogout() {
     <div class="app-layout__main">
       <TheHeader
         :title="pageTitle"
+        :data-as-of="presentationNow"
         :notification-count="unreadCount"
         :notification-open="isNotificationOpen"
         :chat-open="isChatOpen"
@@ -144,9 +165,8 @@ async function handleLogout() {
   width: min(420px, calc(100vw - var(--space-4) * 2));
   gap: var(--space-2);
   border: 1px solid var(--color-risk-critical);
-  border-left-width: 5px;
   border-radius: var(--radius-lg);
-  background: var(--color-bg-card);
+  background: color-mix(in srgb, var(--color-risk-critical) 6%, var(--color-bg-card));
   padding: var(--space-3);
   box-shadow: var(--shadow-panel);
 }

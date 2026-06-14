@@ -4,6 +4,7 @@ import { fetchEquipmentTrends, fetchMachineMonitoringData } from '@/services/mac
 
 import { MACHINE_TG_METRIC_DEFINITIONS, MACHINE_TOOL_METRIC_DEFINITIONS } from '@/constants/mockData/machine';
 
+import type { DashboardTrendKey } from '@/types/dashboardApi';
 import type {
   MachineAnalysisPreset,
   MachineAnalysisSeries,
@@ -17,6 +18,7 @@ import type {
   MachinePageTab,
   MachinePeriodPreset,
   MachinePeriodRange,
+  MachineToolGroupItem,
 } from '@/types/machine';
 
 import { formatNumber, formatRatioPercent } from '@/utils/format';
@@ -403,6 +405,38 @@ export function useMachineMonitoring() {
     void loadAnalysisTrends();
   }
 
+  // 대시보드 fab KPI(rtf/throughput/qtime/wip) 클릭 → 그 KPI를 끌어내린 "기여 Tool Group"을
+  // 분석탭에 자동으로 비교 세팅한다. 스냅샷 지표로 상위 TG를 랭킹(기간 트렌드는 chart가 담당).
+  // - qtime는 TG 스냅샷에 직접 값이 없어 queueLotCount(큐 적체 ≈ Q-time)로 랭킹한다.
+  const DASHBOARD_KPI_DRILL: Record<
+    DashboardTrendKey,
+    { rankBy: (a: MachineToolGroupItem, b: MachineToolGroupItem) => number; metricKeys: MachineMetricKey[] }
+  > = {
+    wip: { rankBy: (a, b) => b.queueLotCount - a.queueLotCount, metricKeys: ['wipCount', 'bottleneckProb'] },
+    avgQtimeMin: { rankBy: (a, b) => b.queueLotCount - a.queueLotCount, metricKeys: ['avgQtimeMin', 'wipCount'] },
+    rtf: { rankBy: (a, b) => b.bottleneckProb - a.bottleneckProb, metricKeys: ['bottleneckProb', 'utilizationRate'] },
+    throughput24h: {
+      rankBy: (a, b) => b.bottleneckProb - a.bottleneckProb,
+      metricKeys: ['utilizationRate', 'bottleneckProb'],
+    },
+  };
+
+  function applyDashboardKpiDrill(kpiKey: DashboardTrendKey): boolean {
+    const config = DASHBOARD_KPI_DRILL[kpiKey];
+    if (!config || toolGroups.value.length === 0) return false;
+
+    selectedAnalysisPresetKey.value = null;
+    analysisTargetType.value = 'toolGroup';
+    selectedMetricKeys.value = [...config.metricKeys];
+    selectedCompareToolGroupIds.value = [...toolGroups.value]
+      .sort(config.rankBy)
+      .slice(0, MAX_COMPARE)
+      .map((tg) => tg.tgId);
+
+    void loadAnalysisTrends();
+    return true;
+  }
+
   function resetAnalysisPreset() {
     selectedAnalysisPresetKey.value = null;
     analysisTargetType.value = 'toolGroup';
@@ -457,6 +491,7 @@ export function useMachineMonitoring() {
     toggleCompareTool,
     clearCompareTargets,
     applyAnalysisPreset,
+    applyDashboardKpiDrill,
     resetAnalysisPreset,
   };
 }

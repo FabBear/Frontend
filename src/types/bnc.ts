@@ -1,5 +1,5 @@
 import type { BottleneckRiskGrade } from '@/types/bottleneckMonitoring';
-import type { FinalBottleneckReport } from '@/types/report';
+import type { FinalBottleneckReport, ReportV1 } from '@/types/report';
 
 export type BncCaseStatus = 'DETECTED' | 'ANALYZING' | 'AWAITING_HITL' | 'RESOLVED';
 export type BncTabId = 'progress' | 'cause' | 'solutions' | 'report';
@@ -302,6 +302,7 @@ export interface BncReportPayload {
   generatedAt: string;
   regeneratedCount: number;
   qdrantIndexed: boolean;
+  reportV1?: ReportV1;
   finalReport?: FinalBottleneckReport;
 }
 

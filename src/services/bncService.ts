@@ -10,6 +10,7 @@ import type {
   BncReportPayload,
   BncReportTimelineItem,
 } from '@/types/bnc';
+import type { ReportV1 } from '@/types/report';
 
 export interface FetchBncCasesParams {
   status?: string | null;
@@ -280,6 +281,7 @@ interface BackendReportPayload {
   rootCauseText: string | null;
   actionComparisonText: string | null;
   timelineJson: unknown;
+  reportV1?: ReportV1 | null;
   hasPdf: boolean;
   generatedAt: string;
   regeneratedCount: number | null;
@@ -1118,6 +1120,7 @@ function mapReport(data: BackendReportPayload): BncReportPayload {
     rootCauseText: data.rootCauseText ?? '',
     actionComparisonText: data.actionComparisonText ?? '',
     timeline: normalizeTimeline(data.timelineJson),
+    reportV1: data.reportV1 ?? undefined,
     hasPdf: data.hasPdf,
     generatedAt: data.generatedAt,
     regeneratedCount: data.regeneratedCount ?? 0,

@@ -1,97 +1,80 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 
-import { fetchAdminResourceItems } from '@/services/adminService';
+import { useAuthStore } from '@/stores/auth';
 
-import type { AdminResourceItem, AdminStatus } from '@/types/admin';
+import {
+  type AdminMesCollectJob,
+  type AdminMesHealth,
+  fetchMesCollectJobs,
+  fetchMesHealth,
+} from '@/services/adminService';
 
 import BaseBadge from '@/components/base/BaseBadge.vue';
-import BaseInput from '@/components/base/BaseInput.vue';
 
-import { getAdminStatusLabel, getAdminStatusVariant } from '@/utils/admin';
 import { formatKoMonthDayTime } from '@/utils/format';
 
-type Period = '1h' | '6h' | '24h' | '7d' | 'custom';
+const authStore = useAuthStore();
+const currentFabId = computed(() => authStore.user?.fabId ?? '');
 
-const items = ref<AdminResourceItem[]>([]);
-const keyword = ref('');
-const statusFilter = ref<AdminStatus | 'ALL'>('ALL');
-const period = ref<Period>('24h');
-const dateFrom = ref('');
-const dateTo = ref('');
+const health = ref<AdminMesHealth | null>(null);
+const jobs = ref<AdminMesCollectJob[]>([]);
+const statusFilter = ref<'ALL' | 'SUCCESS' | 'FAILED' | 'RUNNING'>('ALL');
 const isLoading = ref(false);
 const loadError = ref<string | null>(null);
 
-const PERIODS: { value: Period; label: string }[] = [
-  { value: '1h', label: '1시간' },
-  { value: '6h', label: '6시간' },
-  { value: '24h', label: '24시간' },
-  { value: '7d', label: '7일' },
-  { value: 'custom', label: '직접 입력' },
-];
-
-const STATUS_FILTERS: { value: AdminStatus | 'ALL'; label: string }[] = [
+const STATUS_FILTERS: { value: 'ALL' | 'SUCCESS' | 'FAILED' | 'RUNNING'; label: string }[] = [
   { value: 'ALL', label: '전체' },
-  { value: 'NORMAL', label: '정상' },
-  { value: 'WARNING', label: '주의' },
-  { value: 'ERROR', label: '오류' },
-  { value: 'DISABLED', label: '비활성' },
+  { value: 'SUCCESS', label: '성공' },
+  { value: 'FAILED', label: '실패' },
+  { value: 'RUNNING', label: '진행중' },
 ];
 
-const filteredItems = computed(() => {
-  let result = items.value;
+function statusLabel(status: string): string {
+  const map: Record<string, string> = {
+    SUCCESS: '성공',
+    FAILED: '실패',
+    RUNNING: '진행중',
+    RETRYING: '재시도',
+    PENDING: '대기',
+  };
+  return map[status] ?? status;
+}
+function statusVariant(status: string): 'success' | 'danger' | 'warning' | 'info' {
+  if (status === 'SUCCESS') return 'success';
+  if (status === 'FAILED') return 'danger';
+  if (status === 'RETRYING') return 'warning';
+  return 'info';
+}
 
-  const now = new Date();
-  let cutoff: Date | null = null;
-  if (period.value === '1h') cutoff = new Date(now.getTime() - 60 * 60 * 1000);
-  else if (period.value === '6h') cutoff = new Date(now.getTime() - 6 * 60 * 60 * 1000);
-  else if (period.value === '24h') cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  else if (period.value === '7d') cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-
-  if (cutoff) {
-    result = result.filter((item) => new Date(item.updatedAt) >= cutoff!);
-  } else if (period.value === 'custom') {
-    if (dateFrom.value) {
-      const fromDate = new Date(dateFrom.value);
-      result = result.filter((item) => new Date(item.updatedAt) >= fromDate);
-    }
-    if (dateTo.value) {
-      const toDate = new Date(dateTo.value);
-      toDate.setHours(23, 59, 59, 999);
-      result = result.filter((item) => new Date(item.updatedAt) <= toDate);
-    }
+const recentSuccessPct = computed(() => (health.value ? Math.round(health.value.recentSuccessRate * 100) : 0));
+const filteredJobs = computed(() => {
+  if (statusFilter.value === 'ALL') return jobs.value;
+  if (statusFilter.value === 'RUNNING') {
+    return jobs.value.filter((j) => j.status === 'RUNNING' || j.status === 'RETRYING');
   }
-
-  if (statusFilter.value !== 'ALL') {
-    result = result.filter((item) => item.status === statusFilter.value);
-  }
-  if (keyword.value.trim()) {
-    const kw = keyword.value.trim().toLowerCase();
-    result = result.filter(
-      (item) =>
-        item.primary.toLowerCase().includes(kw) ||
-        item.owner.toLowerCase().includes(kw) ||
-        item.category.toLowerCase().includes(kw)
-    );
-  }
-  return result;
+  return jobs.value.filter((j) => j.status === statusFilter.value);
 });
 
-const normalCount = computed(() => items.value.filter((i) => i.status === 'NORMAL').length);
-const attentionCount = computed(() => items.value.filter((i) => i.status === 'WARNING' || i.status === 'ERROR').length);
-const disabledCount = computed(() => items.value.filter((i) => i.status === 'DISABLED').length);
-
-function metric(item: AdminResourceItem, label: string): string {
-  return item.metrics.find((m) => m.label === label)?.value ?? '-';
+function fmt(value: string | null): string {
+  return value ? formatKoMonthDayTime(value) : '-';
 }
 
 async function load() {
+  if (!currentFabId.value) {
+    loadError.value = '현재 Fab 정보를 확인하지 못했습니다.';
+    return;
+  }
   isLoading.value = true;
   loadError.value = null;
   try {
-    items.value = await fetchAdminResourceItems('ingestion');
+    const [h, j] = await Promise.all([fetchMesHealth(currentFabId.value), fetchMesCollectJobs(currentFabId.value, 50)]);
+    health.value = h;
+    jobs.value = j;
   } catch (e) {
-    loadError.value = e instanceof Error ? e.message : '데이터를 불러오는 데 실패했습니다.';
+    loadError.value = e instanceof Error ? e.message : '수집 작업 현황을 불러오지 못했습니다.';
+    health.value = null;
+    jobs.value = [];
   } finally {
     isLoading.value = false;
   }
@@ -105,55 +88,33 @@ onMounted(load);
     <header class="admin-ingestion__header">
       <div>
         <h1>데이터 수집</h1>
-        <p>tb_mes_collect_job 기준 수집 잡 상태 및 수신 현황을 조회합니다.</p>
+        <p>MES 수집 스케줄러가 주기적으로 수집한 작업 현황입니다. (수집 주기·건수·성공률·실패/재시도)</p>
       </div>
     </header>
 
-    <!-- 요약 카드 -->
-    <section class="admin-ingestion__summary">
+    <!-- 수집 health 요약 -->
+    <section v-if="health" class="admin-ingestion__summary">
       <div class="surface-card">
-        <span>전체 잡</span>
-        <strong>{{ items.length }}</strong>
+        <span>전체 작업</span>
+        <strong>{{ health.totalJobs }}</strong>
       </div>
       <div class="surface-card">
-        <span>정상</span>
-        <strong class="--normal">{{ normalCount }}</strong>
+        <span>성공</span>
+        <strong class="--normal">{{ health.successCount }}</strong>
       </div>
       <div class="surface-card">
-        <span>주의 / 오류</span>
-        <strong class="--attention">{{ attentionCount }}</strong>
+        <span>실패 / 진행</span>
+        <strong class="--attention">{{ health.failedCount }} / {{ health.runningCount }}</strong>
       </div>
       <div class="surface-card">
-        <span>비활성</span>
-        <strong>{{ disabledCount }}</strong>
+        <span>최근 성공률</span>
+        <strong>{{ recentSuccessPct }}%</strong>
+        <small>최근 수집 {{ fmt(health.lastCollectAt) }} · {{ statusLabel(health.lastStatus) }}</small>
       </div>
     </section>
 
-    <!-- 필터 바 -->
+    <!-- 필터 -->
     <section class="admin-ingestion__filters surface-card">
-      <!-- 기간 프리셋 -->
-      <div class="filter-group">
-        <span class="filter-group__label">기간</span>
-        <div class="filter-group__pills">
-          <button
-            v-for="p in PERIODS"
-            :key="p.value"
-            class="filter-pill"
-            :class="{ 'filter-pill--active': period === p.value }"
-            type="button"
-            @click="period = p.value"
-          >
-            {{ p.label }}
-          </button>
-        </div>
-        <template v-if="period === 'custom'">
-          <input v-model="dateFrom" class="date-input" type="date" aria-label="시작일" />
-          <span class="date-sep">~</span>
-          <input v-model="dateTo" class="date-input" type="date" aria-label="종료일" />
-        </template>
-      </div>
-
-      <!-- 상태 필터 -->
       <div class="filter-group">
         <span class="filter-group__label">상태</span>
         <div class="filter-group__pills">
@@ -169,14 +130,11 @@ onMounted(load);
           </button>
         </div>
       </div>
-
-      <!-- 키워드 검색 -->
-      <BaseInput v-model="keyword" class="filter-search" type="search" placeholder="잡 이름, 담당, 유형 검색" />
     </section>
 
-    <!-- 테이블 -->
+    <!-- 작업 이력 표 -->
     <section class="admin-ingestion__table surface-card">
-      <p v-if="isLoading" class="state-msg">데이터를 불러오는 중입니다…</p>
+      <p v-if="isLoading" class="state-msg">수집 작업 현황을 불러오는 중입니다…</p>
       <p v-else-if="loadError" class="state-msg state-msg--error">
         {{ loadError }}
         <button type="button" class="retry-btn" @click="load">다시 시도</button>
@@ -184,46 +142,31 @@ onMounted(load);
       <table v-else class="table">
         <thead>
           <tr>
-            <th>수집 잡</th>
-            <th>스케줄</th>
-            <th>유형</th>
+            <th>예정시각</th>
+            <th>시작</th>
+            <th>완료</th>
             <th>상태</th>
-            <th>담당</th>
-            <th>최근 수신</th>
-            <th>수신량</th>
-            <th>성공률</th>
-            <th>비고</th>
-            <th>갱신</th>
+            <th>수집건수</th>
+            <th>오류</th>
+            <th>재시도</th>
+            <th>오류 메시지</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-if="filteredItems.length === 0">
-            <td colspan="10" class="empty">조건에 맞는 수집 잡이 없습니다.</td>
+          <tr v-if="filteredJobs.length === 0">
+            <td colspan="8" class="empty">조건에 맞는 수집 작업이 없습니다.</td>
           </tr>
-          <tr v-for="item in filteredItems" :key="item.id">
-            <td class="cell-primary">{{ item.primary }}</td>
-            <td>{{ item.secondary }}</td>
-            <td class="cell-muted">{{ item.category }}</td>
+          <tr v-for="job in filteredJobs" :key="job.jobId">
+            <td class="cell-mono">{{ fmt(job.scheduledAt) }}</td>
+            <td class="cell-mono cell-muted">{{ fmt(job.startedAt) }}</td>
+            <td class="cell-mono cell-muted">{{ fmt(job.completedAt) }}</td>
             <td>
-              <BaseBadge :variant="getAdminStatusVariant(item.status)">
-                {{ getAdminStatusLabel(item.status) }}
-              </BaseBadge>
+              <BaseBadge :variant="statusVariant(job.status)">{{ statusLabel(job.status) }}</BaseBadge>
             </td>
-            <td>{{ item.owner }}</td>
-            <td class="cell-mono">{{ metric(item, '최근 수신') }}</td>
-            <td>{{ metric(item, '수신량') }}</td>
-            <td>
-              <span
-                class="rate"
-                :class="{
-                  'rate--warn': parseFloat(metric(item, '성공률')) < 99,
-                  'rate--error': parseFloat(metric(item, '성공률')) < 90,
-                }"
-                >{{ metric(item, '성공률') }}</span
-              >
-            </td>
-            <td class="cell-muted">{{ metric(item, '비고') }}</td>
-            <td class="cell-mono cell-muted">{{ formatKoMonthDayTime(item.updatedAt) }}</td>
+            <td>{{ job.collectedCount.toLocaleString() }}</td>
+            <td :class="{ 'cell-error': job.errorCount > 0 }">{{ job.errorCount }}</td>
+            <td>{{ job.retryCount }}</td>
+            <td class="cell-muted">{{ job.lastErrorMsg || '-' }}</td>
           </tr>
         </tbody>
       </table>
@@ -237,7 +180,6 @@ onMounted(load);
   gap: var(--space-4);
 }
 
-/* ── 헤더 ── */
 .admin-ingestion__header h1 {
   margin: 0;
   color: var(--color-fg-strong);
@@ -250,7 +192,6 @@ onMounted(load);
   font-size: var(--font-size-sm);
 }
 
-/* ── 요약 카드 ── */
 .admin-ingestion__summary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -261,9 +202,13 @@ onMounted(load);
   gap: var(--space-1);
   padding: var(--space-3);
 }
-.admin-ingestion__summary span {
+.admin-ingestion__summary span,
+.admin-ingestion__summary small {
   color: var(--color-fg-muted);
   font-size: var(--font-size-sm);
+}
+.admin-ingestion__summary small {
+  font-size: var(--font-size-xs);
 }
 .admin-ingestion__summary strong {
   color: var(--color-fg-strong);
@@ -276,7 +221,6 @@ onMounted(load);
   color: var(--color-status-danger);
 }
 
-/* ── 필터 바 ── */
 .admin-ingestion__filters {
   display: flex;
   flex-wrap: wrap;
@@ -300,7 +244,6 @@ onMounted(load);
   display: flex;
   gap: var(--space-1);
 }
-
 .filter-pill {
   padding: 3px 10px;
   border: 1px solid var(--color-border-default);
@@ -318,31 +261,11 @@ onMounted(load);
   color: var(--color-action-primary);
   font-weight: var(--font-weight-semibold);
 }
-.date-input {
-  height: 28px;
-  padding: 0 var(--space-2);
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-surface);
-  color: var(--color-fg);
-  font: inherit;
-  font-size: var(--font-size-xs);
-}
-.date-sep {
-  color: var(--color-fg-muted);
-  font-size: var(--font-size-xs);
-}
-.filter-search {
-  margin-left: auto;
-  width: min(100%, 240px);
-}
 
-/* ── 테이블 ── */
 .admin-ingestion__table {
   padding: var(--space-4);
   overflow-x: auto;
 }
-
 .table {
   width: 100%;
   border-collapse: collapse;
@@ -366,11 +289,6 @@ onMounted(load);
 .table tbody tr:hover td {
   background: var(--color-state-hover);
 }
-
-.cell-primary {
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-fg-strong);
-}
 .cell-muted {
   color: var(--color-fg-muted);
   font-size: var(--font-size-xs);
@@ -379,18 +297,10 @@ onMounted(load);
   font-family: var(--font-family-mono);
   font-size: var(--font-size-xs);
 }
-
-.rate {
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-status-success);
-}
-.rate--warn {
-  color: var(--color-status-warning);
-}
-.rate--error {
+.cell-error {
   color: var(--color-status-danger);
+  font-weight: var(--font-weight-semibold);
 }
-
 .empty {
   padding: var(--space-8);
   text-align: center;
@@ -420,14 +330,6 @@ onMounted(load);
 @media (max-width: 900px) {
   .admin-ingestion__summary {
     grid-template-columns: repeat(2, 1fr);
-  }
-  .admin-ingestion__filters {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  .filter-search {
-    margin-left: 0;
-    width: 100%;
   }
 }
 </style>

@@ -64,6 +64,23 @@ export interface AdminMlModelVersion {
   registeredAt: string;
 }
 
+export interface DriftReportContributor {
+  toolgroup: string;
+  fn: number;
+  fp: number;
+}
+
+export interface DriftReportDetail {
+  f1_baseline: number | null;
+  f1_current: number;
+  threshold: number;
+  eval_window_hours: number;
+  sample_count: number;
+  top_contributors: DriftReportContributor[];
+  active_version?: string;
+  recommendation?: string;
+}
+
 export interface AdminDriftAlert {
   id: string;
   modelVersionId: string;
@@ -75,6 +92,7 @@ export interface AdminDriftAlert {
   retrainTriggeredAt: string | null;
   resultingModelVersionId: string | null;
   alertStatus?: 'NEW' | 'ACK' | 'CLOSED';
+  detail?: DriftReportDetail | null;
 }
 
 export interface AdminAccessUser {

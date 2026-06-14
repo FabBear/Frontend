@@ -18,9 +18,12 @@ interface Props {
   xLabels?: string[];
   valueFormat: MetricValueFormat;
   targetValue?: number;
+  showAxes?: boolean;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+  showAxes: true,
+});
 
 function withAlpha(color: string, alpha: number): string {
   const normalized = color.trim();
@@ -46,11 +49,18 @@ function getAxisLabelInterval(labels?: string[]) {
 
 const option = computed(() => {
   const { values, colorToken, xLabels, targetValue } = props;
-  const hasAxes = Boolean(xLabels?.length);
+  const hasLabels = Boolean(xLabels?.length);
+  const hasAxes = props.showAxes && hasLabels;
+  const hasTarget = typeof targetValue === 'number' && Number.isFinite(targetValue);
+  const axisValues = hasTarget && hasAxes ? [...values, targetValue] : values;
+  const axisMin = Math.min(...axisValues);
+  const axisMax = Math.max(...axisValues);
+  const axisPadding = Math.max((axisMax - axisMin) * 0.08, Math.abs(axisMax) * 0.004, 0.2);
   const color = resolveCssVar(colorToken);
   const borderColor = resolveCssVar('--color-border-default');
   const gridColor = resolveCssVar('--color-border-subtle');
   const mutedColor = resolveCssVar('--color-fg-muted');
+  const targetLineColor = resolveCssVar('--color-border-strong');
   const surfaceColor = resolveCssVar('--color-bg-surface');
   const textColor = resolveCssVar('--color-fg');
 
@@ -85,8 +95,8 @@ const option = computed(() => {
         fontSize: 11,
         formatter: (v: number) => formatMetricValue(v, props.valueFormat),
       },
-      min: (v: { min: number }) => +(v.min * 0.996).toFixed(4),
-      max: (v: { max: number }) => +(v.max * 1.004).toFixed(4),
+      min: +Math.max(0, axisMin - axisPadding).toFixed(4),
+      max: +(axisMax + axisPadding).toFixed(4),
     },
     tooltip: {
       trigger: 'axis',
@@ -122,22 +132,25 @@ const option = computed(() => {
             ],
           },
         },
-        markLine: targetValue
-          ? {
-              symbol: 'none',
-              label: {
-                color: mutedColor,
-                formatter: `목표 ${formatMetricValue(targetValue, props.valueFormat)}`,
-                fontSize: 10,
-              },
-              lineStyle: {
-                color: mutedColor,
-                type: 'dashed',
-                width: 1,
-              },
-              data: [{ yAxis: targetValue }],
-            }
-          : undefined,
+        markLine:
+          hasTarget && hasAxes
+            ? {
+                symbol: 'none',
+                label: {
+                  show: hasAxes,
+                  color: mutedColor,
+                  formatter: `목표 ${formatMetricValue(targetValue, props.valueFormat)}`,
+                  fontSize: 10,
+                },
+                lineStyle: {
+                  color: targetLineColor,
+                  type: 'dashed',
+                  width: 1.4,
+                  opacity: 0.95,
+                },
+                data: [{ yAxis: targetValue }],
+              }
+            : undefined,
       },
     ],
   };

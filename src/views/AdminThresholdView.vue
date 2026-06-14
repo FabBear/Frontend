@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 
-import { useAuthStore } from '@/stores/auth';
-
-import { MOCK_THRESHOLD_CONFIGS, MOCK_THRESHOLD_HISTORY } from '@/constants/mockData/admin';
+import {
+  fetchThresholdConfigs,
+  fetchThresholdHistory,
+  mapThresholdHistory,
+  updateThresholdConfigValue,
+} from '@/services/adminService';
 
 import type { AdminThresholdConfig, AdminThresholdHistory } from '@/types/admin';
 
@@ -13,20 +16,38 @@ import BaseInput from '@/components/base/BaseInput.vue';
 import BaseTable from '@/components/base/BaseTable.vue';
 import type { BaseTableColumn, BaseTableRow } from '@/components/base/BaseTable.vue';
 
-import { updateThresholdConfig, validateThresholdValue } from '@/utils/admin';
+import { validateThresholdValue } from '@/utils/admin';
 import { formatKoMonthDayTime } from '@/utils/format';
 
-const authStore = useAuthStore();
+type ThresholdTabId = AdminThresholdConfig['category'];
 
-type ThresholdTabId = AdminThresholdConfig['category'] | 'HISTORY';
-
-const configs = ref(MOCK_THRESHOLD_CONFIGS.map((config) => ({ ...config })));
-const histories = ref<AdminThresholdHistory[]>(MOCK_THRESHOLD_HISTORY.map((history) => ({ ...history })));
+const configs = ref<AdminThresholdConfig[]>([]);
+const histories = ref<AdminThresholdHistory[]>([]);
 const editingConfigId = ref<string | null>(null);
-const draftValues = ref<Record<string, string>>(
-  Object.fromEntries(MOCK_THRESHOLD_CONFIGS.map((config) => [config.id, config.configValue]))
-);
+const draftValues = ref<Record<string, string>>({});
 const validationErrors = ref<Record<string, string | null>>({});
+const isLoading = ref(false);
+
+async function loadHistories(rows: AdminThresholdConfig[]) {
+  // 이력 항목명은 설정 키(원시명) 대신 친화 설명을 사용한다. 설명이 비면 설정 키로 폴백.
+  const nameById: Record<string, string> = Object.fromEntries(rows.map((c) => [c.id, c.description || c.configKey]));
+  const all = await Promise.all(rows.map((c) => fetchThresholdHistory(c.id).catch(() => [])));
+  histories.value = mapThresholdHistory(all.flat(), nameById).sort((a, b) => b.changedAt.localeCompare(a.changedAt));
+}
+
+async function loadConfigs() {
+  isLoading.value = true;
+  try {
+    const rows = await fetchThresholdConfigs();
+    configs.value = rows;
+    draftValues.value = Object.fromEntries(rows.map((c) => [c.id, c.configValue]));
+    await loadHistories(rows);
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+onMounted(loadConfigs);
 
 const activeTab = ref<ThresholdTabId>('BOTTLENECK');
 
@@ -40,25 +61,19 @@ const tabMeta: Record<ThresholdTabId, { label: string; title: string; descriptio
     label: '병목 판정',
     title: '병목 판정 기준',
     description: '위험 등급, ML 알람 확률, 시뮬레이션 라벨링 기준을 관리합니다.',
-    source: 'tm_threshold_config · ps_tg_metrics · ML alarm threshold',
+    source: '병목 위험도 판정 · ML 알람 확률 · 시뮬레이션 라벨링',
   },
   KPI: {
     label: 'KPI 기준',
     title: 'KPI/대시보드 기준',
     description: '대시보드와 MES 모니터링에서 비교 기준으로 쓰는 운영 목표값입니다.',
-    source: 'tm_threshold_config · DashboardService · FAB metrics',
+    source: '대시보드 · MES 모니터링 비교 기준',
   },
   ACTION_RULE: {
     label: '대응 룰',
     title: '대응/Agent 실행 룰',
     description: '대응안 생성 수와 Agent 연동 대기 기준처럼 실행 흐름을 제한하는 값입니다.',
-    source: 'tm_threshold_config · BNC HITL · Agent sync',
-  },
-  HISTORY: {
-    label: '변경 이력',
-    title: '임계값 변경 이력',
-    description: '저장된 임계값 변경 내역과 변경자를 확인합니다.',
-    source: 'th_threshold_history',
+    source: '대응안 생성 · Agent 연동 실행 제한',
   },
 };
 
@@ -66,7 +81,6 @@ const tabs: Array<{ id: ThresholdTabId; label: string }> = [
   { id: 'BOTTLENECK', label: tabMeta.BOTTLENECK.label },
   { id: 'KPI', label: tabMeta.KPI.label },
   { id: 'ACTION_RULE', label: tabMeta.ACTION_RULE.label },
-  { id: 'HISTORY', label: tabMeta.HISTORY.label },
 ];
 
 const historyColumns: BaseTableColumn[] = [
@@ -77,10 +91,7 @@ const historyColumns: BaseTableColumn[] = [
   { key: 'changedBy', label: '변경자' },
 ];
 
-const activeConfigs = computed(() => {
-  if (activeTab.value === 'HISTORY') return [];
-  return configs.value.filter((config) => config.category === activeTab.value);
-});
+const activeConfigs = computed(() => configs.value.filter((config) => config.category === activeTab.value));
 const dirtyConfigs = computed(() => configs.value.filter((config) => isConfigDirty(config)));
 const latestHistory = computed(() => histories.value[0]?.changedAt ?? '');
 
@@ -99,23 +110,22 @@ function updateDraft(configId: string, configValue: string) {
   }
 }
 
-function saveConfig(configId: string) {
+async function saveConfig(configId: string) {
   const config = configs.value.find((c) => c.id === configId);
   if (!config) return;
-  const error = validateThresholdValue(draftValues.value[configId] ?? '', config.valueType);
+  const newValue = draftValues.value[configId] ?? '';
+  const error = validateThresholdValue(newValue, config.valueType);
   validationErrors.value = { ...validationErrors.value, [configId]: error };
   if (error) return;
-  const updatedBy = authStore.user?.loginId ?? 'admin';
-  const result = updateThresholdConfig(
-    configs.value,
-    histories.value,
-    configId,
-    draftValues.value[configId] ?? '',
-    updatedBy
-  );
-  configs.value = result.configs;
-  histories.value = result.histories;
-  editingConfigId.value = null;
+  try {
+    const updated = await updateThresholdConfigValue(configId, newValue);
+    configs.value = configs.value.map((c) => (c.id === configId ? updated : c));
+    draftValues.value = { ...draftValues.value, [configId]: updated.configValue };
+    editingConfigId.value = null;
+    await loadHistories(configs.value);
+  } catch {
+    validationErrors.value = { ...validationErrors.value, [configId]: '저장에 실패했습니다.' };
+  }
 }
 
 function startEdit(config: AdminThresholdConfig) {
@@ -162,7 +172,7 @@ function valueTypeLabel(valueType: AdminThresholdConfig['valueType']) {
       <div class="surface-card">
         <span>현재 설정</span>
         <strong>{{ configs.length }}</strong>
-        <small>tm_threshold_config</small>
+        <small>운영 임계값</small>
       </div>
       <div class="surface-card">
         <span>미저장 변경</span>
@@ -170,9 +180,9 @@ function valueTypeLabel(valueType: AdminThresholdConfig['valueType']) {
         <small>저장 시 이력 기록</small>
       </div>
       <div class="surface-card">
-        <span>DB 카테고리</span>
+        <span>설정 분류</span>
         <strong>3</strong>
-        <small>BOTTLENECK · KPI · ACTION_RULE</small>
+        <small>병목 · KPI · 대응룰</small>
       </div>
       <div class="surface-card">
         <span>최근 변경</span>
@@ -196,7 +206,7 @@ function valueTypeLabel(valueType: AdminThresholdConfig['valueType']) {
         </button>
       </nav>
 
-      <div v-if="activeTab !== 'HISTORY'" class="admin-threshold-view__card surface-card" role="tabpanel">
+      <div class="admin-threshold-view__card surface-card" role="tabpanel">
         <div class="admin-threshold-view__title">
           <div>
             <h2>{{ tabMeta[activeTab].title }}</h2>
@@ -205,9 +215,8 @@ function valueTypeLabel(valueType: AdminThresholdConfig['valueType']) {
         </div>
 
         <div class="admin-threshold-view__source">
-          <span>저장 위치: tm_threshold_config</span>
-          <span>이력: th_threshold_history</span>
-          <span>{{ tabMeta[activeTab].source }}</span>
+          <span>적용 범위: {{ tabMeta[activeTab].source }}</span>
+          <span>변경 시 이력 자동 기록</span>
         </div>
 
         <div class="admin-threshold-view__table-wrap">
@@ -229,7 +238,7 @@ function valueTypeLabel(valueType: AdminThresholdConfig['valueType']) {
                 :key="config.id"
                 :class="{ 'admin-threshold-view__row--dirty': isConfigDirty(config) }"
               >
-                <td class="admin-threshold-view__name">{{ config.description }}</td>
+                <td class="admin-threshold-view__name">{{ config.description || config.configKey }}</td>
                 <td class="admin-threshold-view__key">{{ config.configKey }}</td>
                 <td class="admin-threshold-view__input-cell">
                   <template v-if="editingConfigId === config.id">
@@ -286,19 +295,19 @@ function valueTypeLabel(valueType: AdminThresholdConfig['valueType']) {
           </table>
         </div>
       </div>
+    </section>
 
-      <div v-else class="admin-threshold-view__card surface-card" role="tabpanel">
-        <div class="admin-threshold-view__title">
-          <div>
-            <h2>{{ tabMeta.HISTORY.title }}</h2>
-            <p>{{ tabMeta.HISTORY.description }}</p>
-          </div>
-          <BaseBadge variant="info">{{ tabMeta.HISTORY.source }}</BaseBadge>
+    <section class="admin-threshold-view__card surface-card admin-threshold-view__history">
+      <div class="admin-threshold-view__title">
+        <div>
+          <h2>임계값 변경 이력</h2>
+          <p>저장된 임계값 변경 내역과 변경자를 확인합니다.</p>
         </div>
-        <BaseTable :columns="historyColumns" :rows="histories.map(toRow)" row-key="changedAt">
-          <template #cell-changedAt="{ row }">{{ getHistoryDate(row) }}</template>
-        </BaseTable>
+        <BaseBadge variant="info">{{ histories.length }}건</BaseBadge>
       </div>
+      <BaseTable :columns="historyColumns" :rows="histories.map(toRow)" row-key="changedAt">
+        <template #cell-changedAt="{ row }">{{ getHistoryDate(row) }}</template>
+      </BaseTable>
     </section>
   </div>
 </template>

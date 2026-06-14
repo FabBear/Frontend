@@ -42,7 +42,7 @@ export const MOCK_KPI_TRENDS: KpiTrendSeries[] = [
     targetValue: 95,
   },
   {
-    key: 'throughput',
+    key: 'throughput24h',
     title: 'Throughput 추이',
     subtitle: '최근 24시간 · lots/h',
     values: [
@@ -53,7 +53,7 @@ export const MOCK_KPI_TRENDS: KpiTrendSeries[] = [
     valueFormat: 'integer',
   },
   {
-    key: 'qtime',
+    key: 'avgQtimeMin',
     title: '평균 Q-time 추이',
     subtitle: '최근 24시간 · 일',
     values: [

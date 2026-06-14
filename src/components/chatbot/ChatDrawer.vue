@@ -23,7 +23,7 @@ defineEmits<{
   close: [];
 }>();
 
-const { consumePendingReport, consumePendingAgentTask, consumePendingCasePrompt } = useChatDrawer();
+const { consumePendingReport, consumePendingReportContext, consumePendingAgentTask } = useChatDrawer();
 const {
   sessions,
   activeSessionId,
@@ -39,6 +39,7 @@ const {
   deleteSession,
   sendMessage,
   initWithReport,
+  initWithReportContext,
   initWithAgentTask,
   initWithCasePrompt,
   clearReportContext,
@@ -131,9 +132,11 @@ watch(
       ensureDrawerInViewport();
       ensureModeControlsVisible(chatMode.value);
       const report = consumePendingReport();
+      const reportContext = consumePendingReportContext();
       const agentTask = consumePendingAgentTask();
       const casePrompt = consumePendingCasePrompt();
       if (report) initWithReport(report);
+      if (reportContext) initWithReportContext(reportContext);
       if (agentTask) initWithAgentTask(agentTask);
       if (casePrompt) void initWithCasePrompt(casePrompt);
     }
@@ -1143,8 +1146,11 @@ function resetBodyCursor() {
 }
 
 .chat-drawer__delete-modal-sub {
-  border-left: 3px solid var(--color-risk-critical);
-  padding-left: var(--space-3);
+  border: var(--border-width-default) solid
+    color-mix(in srgb, var(--color-risk-critical) 36%, var(--color-border-default));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-risk-critical) 6%, var(--color-bg-card));
+  padding: var(--space-2) var(--space-3);
   font-size: var(--font-size-sm);
 }
 

@@ -1,7 +1,12 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
-import { MOCK_DRIFT_ALERTS, MOCK_ML_MODEL_VERSIONS } from '@/constants/mockData/admin';
+import {
+  fetchMlflowDriftAlerts,
+  fetchMlflowModelVersions,
+  promoteMlflowModel,
+  requestMlflowRetrain,
+} from '@/services/adminService';
 
 import type { AdminDriftAlert, AdminMlModelVersion } from '@/types/admin';
 
@@ -12,12 +17,16 @@ import BaseModal from '@/components/base/BaseModal.vue';
 
 import { formatKoMonthDayTime, formatNumber, formatRatioPercent } from '@/utils/format';
 
-const models = ref(MOCK_ML_MODEL_VERSIONS.map((model) => ({ ...model, featureList: [...model.featureList] })));
-const driftAlerts = ref(MOCK_DRIFT_ALERTS.map((alert) => ({ ...alert })));
-const selectedModelId = ref(models.value.find((model) => model.status === 'ACTIVE')?.id ?? models.value[0]?.id ?? '');
+const models = ref<AdminMlModelVersion[]>([]);
+const driftAlerts = ref<AdminDriftAlert[]>([]);
+const selectedModelId = ref('');
 const keyword = ref('');
 const statusFilter = ref<AdminMlModelVersion['status'] | 'ALL'>('ALL');
 const pendingPromote = ref<AdminMlModelVersion | null>(null);
+const reportAlert = ref<AdminDriftAlert | null>(null);
+const isLoading = ref(false);
+const isActionPending = ref(false);
+const errorMessage = ref<string | null>(null);
 
 const filteredModels = computed(() => {
   const normalizedKeyword = keyword.value.trim().toLowerCase();
@@ -72,28 +81,71 @@ function requestPromote(model: AdminMlModelVersion) {
   pendingPromote.value = model;
 }
 
-function confirmPromote() {
-  const model = pendingPromote.value;
-  if (!model) return;
-  models.value = models.value.map((item) => {
-    if (item.id === model.id) return { ...item, status: 'ACTIVE' as const };
-    if (item.modelName === model.modelName && item.status === 'ACTIVE') return { ...item, status: 'RETIRED' as const };
-    return item;
-  });
-  selectedModelId.value = model.id;
-  pendingPromote.value = null;
+function openReport(alert: AdminDriftAlert) {
+  reportAlert.value = alert;
 }
 
-function markRetrainRequested(alert: AdminDriftAlert) {
-  driftAlerts.value = driftAlerts.value.map((item) =>
-    item.id === alert.id
-      ? {
-          ...item,
-          isRetrainTriggered: true,
-          retrainTriggeredAt: new Date().toISOString(),
-        }
-      : item
-  );
+// step-6: 후보 vs 현재 ACTIVE 핵심지표 비교 권고
+const promoteRecommendation = computed(() => {
+  const cand = pendingPromote.value;
+  if (!cand) return '';
+  const active = activeModel.value;
+  if (!active || active.f1Score == null || cand.f1Score == null) {
+    return '현재 운영 모델이 없어 비교 대상이 없습니다. 첫 운영 반영입니다.';
+  }
+  return cand.f1Score >= active.f1Score
+    ? '후보 F1이 현재 운영 모델 이상입니다. 운영 반영 권장.'
+    : '후보 F1이 현재 운영 모델보다 낮습니다. 운영 반영 주의.';
+});
+
+async function loadMlflowData() {
+  isLoading.value = true;
+  errorMessage.value = null;
+  try {
+    const [modelRows, driftRows] = await Promise.all([fetchMlflowModelVersions(), fetchMlflowDriftAlerts()]);
+    models.value = modelRows.map((model) => ({ ...model, featureList: [...(model.featureList ?? [])] }));
+    driftAlerts.value = driftRows;
+    if (!models.value.some((model) => model.id === selectedModelId.value)) {
+      selectedModelId.value = models.value.find((model) => model.status === 'ACTIVE')?.id ?? models.value[0]?.id ?? '';
+    }
+  } catch (error) {
+    console.error('[AdminMlflowView] load failed:', error);
+    errorMessage.value = 'MLflow 운영 데이터를 불러오지 못했습니다.';
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+async function confirmPromote() {
+  const model = pendingPromote.value;
+  if (!model) return;
+  isActionPending.value = true;
+  errorMessage.value = null;
+  try {
+    await promoteMlflowModel(model.id);
+    selectedModelId.value = model.id;
+    pendingPromote.value = null;
+    await loadMlflowData();
+  } catch (error) {
+    console.error('[AdminMlflowView] promote failed:', error);
+    errorMessage.value = '운영 전환에 실패했습니다. MLflow 서버와 모델 alias 상태를 확인하세요.';
+  } finally {
+    isActionPending.value = false;
+  }
+}
+
+async function markRetrainRequested(alert: AdminDriftAlert) {
+  isActionPending.value = true;
+  errorMessage.value = null;
+  try {
+    const updated = await requestMlflowRetrain(alert.id);
+    driftAlerts.value = driftAlerts.value.map((item) => (item.id === alert.id ? updated : item));
+  } catch (error) {
+    console.error('[AdminMlflowView] retrain request failed:', error);
+    errorMessage.value = '재학습 요청 상태를 기록하지 못했습니다.';
+  } finally {
+    isActionPending.value = false;
+  }
 }
 
 function modelVersionName(modelId: string | null) {
@@ -101,6 +153,10 @@ function modelVersionName(modelId: string | null) {
   const model = models.value.find((item) => item.id === modelId);
   return model ? `v${model.mlflowVersion}` : '-';
 }
+
+onMounted(() => {
+  void loadMlflowData();
+});
 </script>
 
 <template>
@@ -119,6 +175,9 @@ function modelVersionName(modelId: string | null) {
         </select>
       </div>
     </header>
+
+    <p v-if="errorMessage" class="admin-mlflow-view__error">{{ errorMessage }}</p>
+    <p v-else-if="isLoading" class="admin-mlflow-view__loading">MLflow 운영 데이터를 불러오는 중입니다.</p>
 
     <section class="admin-mlflow-view__summary">
       <div class="surface-card">
@@ -148,7 +207,7 @@ function modelVersionName(modelId: string | null) {
         <div class="admin-mlflow-view__section-title">
           <div>
             <h2>모델 Registry</h2>
-            <p>th_ml_model_version 기준 모델명당 ACTIVE 버전은 하나만 유지합니다.</p>
+            <p>모델명당 ACTIVE 버전은 하나만 유지합니다.</p>
           </div>
         </div>
 
@@ -167,6 +226,9 @@ function modelVersionName(modelId: string | null) {
               </tr>
             </thead>
             <tbody>
+              <tr v-if="filteredModels.length === 0">
+                <td colspan="8" class="admin-mlflow-view__empty">등록된 모델 버전이 없습니다.</td>
+              </tr>
               <tr
                 v-for="model in filteredModels"
                 :key="model.id"
@@ -190,6 +252,7 @@ function modelVersionName(modelId: string | null) {
                     v-if="model.status === 'STAGING'"
                     size="sm"
                     variant="ghost"
+                    :disabled="isActionPending"
                     @click.stop="requestPromote(model)"
                   >
                     운영 전환
@@ -210,9 +273,10 @@ function modelVersionName(modelId: string | null) {
             <p>{{ selectedModel.modelName }} v{{ selectedModel.mlflowVersion }}</p>
           </div>
         </div>
-        <ul>
+        <ul v-if="selectedModel.featureList.length">
           <li v-for="feature in selectedModel.featureList" :key="feature">{{ feature }}</li>
         </ul>
+        <p v-else class="admin-mlflow-view__muted">기록된 feature 목록이 없습니다.</p>
       </aside>
     </section>
 
@@ -220,7 +284,7 @@ function modelVersionName(modelId: string | null) {
       <div class="admin-mlflow-view__section-title">
         <div>
           <h2>Drift / 재학습 신호</h2>
-          <p>th_drift_alert 기준으로 PSI/F1 저하와 재학습 연결 상태를 확인합니다.</p>
+          <p>PSI/F1 저하와 재학습 연결 상태를 확인합니다.</p>
         </div>
       </div>
 
@@ -239,6 +303,9 @@ function modelVersionName(modelId: string | null) {
             </tr>
           </thead>
           <tbody>
+            <tr v-if="driftAlerts.length === 0">
+              <td colspan="8" class="admin-mlflow-view__empty">감지된 Drift 알림이 없습니다.</td>
+            </tr>
             <tr v-for="alert in driftAlerts" :key="alert.id">
               <td>{{ formatKoMonthDayTime(alert.detectedAt) }}</td>
               <td>{{ modelVersionName(alert.modelVersionId) }}</td>
@@ -250,10 +317,13 @@ function modelVersionName(modelId: string | null) {
               <td>{{ alert.isRetrainTriggered ? '요청됨' : '대기' }}</td>
               <td>{{ modelVersionName(alert.resultingModelVersionId) }}</td>
               <td>
+                <BaseButton v-if="alert.detail" size="sm" variant="ghost" @click="openReport(alert)">
+                  리포트
+                </BaseButton>
                 <BaseButton
                   size="sm"
                   variant="ghost"
-                  :disabled="alert.isRetrainTriggered"
+                  :disabled="alert.isRetrainTriggered || isActionPending"
                   @click="markRetrainRequested(alert)"
                 >
                   재학습 요청
@@ -282,23 +352,79 @@ function modelVersionName(modelId: string | null) {
       </p>
       <dl>
         <div>
-          <dt>F1 Score</dt>
-          <dd>{{ formatRatioPercent(pendingPromote.f1Score) }}</dd>
+          <dt>F1 (현재→후보)</dt>
+          <dd>
+            {{ formatRatioPercent(activeModel?.f1Score ?? null) }} → {{ formatRatioPercent(pendingPromote.f1Score) }}
+          </dd>
         </div>
         <div>
-          <dt>AUC-ROC</dt>
-          <dd>{{ formatRatioPercent(pendingPromote.aucRoc) }}</dd>
+          <dt>AUC (현재→후보)</dt>
+          <dd>
+            {{ formatRatioPercent(activeModel?.aucRoc ?? null) }} → {{ formatRatioPercent(pendingPromote.aucRoc) }}
+          </dd>
         </div>
         <div>
           <dt>학습 Row</dt>
           <dd>{{ formatNumber(pendingPromote.trainRowCount) }}</dd>
         </div>
       </dl>
+      <p class="admin-mlflow-view__promote-reco">{{ promoteRecommendation }}</p>
       <footer class="admin-mlflow-view__promote-footer">
-        <BaseButton size="sm" @click="confirmPromote">전환 확인</BaseButton>
+        <BaseButton size="sm" :disabled="isActionPending" @click="confirmPromote">전환 확인</BaseButton>
         <BaseButton size="sm" variant="ghost" @click="pendingPromote = null">취소</BaseButton>
       </footer>
     </div>
+  </BaseModal>
+
+  <BaseModal
+    :model-value="Boolean(reportAlert)"
+    title="Drift 리포트"
+    width="540px"
+    @update:model-value="reportAlert = null"
+  >
+    <div v-if="reportAlert?.detail" class="admin-mlflow-view__report">
+      <p class="admin-mlflow-view__report-headline">
+        F1 {{ formatRatioPercent(reportAlert.detail.f1_baseline ?? null) }} →
+        <strong>{{ formatRatioPercent(reportAlert.detail.f1_current) }}</strong>
+        <span class="admin-mlflow-view__muted">(임계 {{ formatRatioPercent(reportAlert.detail.threshold) }})</span>
+      </p>
+      <dl class="admin-mlflow-view__report-meta">
+        <div>
+          <dt>평가 윈도우</dt>
+          <dd>최근 {{ reportAlert.detail.eval_window_hours }}시간</dd>
+        </div>
+        <div>
+          <dt>라벨 샘플</dt>
+          <dd>{{ formatNumber(reportAlert.detail.sample_count) }}건</dd>
+        </div>
+        <div>
+          <dt>현재 운영 버전</dt>
+          <dd>{{ reportAlert.detail.active_version ? 'v' + reportAlert.detail.active_version : '-' }}</dd>
+        </div>
+      </dl>
+      <h3 class="admin-mlflow-view__report-subtitle">기여 상위 ToolGroup (미탐/오탐)</h3>
+      <table class="admin-mlflow-view__report-table">
+        <thead>
+          <tr>
+            <th scope="col">ToolGroup</th>
+            <th scope="col">미탐(FN)</th>
+            <th scope="col">오탐(FP)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-if="!reportAlert.detail.top_contributors?.length">
+            <td colspan="3" class="admin-mlflow-view__muted">집계된 기여 TG가 없습니다.</td>
+          </tr>
+          <tr v-for="contributor in reportAlert.detail.top_contributors" :key="contributor.toolgroup">
+            <td>{{ contributor.toolgroup }}</td>
+            <td>{{ contributor.fn }}</td>
+            <td>{{ contributor.fp }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="admin-mlflow-view__report-reco">{{ reportAlert.detail.recommendation ?? '재학습 권장' }}</p>
+    </div>
+    <p v-else class="admin-mlflow-view__muted">리포트 상세가 없습니다.</p>
   </BaseModal>
 </template>
 
@@ -340,6 +466,27 @@ function modelVersionName(modelId: string | null) {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 120px;
   gap: var(--space-2);
+}
+
+.admin-mlflow-view__error,
+.admin-mlflow-view__loading,
+.admin-mlflow-view__empty {
+  margin: 0;
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-sm);
+}
+
+.admin-mlflow-view__error {
+  border: var(--border-width-default) solid color-mix(in srgb, var(--color-risk-high) 36%, var(--color-border-default));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-risk-high) 6%, var(--color-bg-card));
+  color: var(--color-risk-high);
+  padding: var(--space-2) var(--space-3);
+}
+
+.admin-mlflow-view__empty {
+  padding: var(--space-4);
+  text-align: center;
 }
 
 .admin-mlflow-view__summary {
@@ -470,8 +617,10 @@ function modelVersionName(modelId: string | null) {
 }
 
 .admin-mlflow-view__promote-warn {
-  border-left: 3px solid var(--color-risk-high);
-  padding-left: var(--space-3);
+  border: var(--border-width-default) solid color-mix(in srgb, var(--color-risk-high) 36%, var(--color-border-default));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-risk-high) 6%, var(--color-bg-card));
+  padding: var(--space-2) var(--space-3);
   font-size: var(--font-size-sm);
 }
 
@@ -504,6 +653,88 @@ function modelVersionName(modelId: string | null) {
   display: flex;
   justify-content: flex-end;
   gap: var(--space-2);
+}
+
+.admin-mlflow-view__promote-reco {
+  margin: 0;
+  border: var(--border-width-default) solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle);
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-sm);
+}
+
+.admin-mlflow-view__report {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.admin-mlflow-view__report-headline {
+  margin: 0;
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-md);
+}
+
+.admin-mlflow-view__report-headline strong {
+  color: var(--color-fg-strong);
+  font-size: var(--font-size-lg);
+}
+
+.admin-mlflow-view__report-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.admin-mlflow-view__report-meta dt {
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-xs);
+}
+
+.admin-mlflow-view__report-meta dd {
+  margin: 0;
+  color: var(--color-fg-strong);
+  font-weight: 700;
+}
+
+.admin-mlflow-view__report-subtitle {
+  margin: 0;
+  color: var(--color-fg-strong);
+  font-size: var(--font-size-sm);
+}
+
+.admin-mlflow-view__report-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.admin-mlflow-view__report-table th,
+.admin-mlflow-view__report-table td {
+  border-bottom: 1px solid var(--color-border-subtle);
+  padding: var(--space-2);
+  text-align: left;
+  font-size: var(--font-size-sm);
+}
+
+.admin-mlflow-view__report-table th {
+  background: var(--color-bg-subtle);
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-xs);
+}
+
+.admin-mlflow-view__report-reco {
+  margin: 0;
+  border: var(--border-width-default) solid color-mix(in srgb, var(--color-risk-high) 36%, var(--color-border-default));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-risk-high) 6%, var(--color-bg-card));
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-fg-strong);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
 }
 
 @media (max-width: 1100px) {

@@ -12,7 +12,6 @@ import {
   LayoutDashboard,
   LockKeyhole,
   MessagesSquare,
-  ScrollText,
   ServerCog,
   Settings2,
   SlidersHorizontal,
@@ -47,7 +46,6 @@ const navSections: NavSection[] = [
       { label: 'MES 인터페이스', to: '/admin/mes-interface', icon: Settings2 },
       { label: '프롬프트 관리', to: '/admin/prompts', icon: MessagesSquare },
       { label: '데이터 수집', to: '/admin/ingestion', icon: FileClock },
-      { label: '운영 로그', to: '/admin/logs', icon: ScrollText },
     ],
   },
 ];
@@ -152,7 +150,8 @@ const visibleNavSections = computed(() => {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  border-left: var(--border-width-thick) solid transparent;
+  border: var(--border-width-default) solid transparent;
+  border-radius: var(--radius-md);
   padding: 8px var(--spacing-card);
   color: var(--color-fg-muted);
   font-size: var(--font-size-sm);
@@ -160,7 +159,7 @@ const visibleNavSections = computed(() => {
 
 .the-sidebar__link:hover,
 .the-sidebar__link--active {
-  border-left-color: var(--color-action-primary);
+  border-color: var(--color-action-primary-border);
   background: var(--color-action-primary-soft);
   color: var(--color-action-primary);
 }

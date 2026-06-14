@@ -359,6 +359,7 @@ function formatProcessLabel(areaCode: string, areaNameKo: string): string {
               <input v-model="draftTo" type="datetime-local" />
             </label>
             <button type="button" class="overview-tab__apply-btn" @click="applyCustomRange">조회</button>
+            <button type="button" class="overview-tab__reset-btn" @click="applyQuickRange('24H')">초기화</button>
           </div>
         </div>
       </div>
@@ -538,7 +539,7 @@ function formatProcessLabel(areaCode: string, areaNameKo: string): string {
             <td>{{ formatNumber(tg.maxWipCount) }}</td>
             <td>{{ formatRatioPercent(tg.avgBottleneckProb) }}</td>
             <td>
-              <BaseBadge :variant="riskGradeToLevel(tg.riskGrade)">{{ tg.riskGrade }}</BaseBadge>
+              <BaseBadge :variant="riskGradeToLevel(tg.riskGrade)">{{ tg.riskGrade ?? '—' }}</BaseBadge>
             </td>
           </tr>
         </tbody>
@@ -569,7 +570,7 @@ function formatProcessLabel(areaCode: string, areaNameKo: string): string {
             v-else
             :key="eq.toolId"
             class="overview-tab__row"
-            :class="`overview-tab__row--${eq.status.toLowerCase()}`"
+            :class="`overview-tab__row--${(eq.status ?? 'unknown').toLowerCase()}`"
           >
             <td>
               <strong>{{ eq.toolCode }}</strong>
@@ -734,6 +735,24 @@ function formatProcessLabel(areaCode: string, areaNameKo: string): string {
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-bold);
   white-space: nowrap;
+}
+
+.overview-tab__reset-btn {
+  height: 34px;
+  border: var(--border-width-default) solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+  padding: 0 var(--space-3);
+  color: var(--color-fg-muted);
+  cursor: pointer;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+.overview-tab__reset-btn:hover {
+  border-color: var(--color-border-strong);
+  color: var(--color-fg);
 }
 
 .overview-tab__apply-btn:hover {
@@ -1017,7 +1036,8 @@ function formatProcessLabel(areaCode: string, areaNameKo: string): string {
     min-width: 0;
   }
 
-  .overview-tab__apply-btn {
+  .overview-tab__apply-btn,
+  .overview-tab__reset-btn {
     width: 100%;
   }
 

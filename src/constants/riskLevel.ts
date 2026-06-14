@@ -2,7 +2,10 @@ export const RISK_LEVELS = ['critical', 'high', 'medium', 'low'] as const;
 
 export type RiskLevel = (typeof RISK_LEVELS)[number];
 
-export function riskGradeToLevel(grade: string): RiskLevel {
+// grade는 타입상 string이지만 런타임에는 null/undefined가 올 수 있다(병목 스냅샷 없는 TG 등).
+// null을 toLowerCase하면 화면 렌더가 통째로 깨지므로 안전하게 'low'로 폴백한다.
+export function riskGradeToLevel(grade: string | null | undefined): RiskLevel {
+  if (!grade) return 'low';
   const lower = grade.toLowerCase();
   return lower === 'critical' || lower === 'high' || lower === 'medium' || lower === 'low' ? lower : 'low';
 }

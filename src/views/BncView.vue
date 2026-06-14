@@ -2,17 +2,12 @@
 import { computed, onBeforeUnmount, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
-import { Bot, MapPinned, MessageCircle, Sparkles } from '@lucide/vue';
-
-import { buildBncCaseContext } from '@/services/agentContextBuilders';
-
-import { useAgentTask } from '@/composables/useAgentTask';
 import { useBnc } from '@/composables/useBnc';
 import { useChatDrawer } from '@/composables/useChatDrawer';
 
 import { ROUTE_NAMES } from '@/constants/routes';
 
-import type { BncAgentStep, BncTabId } from '@/types/bnc';
+import type { BncTabId } from '@/types/bnc';
 
 import BncAlertList from '@/components/bnc/BncAlertList.vue';
 import BncCaseSummary from '@/components/bnc/BncCaseSummary.vue';
@@ -24,8 +19,7 @@ import BncSolutionsTab from '@/components/bnc/tabs/BncSolutionsTab.vue';
 
 const route = useRoute();
 const router = useRouter();
-const { runAgentTask, isAgentTaskRunning, agentTaskError } = useAgentTask();
-const { openWithAgentTask } = useChatDrawer();
+const { openWithReport, openWithReportContext, open: openChat } = useChatDrawer();
 
 function routeCaseId() {
   return typeof route.query.caseId === 'string' ? route.query.caseId : null;
@@ -102,33 +96,27 @@ function isArtifactTab(tabId: BncTabId) {
   return tabId === 'cause' || tabId === 'solutions' || tabId === 'report';
 }
 
-async function runBncAgent(
-  intent: 'case' | 'step' | 'recommendation' | 'exclusion' | 'target-map' | 'report',
-  stepName: string | null = null
-) {
+// BNC AI 설명/질문은 별도 Agent task 이력 없이 챗 전용으로 진입한다.
+// 선택 케이스의 리포트가 있으면 리포트 그라운딩 챗을, 없으면 일반 챗을 연다.
+// (챗봇이 contextCaseId/get_case_detail 도구로 케이스를 직접 그라운딩한다.)
+function openCaseChat() {
   if (!selectedCase.value) return;
-  const task = await runAgentTask({
-    taskType: 'BNC_CASE_EXPLAIN',
-    sourcePage: 'RESPONSE_CENTER',
-    context: buildBncCaseContext({
-      selectedCase: selectedCase.value,
-      selectedCaseDetail: selectedCaseDetail.value,
-      causeAnalysis: selectedCauseAnalysis.value,
-      actionPlans: selectedActionPlans.value,
-      report: selectedReport.value,
-      activeTab: activeTab.value,
-      stepName,
-    }),
-    params: {
-      intent,
-      stepName,
-    },
-  });
-  if (task?.status === 'SUCCEEDED') openWithAgentTask(task);
-}
-
-function handleExplainStep(step: BncAgentStep) {
-  void runBncAgent('step', step.stepName);
+  if (selectedReport.value?.reportV1) {
+    const report = selectedReport.value.reportV1;
+    openWithReportContext({
+      caseId: selectedReport.value.caseId,
+      reportId: selectedReport.value.reportId,
+      processName: report.meta.process_name,
+      severity: report.meta.severity,
+      riskScore: report.risk.score,
+      detectedAt: report.meta.detected_at,
+    });
+    return;
+  }
+  // openWithReport는 구조화된 FinalBottleneckReport를 받는다. BncReportPayload의 finalReport가 있으면
+  // 그것으로 리포트 그라운딩 챗을, 없으면 일반 챗을 연다.
+  if (selectedReport.value?.finalReport) openWithReport(selectedReport.value.finalReport);
+  else openChat();
 }
 
 // 이 화면만 전역 1280 floor 해제 → 작은 화면에서도 가로 스크롤 없이 반응형. 떠나면 원복.
@@ -176,49 +164,6 @@ watch(selectedCaseDetail, (detail) => {
           <span v-if="isMockMode" class="bnc-view__mock-badge">Mock Preview · 백엔드 연동 전</span>
         </div>
         <p class="bnc-view__subtitle">Agent 분석 결과를 확인하고 대응안을 검토하는 운영 의사결정 화면입니다.</p>
-        <div class="bnc-view__agent-actions">
-          <button type="button" :disabled="isAgentTaskRunning || !selectedCase" @click="runBncAgent('case')">
-            <Sparkles :size="14" aria-hidden="true" />
-            선택 케이스 AI 설명
-          </button>
-          <button
-            v-if="activeTab === 'solutions'"
-            type="button"
-            :disabled="isAgentTaskRunning || !selectedCase"
-            @click="runBncAgent('recommendation')"
-          >
-            <Bot :size="14" aria-hidden="true" />
-            AI 추천 근거 묻기
-          </button>
-          <button
-            v-if="activeTab === 'solutions'"
-            type="button"
-            :disabled="isAgentTaskRunning || !selectedCase"
-            @click="runBncAgent('exclusion')"
-          >
-            비추천안 제외 이유
-          </button>
-          <button
-            v-if="activeTab === 'solutions'"
-            type="button"
-            :disabled="isAgentTaskRunning || !selectedCase"
-            @click="runBncAgent('target-map')"
-          >
-            <MapPinned :size="14" aria-hidden="true" />
-            대상 TG 위치 보기
-          </button>
-          <button
-            v-if="activeTab === 'report'"
-            type="button"
-            :disabled="isAgentTaskRunning || !selectedCase"
-            @click="runBncAgent('report')"
-          >
-            <MessageCircle :size="14" aria-hidden="true" />
-            이 보고서에 대해 질문
-          </button>
-          <span v-if="isAgentTaskRunning">AI Agent가 케이스 산출물을 정리 중입니다...</span>
-          <span v-else-if="agentTaskError" class="bnc-view__agent-error">{{ agentTaskError }}</span>
-        </div>
       </div>
     </header>
 
@@ -252,7 +197,6 @@ watch(selectedCaseDetail, (detail) => {
             :detail="selectedCaseDetail"
             :loading="isDetailLoading"
             :error-message="detailErrorMessage"
-            @explain-step="handleExplainStep"
           />
           <BncCauseTab
             v-else-if="activeTab === 'cause'"
@@ -272,8 +216,8 @@ watch(selectedCaseDetail, (detail) => {
             :report="selectedReport"
             :loading="isArtifactLoading"
             :error-message="artifactErrorMessage"
-            :ai-busy="isAgentTaskRunning"
-            @ask-ai="runBncAgent('report')"
+            :ai-busy="false"
+            @ask-ai="openCaseChat()"
           />
         </div>
       </main>

@@ -4,6 +4,8 @@ WORKDIR /app
 ENV HUSKY=0
 
 COPY package*.json ./
+# postinstall(copy-vad-assets.mjs)이 npm ci 도중 실행되므로 scripts/를 먼저 복사해야 한다.
+COPY scripts ./scripts
 RUN npm ci
 
 COPY . .

@@ -107,12 +107,6 @@ const router = createRouter({
       meta: { title: '데이터 수집', requiresAuth: true, requiresAdmin: true },
     },
     {
-      path: '/admin/logs',
-      name: 'adminLogs',
-      component: () => import('@/views/AdminResourceView.vue'),
-      meta: { title: '운영 로그', requiresAuth: true, requiresAdmin: true, adminResource: 'logs' },
-    },
-    {
       path: '/:pathMatch(.*)*',
       name: ROUTE_NAMES.notFound,
       component: () => import('@/views/NotFoundView.vue'),

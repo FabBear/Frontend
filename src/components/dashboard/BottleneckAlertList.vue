@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { BottleneckAlertItem } from '@/types/dashboard';
 
+import BaseButton from '@/components/base/BaseButton.vue';
 import BottleneckAlertCard from '@/components/dashboard/BottleneckAlertCard.vue';
 
 interface Props {
@@ -12,6 +13,7 @@ defineProps<Props>();
 const emit = defineEmits<{
   openCenter: [caseId: string];
   openMonitoring: [caseId: string];
+  openMonitoringList: [];
 }>();
 
 function handleOpenCenter(caseId: string) {
@@ -28,6 +30,7 @@ function handleOpenMonitoring(caseId: string) {
     <!-- 제목: 카드 밖 (ProcessMapCard와 동일한 구조) -->
     <div class="bottleneck-alert-list__header">
       <h2 id="bottleneck-alert-list-title" class="bottleneck-alert-list__title">병목 위험 알림</h2>
+      <BaseButton variant="primary" size="sm" @click="emit('openMonitoringList')">더보기</BaseButton>
     </div>
 
     <!-- 카드: 내용만 -->
@@ -76,6 +79,7 @@ function handleOpenMonitoring(caseId: string) {
   align-content: start;
   gap: var(--space-2);
   min-height: 0;
+  max-height: 100%;
   overflow-y: auto;
   border: var(--border-width-default) solid var(--color-border-default);
   border-radius: var(--radius-lg);

@@ -195,3 +195,239 @@ export interface FinalBottleneckReport {
   };
   full_markdown: string;
 }
+
+export interface ReportV1Kpi {
+  key: string;
+  label: string;
+  value: number;
+  unit: string;
+  threshold_state: string | null;
+  prev_value: number | null;
+  delta: number | null;
+  pct_change: number | null;
+}
+
+export interface ReportV1KpiImpact {
+  kpi: string;
+  unit: string;
+  now: number;
+  after: number;
+  delta: number;
+  pct_change: number;
+  verdict: string;
+  verdict_token: string;
+  confidence: number;
+  ci_low: number;
+  ci_high: number;
+  ci_width: number;
+  paired_t_p: number | null;
+  significant: boolean | null;
+}
+
+export interface ReportV1ActionCandidate {
+  label: string;
+  kind: string;
+  is_baseline: boolean;
+  is_approved: boolean;
+  description: string;
+  target_toolgroups: string[];
+  params: Record<string, string | number | boolean | null> | null;
+  kpi_impact: ReportV1KpiImpact[];
+  operational: {
+    effort: number;
+    effort_max: number;
+    scope: string;
+    reversibility: string;
+  };
+  simulation: {
+    paired_n: number;
+    confidence: number | null;
+    verdict: string;
+  };
+  composite_score: number;
+  tradeoffs: string[];
+}
+
+export interface ReportV1 {
+  schema_version: 'report/1.0';
+  meta: {
+    toolgroup: string;
+    process_name: string;
+    severity: string;
+    severity_token: string;
+    severity_priority: number;
+    detected_at: string;
+    generated_at: string;
+    snapshot_time: number;
+    horizon_min: number;
+    schema_version: string;
+  };
+  approval: {
+    status: string;
+    status_token: string;
+    approver_name: string;
+    approver_role: string;
+    approved_at: string;
+    comment: string;
+    rejection_reason: string | null;
+    selected_label: string | null;
+  };
+  risk: {
+    score: number;
+    score_unit: string;
+    score_threshold_state: string;
+    composite_score: number;
+    probability: number;
+  };
+  confidence: {
+    level: string;
+    level_token: string;
+    needs_more_data: boolean;
+    g_star_probability: number | null;
+  };
+  if_no_action: {
+    available: boolean;
+    will_get_worse: boolean;
+    horizon_min: number;
+    kpi_changes: Array<{
+      kpi: string;
+      unit: string;
+      now: number;
+      after: number;
+      delta: number;
+      pct_change: number;
+      reliability_token: string;
+    }>;
+  };
+  bottleneck_kpis: ReportV1Kpi[];
+  data_quality: {
+    status: string;
+    warnings: Array<{
+      code?: string;
+      toolgroup?: string | null;
+      field?: string | null;
+      value?: string | number | null;
+      message: string;
+    }>;
+  };
+  cause: {
+    summary: string;
+    primary: {
+      category: string;
+      feature: string;
+      confidence: string;
+      confidence_token: string;
+      reasoning: string;
+    };
+    secondary_categories: string[];
+    categories: Array<{
+      name: string;
+      features: string[];
+      shap_share_pct: number;
+      n_trend_significant: number;
+      upstream_match: boolean;
+      g_star_confirmed: boolean;
+      total_score: number;
+      confidence: string;
+      confidence_token: string;
+    }>;
+    shap_top: Array<{
+      rank: number;
+      feature: string;
+      value: number;
+      shap: number;
+      contribution_pct: number;
+      direction_token: string;
+    }>;
+    trend_series: {
+      time_labels: string[];
+      time_offsets_min: number[];
+      features: Record<
+        string,
+        {
+          values: number[];
+          slope_per_hour: number;
+          r2: number;
+          significant: boolean;
+        }
+      >;
+    };
+    upstream_suspects: string[];
+    consensus_axes: {
+      shap_supports: boolean;
+      trend_supports: boolean;
+      upstream_supports: boolean;
+      g_star_supports: boolean;
+      axes_agreed_count: number;
+    };
+    g_star: {
+      confirmed: boolean;
+      probability: number;
+      monte_carlo: {
+        n_total: number;
+        n_alarm: number;
+        alarm_ratio_pct: number;
+      };
+      upstream_confirmed_toolgroups: string[];
+      significant_kpis: string[];
+    };
+  };
+  diffusion: {
+    bottleneck_location: string;
+    diffusion_path: string[];
+    high_impact_processes: Array<{
+      toolgroup: string;
+      utilization_pct: number;
+      wait_ratio: number;
+      wip: number;
+      impact_score: number;
+      data_quality_flags: string[];
+    }>;
+    low_impact_processes: unknown[];
+    forward_simulation: {
+      available: boolean;
+      horizon_min: number;
+      results: Array<{
+        toolgroup: string;
+        q_time_min_future: number | null;
+        wait_ratio_future: number;
+        wip_future: number;
+        is_bottleneck_predicted: boolean;
+      }>;
+    };
+    line_stop_expected_min: number;
+    risk_level: string;
+    risk_level_token: string;
+  };
+  actions: {
+    available: boolean;
+    candidates: ReportV1ActionCandidate[];
+    approved_label: string | null;
+    decision_status: string;
+    decision_status_token: string;
+    equivalent_set: string[];
+    tiebreaker_used: string | null;
+    decision_caveat: string;
+    recommendation: {
+      headline: string;
+      primary_reason: string;
+      confidence_level: string;
+      confidence_token: string;
+      tradeoffs: string[];
+      why_not_others: Array<{ label: string; reason: string }>;
+      caveats: string[];
+      tiebreaker_chain: string[];
+      selected_by: string;
+    };
+    playbook: {
+      available: boolean;
+      immediate_actions: Array<{ order: number; text: string }>;
+      monitoring: Array<{ kpi: string; target: number | null; unit: string; check_after_min: number }>;
+      rollback_condition: string;
+    };
+  };
+  sections: Record<string, string>;
+  rendered: {
+    markdown: string;
+  };
+}

@@ -862,11 +862,6 @@ defineExpose({ triggerPdfDownload: handlePdfDownload, downloadMarkdown, download
             </div>
           </dl>
         </section>
-
-        <details class="final-report__source" data-pdf-ignore>
-          <summary>원본 Markdown 보기</summary>
-          <pre>{{ report.full_markdown }}</pre>
-        </details>
       </template>
 
       <p v-else class="final-report__compact-note">요약 모드입니다. 전체 전문은 리포트 상세 화면에서 확인합니다.</p>
@@ -1730,13 +1725,12 @@ defineExpose({ triggerPdfDownload: handlePdfDownload, downloadMarkdown, download
 }
 
 .final-report__summary-card--executive {
-  border-top: 3px solid #111827;
+  border-color: #98a2b3;
 }
 
 .final-report__summary-card--decision {
   background: #fffbeb;
   border-color: #f3d18b;
-  border-top: 3px solid #b54708;
 }
 
 .final-report__summary-list {
@@ -1786,7 +1780,6 @@ defineExpose({ triggerPdfDownload: handlePdfDownload, downloadMarkdown, download
   padding: 12px 12px 11px;
   background: #f8fafc;
   border: 1px solid #e4e7ec;
-  border-top: 3px solid #98a2b3;
   border-radius: 6px;
 }
 

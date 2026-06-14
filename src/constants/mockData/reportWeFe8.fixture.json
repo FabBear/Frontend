@@ -1,0 +1,2571 @@
+{
+  "schema_version": "report/1.0",
+  "meta": {
+    "toolgroup": "WE_FE_8",
+    "process_name": "WE_FE_8",
+    "severity": "Critical",
+    "severity_token": "danger",
+    "severity_priority": 0,
+    "detected_at": "2026-06-13 16:52",
+    "generated_at": "2026-06-13 16:52:22",
+    "snapshot_time": 12300.0,
+    "horizon_min": 120,
+    "schema_version": "report/1.0"
+  },
+  "approval": {
+    "status": "승인",
+    "status_token": "approved",
+    "approver_name": "DJKEE",
+    "approver_role": "팀장",
+    "approved_at": "2026-06-13 16:43",
+    "comment": "AI 추천 반영",
+    "rejection_reason": null,
+    "selected_label": "CONSERVATIVE"
+  },
+  "risk": {
+    "score": 81.8,
+    "score_unit": "score",
+    "score_threshold_state": "danger",
+    "composite_score": 0.8176,
+    "probability": 0.9969
+  },
+  "confidence": {
+    "level": "HIGH",
+    "level_token": "high",
+    "needs_more_data": false,
+    "g_star_probability": 0.7627
+  },
+  "if_no_action": {
+    "available": true,
+    "will_get_worse": false,
+    "horizon_min": 120,
+    "kpi_changes": [
+      {
+        "kpi": "wip",
+        "unit": "lots",
+        "now": 15.0,
+        "after": 6.0,
+        "delta": -9.0,
+        "pct_change": -60.0,
+        "reliability_token": "HIGH"
+      },
+      {
+        "kpi": "wait_ratio",
+        "unit": "ratio",
+        "now": 6.5,
+        "after": 2.0,
+        "delta": -4.5,
+        "pct_change": -69.2,
+        "reliability_token": "HIGH"
+      },
+      {
+        "kpi": "available_tool_ratio",
+        "unit": "ratio",
+        "now": 1.0,
+        "after": 1.0,
+        "delta": 0.0,
+        "pct_change": 0.0,
+        "reliability_token": "HIGH"
+      },
+      {
+        "kpi": "utilization_avg",
+        "unit": "ratio",
+        "now": 0.99,
+        "after": 1.0,
+        "delta": 0.01,
+        "pct_change": 1.1,
+        "reliability_token": "MED"
+      }
+    ]
+  },
+  "bottleneck_kpis": [
+    {
+      "key": "risk_score",
+      "label": "Risk Score",
+      "value": 81.8,
+      "unit": "score",
+      "threshold_state": "danger",
+      "prev_value": null,
+      "delta": null,
+      "pct_change": null
+    },
+    {
+      "key": "q_time_min",
+      "label": "평균 대기시간",
+      "value": 63.9,
+      "unit": "min",
+      "threshold_state": null,
+      "prev_value": 63.25,
+      "delta": 0.65,
+      "pct_change": 1.03
+    },
+    {
+      "key": "wait_ratio",
+      "label": "Wait Ratio",
+      "value": 6.5,
+      "unit": "ratio",
+      "threshold_state": "danger",
+      "prev_value": 5.0,
+      "delta": 1.5,
+      "pct_change": 30.0
+    },
+    {
+      "key": "utilization_avg",
+      "label": "평균 가동률",
+      "value": 0.9896,
+      "unit": "ratio",
+      "threshold_state": "danger",
+      "prev_value": 0.9684,
+      "delta": 0.0212,
+      "pct_change": 2.19
+    },
+    {
+      "key": "wip",
+      "label": "WIP",
+      "value": 15.0,
+      "unit": "lots",
+      "threshold_state": null,
+      "prev_value": 12.0,
+      "delta": 3.0,
+      "pct_change": 25.0
+    },
+    {
+      "key": "available_tool_ratio",
+      "label": "가용 호기 비율",
+      "value": 1.0,
+      "unit": "ratio",
+      "threshold_state": null,
+      "prev_value": 1.0,
+      "delta": 0.0,
+      "pct_change": 0.0
+    },
+    {
+      "key": "max_util",
+      "label": "최대 가동률",
+      "value": 0.9916,
+      "unit": "ratio",
+      "threshold_state": "danger",
+      "prev_value": 0.9794,
+      "delta": 0.0122,
+      "pct_change": 1.25
+    }
+  ],
+  "bottleneck_trend": [
+    {
+      "time_label": "T-300분",
+      "offset_min": -300,
+      "values": {
+        "wip": 9.0,
+        "wait_ratio": 3.5,
+        "utilization_avg": 0.9706
+      }
+    },
+    {
+      "time_label": "T-240분",
+      "offset_min": -240,
+      "values": {
+        "wip": 9.0,
+        "wait_ratio": 3.5,
+        "utilization_avg": 0.9835
+      }
+    },
+    {
+      "time_label": "T-180분",
+      "offset_min": -180,
+      "values": {
+        "wip": 9.0,
+        "wait_ratio": 3.5,
+        "utilization_avg": 0.9532
+      }
+    },
+    {
+      "time_label": "T-120분",
+      "offset_min": -120,
+      "values": {
+        "wip": 12.0,
+        "wait_ratio": 5.0,
+        "utilization_avg": 0.9717
+      }
+    },
+    {
+      "time_label": "T-60분",
+      "offset_min": -60,
+      "values": {
+        "wip": 12.0,
+        "wait_ratio": 5.0,
+        "utilization_avg": 0.9684
+      }
+    },
+    {
+      "time_label": "T-0분",
+      "offset_min": 0,
+      "values": {
+        "wip": 15.0,
+        "wait_ratio": 6.5,
+        "utilization_avg": 0.9896
+      }
+    }
+  ],
+  "diffusion": {
+    "bottleneck_location": "WE_FE_8",
+    "diffusion_path": ["WE_FE_8", "LithoMet_FE_19", "WE_FE_83", "DE_FE_1"],
+    "line_stop_expected_min": 2064.9,
+    "risk_level": "Critical",
+    "risk_level_token": "danger",
+    "high_impact_processes": [
+      {
+        "toolgroup": "LithoMet_FE_19",
+        "utilization_pct": 69.2,
+        "wait_ratio": 1.0,
+        "wip": 34,
+        "impact_score": 0.4542,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "WE_FE_83",
+        "utilization_pct": 97.5,
+        "wait_ratio": 0.43,
+        "wip": 10,
+        "impact_score": 0.4133,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "DE_FE_1",
+        "utilization_pct": 60.2,
+        "wait_ratio": 1.14,
+        "wip": 12,
+        "impact_score": 0.4107,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Dielectric_FE_30",
+        "utilization_pct": 92.2,
+        "wait_ratio": 0.5,
+        "wip": 2,
+        "impact_score": 0.3942,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Diffusion_FE_125",
+        "utilization_pct": 80.1,
+        "wait_ratio": 0.33,
+        "wip": 5,
+        "impact_score": 0.3304,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Diffusion_FE_127",
+        "utilization_pct": 85.9,
+        "wait_ratio": 0.0,
+        "wip": 8,
+        "impact_score": 0.2998,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Diffusion_FE_120",
+        "utilization_pct": 81.0,
+        "wait_ratio": 0.0,
+        "wip": 9,
+        "impact_score": 0.2851,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "DE_FE_86",
+        "utilization_pct": 35.8,
+        "wait_ratio": 0.0,
+        "wip": 56,
+        "impact_score": 0.2128,
+        "data_quality_flags": []
+      }
+    ],
+    "low_impact_processes": [
+      {
+        "toolgroup": "WE_FE_108",
+        "utilization_pct": 49.2,
+        "wait_ratio": 0.0,
+        "wip": 22,
+        "impact_score": 0.2007,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "WE_FE_84",
+        "utilization_pct": 58.6,
+        "wait_ratio": 0.0,
+        "wip": 8,
+        "impact_score": 0.2086,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "DefMet_FE_43",
+        "utilization_pct": 42.4,
+        "wait_ratio": 0.0,
+        "wip": 2,
+        "impact_score": 0.1448,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "WE_FE_85",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Dielectric_FE_112",
+        "utilization_pct": 37.0,
+        "wait_ratio": 0.0,
+        "wip": 7,
+        "impact_score": 0.1351,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Litho_FE_111",
+        "utilization_pct": 41.4,
+        "wait_ratio": 0.0,
+        "wip": 10,
+        "impact_score": 0.1548,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Delay_32",
+        "utilization_pct": 11.6,
+        "wait_ratio": 0.0,
+        "wip": 43,
+        "impact_score": 0.1104,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "TF_FE_131",
+        "utilization_pct": 41.1,
+        "wait_ratio": 0.0,
+        "wip": 4,
+        "impact_score": 0.1435,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Implant_91",
+        "utilization_pct": 19.4,
+        "wait_ratio": 0.0,
+        "wip": 1,
+        "impact_score": 0.0664,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "TF_Met_FE_61",
+        "utilization_pct": 39.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.1301,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Implant_128",
+        "utilization_pct": 31.3,
+        "wait_ratio": 0.0,
+        "wip": 4,
+        "impact_score": 0.1111,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "DE_FE_62",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "DefMet_FE_10",
+        "utilization_pct": 33.2,
+        "wait_ratio": 0.0,
+        "wip": 3,
+        "impact_score": 0.1158,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Diffusion_FE_101",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "DE_FE_58",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Implant_119",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Dielectric_FE_29",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "TF_FE_3",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 1,
+        "impact_score": 0.0017,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "WE_FE_41",
+        "utilization_pct": 49.6,
+        "wait_ratio": 0.0,
+        "wip": 3,
+        "impact_score": 0.1704,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Dielectric_FE_31",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "TF_Met_FE_45",
+        "utilization_pct": 38.3,
+        "wait_ratio": 0.0,
+        "wip": 4,
+        "impact_score": 0.1343,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "LithoTrack_FE_115",
+        "utilization_pct": 32.0,
+        "wait_ratio": 0.0,
+        "wip": 21,
+        "impact_score": 0.1418,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "LithoTrack_FE_95",
+        "utilization_pct": 7.3,
+        "wait_ratio": 0.0,
+        "wip": 9,
+        "impact_score": 0.0393,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Litho_FE_98",
+        "utilization_pct": 37.1,
+        "wait_ratio": 0.0,
+        "wip": 1,
+        "impact_score": 0.1253,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "TF_FE_103",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Diffusion_FE_44",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "DE_FE_51",
+        "utilization_pct": 6.9,
+        "wait_ratio": 0.0,
+        "wip": 2,
+        "impact_score": 0.0264,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "DE_FE_59",
+        "utilization_pct": 52.2,
+        "wait_ratio": 0.0,
+        "wip": 10,
+        "impact_score": 0.1906,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Diffusion_FE_122",
+        "utilization_pct": 20.0,
+        "wait_ratio": 0.0,
+        "wip": 1,
+        "impact_score": 0.0683,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Litho_REG_FE_64",
+        "utilization_pct": 71.5,
+        "wait_ratio": 0.0,
+        "wip": 13,
+        "impact_score": 0.2602,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "DefMet_FE_34",
+        "utilization_pct": 72.5,
+        "wait_ratio": 0.2,
+        "wip": 6,
+        "impact_score": 0.2851,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "TF_FE_113",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Planar_FE_79",
+        "utilization_pct": 36.5,
+        "wait_ratio": 0.0,
+        "wip": 3,
+        "impact_score": 0.1268,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "WE_FE_47",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "DE_FE_56",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "DE_FE_54",
+        "utilization_pct": 8.5,
+        "wait_ratio": 0.0,
+        "wip": 1,
+        "impact_score": 0.0301,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Implant_88",
+        "utilization_pct": 53.0,
+        "wait_ratio": 0.0,
+        "wip": 1,
+        "impact_score": 0.1782,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "DE_FE_53",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Diffusion_FE_94",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Dielectric_BE_27",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "DE_BE_67",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "DE_BE_11",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "DE_BE_12",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "WE_BE_17",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Diffusion_FE_100",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "LithoTrack_FE_96",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 1,
+        "impact_score": 0.0017,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "TF_FE_5",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "DE_FE_71",
+        "utilization_pct": 71.1,
+        "wait_ratio": 0.0,
+        "wip": 24,
+        "impact_score": 0.277,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Litho_FE_92",
+        "utilization_pct": 34.1,
+        "wait_ratio": 0.0,
+        "wip": 21,
+        "impact_score": 0.1485,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Implant_90",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Planar_FE_78",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Planar_FE_76",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Planar_FE_80",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "DE_FE_70",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "LithoTrack_BE_117",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Litho_BE_99",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Litho_BE_93",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Litho_BE_110",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 4,
+        "impact_score": 0.0067,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Implant_74",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 1,
+        "impact_score": 0.0017,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Implant_132",
+        "utilization_pct": 40.8,
+        "wait_ratio": 0.0,
+        "wip": 3,
+        "impact_score": 0.141,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Litho_FE_35",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 1,
+        "impact_score": 0.0017,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "DE_FE_72",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "EPI_36",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "EPI_38",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "DefMet_FE_106",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "TF_FE_104",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 1,
+        "impact_score": 0.0017,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Dielectric_FE_130",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Dielectric_BE_60",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Dielectric_BE_20",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Dielectric_BE_21",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Dielectric_BE_28",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "WE_BE_7",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "WE_BE_16",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Diffusion_BE_123",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Planar_FE_77",
+        "utilization_pct": 79.9,
+        "wait_ratio": 0.33,
+        "wip": 4,
+        "impact_score": 0.3281,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Diffusion_FE_126",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "LithoMet_BE_18",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 2,
+        "impact_score": 0.0033,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "WE_BE_82",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "WE_BE_9",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "TF_BE_26",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "DefMet_BE_33",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "WE_BE_14",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "DefMet_BE_42",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "Litho_REG_BE_63",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "TF_BE_24",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 1,
+        "impact_score": 0.0017,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "TF_BE_23",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      },
+      {
+        "toolgroup": "TF_BE_2",
+        "utilization_pct": 0.0,
+        "wait_ratio": 0.0,
+        "wip": 0,
+        "impact_score": 0.0,
+        "data_quality_flags": []
+      }
+    ],
+    "forward_simulation": {
+      "available": true,
+      "horizon_min": 120,
+      "results": [
+        {
+          "toolgroup": "WE_FE_8",
+          "q_time_min_future": null,
+          "wait_ratio_future": 2.0,
+          "wip_future": 6,
+          "is_bottleneck_predicted": false
+        }
+      ]
+    }
+  },
+  "cause": {
+    "summary": "[주요 원인] 설비_포화(max_util_delta_120, max_util, utilization_avg)로 병목이 형성됨. [악화 추세] max_util_delta_120과 max_util이 모두 병목 방향으로 크게 증가. [업스트림] WIP_누적이 일부 동반되어 upstream 압력이 존재함. [2시간 전망] 설비 포화가 지속되면 WIP 누적이 추가로 강화될 가능성이 큼.",
+    "primary": {
+      "category": "설비_포화",
+      "feature": "max_util_delta_120",
+      "confidence": "HIGH",
+      "confidence_token": "high",
+      "reasoning": "설비_포화가 total score 0.830으로 가장 높고 SHAP 기여율도 83.0%로 압도적입니다. 대표 피처인 max_util_delta_120(+1.782)과 max_util(+1.688), utilization_avg(+0.740)가 모두 병목 방향으로 작용해 설비 포화가 주원인으로 판단됩니다."
+    },
+    "secondary_categories": ["WIP_누적"],
+    "dismissed": [
+      {
+        "name": "대기_누적",
+        "reason": "WIP_누적은 보조적으로 수렴하지만 score 0.400 및 SHAP 17.0%로 1순위보다 약합니다. 대기_누적과 공급_부족은 SHAP 기여가 0.0%이며 score도 낮아 주원인으로 보기 어렵습니다."
+      },
+      {
+        "name": "공급_부족",
+        "reason": "WIP_누적은 보조적으로 수렴하지만 score 0.400 및 SHAP 17.0%로 1순위보다 약합니다. 대기_누적과 공급_부족은 SHAP 기여가 0.0%이며 score도 낮아 주원인으로 보기 어렵습니다."
+      }
+    ],
+    "needs_more_data": false,
+    "g_star": {
+      "confirmed": true,
+      "probability": 0.7627,
+      "monte_carlo": {
+        "n_total": 106,
+        "n_alarm": 9,
+        "alarm_ratio_pct": 8.5
+      },
+      "upstream_confirmed_toolgroups": ["LithoMet_FE_19"],
+      "significant_kpis": []
+    },
+    "consensus_axes": {
+      "shap_supports": true,
+      "trend_supports": true,
+      "upstream_supports": true,
+      "g_star_supports": true,
+      "axes_agreed_count": 4
+    },
+    "categories": [
+      {
+        "name": "설비_포화",
+        "features": ["max_util", "max_util_delta_120", "utilization_avg"],
+        "shap_share_pct": 83.0,
+        "n_trend_significant": 0,
+        "upstream_match": false,
+        "g_star_confirmed": false,
+        "total_score": 0.8296,
+        "confidence": "HIGH",
+        "confidence_token": "high"
+      },
+      {
+        "name": "WIP_누적",
+        "features": ["wip"],
+        "shap_share_pct": 17.0,
+        "n_trend_significant": 1,
+        "upstream_match": true,
+        "g_star_confirmed": false,
+        "total_score": 0.4004,
+        "confidence": "MEDIUM",
+        "confidence_token": "medium"
+      },
+      {
+        "name": "대기_누적",
+        "features": ["wait_ratio"],
+        "shap_share_pct": 0.0,
+        "n_trend_significant": 1,
+        "upstream_match": true,
+        "g_star_confirmed": false,
+        "total_score": 0.23,
+        "confidence": "LOW",
+        "confidence_token": "low"
+      },
+      {
+        "name": "공급_부족",
+        "features": ["available_tool_ratio"],
+        "shap_share_pct": 0.0,
+        "n_trend_significant": 0,
+        "upstream_match": true,
+        "g_star_confirmed": false,
+        "total_score": 0.08,
+        "confidence": "LOW",
+        "confidence_token": "low"
+      }
+    ],
+    "shap_top": [
+      {
+        "rank": 1,
+        "feature": "max_util_delta_120",
+        "value": 0.0122,
+        "shap": 1.7825,
+        "contribution_pct": 35.1,
+        "direction_token": "bottleneck_positive"
+      },
+      {
+        "rank": 2,
+        "feature": "max_util",
+        "value": 0.9916,
+        "shap": 1.6879,
+        "contribution_pct": 33.3,
+        "direction_token": "bottleneck_positive"
+      },
+      {
+        "rank": 3,
+        "feature": "wip",
+        "value": 15.0,
+        "shap": 0.8646,
+        "contribution_pct": 17.0,
+        "direction_token": "bottleneck_positive"
+      },
+      {
+        "rank": 4,
+        "feature": "utilization_avg",
+        "value": 0.9896,
+        "shap": 0.7395,
+        "contribution_pct": 14.6,
+        "direction_token": "bottleneck_positive"
+      }
+    ],
+    "evidence_matrix": [
+      {
+        "feature": "wip",
+        "votes": 3,
+        "score": 0.6064,
+        "shap_rank": 3,
+        "shap_value": 0.8646,
+        "trend_slope": 1.2,
+        "trend_r2": 0.84,
+        "trend_significant": true,
+        "upstream_match": true,
+        "g_star_p_value": null,
+        "g_star_significant": false,
+        "confidence": "HIGH",
+        "confidence_token": "high"
+      },
+      {
+        "feature": "wait_ratio",
+        "votes": 2,
+        "score": 0.436,
+        "shap_rank": null,
+        "shap_value": null,
+        "trend_slope": 0.6,
+        "trend_r2": 0.84,
+        "trend_significant": true,
+        "upstream_match": true,
+        "g_star_p_value": null,
+        "g_star_significant": false,
+        "confidence": "MEDIUM",
+        "confidence_token": "medium"
+      },
+      {
+        "feature": "max_util_delta_120",
+        "votes": 1,
+        "score": 0.3513,
+        "shap_rank": 1,
+        "shap_value": 1.7825,
+        "trend_slope": null,
+        "trend_r2": null,
+        "trend_significant": false,
+        "upstream_match": false,
+        "g_star_p_value": null,
+        "g_star_significant": false,
+        "confidence": "MEDIUM",
+        "confidence_token": "medium"
+      },
+      {
+        "feature": "max_util",
+        "votes": 1,
+        "score": 0.3326,
+        "shap_rank": 2,
+        "shap_value": 1.6879,
+        "trend_slope": null,
+        "trend_r2": null,
+        "trend_significant": false,
+        "upstream_match": false,
+        "g_star_p_value": null,
+        "g_star_significant": false,
+        "confidence": "MEDIUM",
+        "confidence_token": "medium"
+      },
+      {
+        "feature": "utilization_avg",
+        "votes": 1,
+        "score": 0.1457,
+        "shap_rank": 4,
+        "shap_value": 0.7395,
+        "trend_slope": 0.0019,
+        "trend_r2": 0.0824,
+        "trend_significant": false,
+        "upstream_match": false,
+        "g_star_p_value": null,
+        "g_star_significant": false,
+        "confidence": "LOW",
+        "confidence_token": "low"
+      },
+      {
+        "feature": "available_tool_ratio",
+        "votes": 1,
+        "score": 0.1,
+        "shap_rank": null,
+        "shap_value": null,
+        "trend_slope": null,
+        "trend_r2": null,
+        "trend_significant": false,
+        "upstream_match": true,
+        "g_star_p_value": null,
+        "g_star_significant": false,
+        "confidence": "LOW",
+        "confidence_token": "low"
+      }
+    ],
+    "trend_series": {
+      "time_labels": ["T-300분", "T-240분", "T-180분", "T-120분", "T-60분", "T-0분"],
+      "time_offsets_min": [-300, -240, -180, -120, -60, 0],
+      "features": {
+        "wip": {
+          "values": [9.0, 9.0, 9.0, 12.0, 12.0, 15.0],
+          "slope_per_hour": 1.2,
+          "r2": 0.84,
+          "significant": true
+        },
+        "wait_ratio": {
+          "values": [3.5, 3.5, 3.5, 5.0, 5.0, 6.5],
+          "slope_per_hour": 0.6,
+          "r2": 0.84,
+          "significant": true
+        },
+        "utilization_avg": {
+          "values": [0.9706, 0.9835, 0.9532, 0.9717, 0.9684, 0.9896],
+          "slope_per_hour": 0.0019,
+          "r2": 0.0824,
+          "significant": false
+        }
+      }
+    },
+    "upstream_suspects": ["LithoMet_FE_19", "Litho_REG_FE_64", "Litho_FE_92", "LithoTrack_FE_115", "DE_FE_86"]
+  },
+  "actions": {
+    "available": true,
+    "decision_status": "no_meaningful_effect",
+    "decision_status_token": "tentative",
+    "decision_caveat": "모든 후보에서 시뮬레이션상 통계적으로 유의미한 KPI 개선이 관측되지 않았습니다 (전 KPI verdict=unchanged). tie-breaker(composite_score)로 conservative을(를) 잠정 추천하나 추가 검증이 필요합니다.",
+    "tiebreaker_used": "composite_score",
+    "equivalent_set": ["conservative", "standard", "aggressive"],
+    "approved_label": "CONSERVATIVE",
+    "candidates": [
+      {
+        "label": "현재상태",
+        "kind": "NO_ACTION",
+        "is_baseline": true,
+        "is_approved": false,
+        "description": "조치 없음 — 병목 유지",
+        "target_toolgroups": [],
+        "params": null,
+        "kpi_impact": [
+          {
+            "kpi": "wip",
+            "unit": "lots",
+            "now": 15.0,
+            "after": 15.0,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "baseline",
+            "verdict_token": "baseline",
+            "confidence": 1.0,
+            "ci_low": 0.0,
+            "ci_high": 0.0,
+            "ci_width": 0.0,
+            "paired_t_p": null,
+            "significant": null
+          },
+          {
+            "kpi": "q_time_min",
+            "unit": "min",
+            "now": 63.9,
+            "after": 63.9,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "baseline",
+            "verdict_token": "baseline",
+            "confidence": 1.0,
+            "ci_low": 0.0,
+            "ci_high": 0.0,
+            "ci_width": 0.0,
+            "paired_t_p": null,
+            "significant": null
+          },
+          {
+            "kpi": "wait_ratio",
+            "unit": "ratio",
+            "now": 6.5,
+            "after": 6.5,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "baseline",
+            "verdict_token": "baseline",
+            "confidence": 1.0,
+            "ci_low": 0.0,
+            "ci_high": 0.0,
+            "ci_width": 0.0,
+            "paired_t_p": null,
+            "significant": null
+          },
+          {
+            "kpi": "utilization_avg",
+            "unit": "ratio",
+            "now": 0.9896,
+            "after": 0.9896,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "baseline",
+            "verdict_token": "baseline",
+            "confidence": 1.0,
+            "ci_low": 0.0,
+            "ci_high": 0.0,
+            "ci_width": 0.0,
+            "paired_t_p": null,
+            "significant": null
+          },
+          {
+            "kpi": "available_tool_ratio",
+            "unit": "ratio",
+            "now": 1.0,
+            "after": 1.0,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "baseline",
+            "verdict_token": "baseline",
+            "confidence": 1.0,
+            "ci_low": 0.0,
+            "ci_high": 0.0,
+            "ci_width": 0.0,
+            "paired_t_p": null,
+            "significant": null
+          }
+        ],
+        "operational": {
+          "effort": 0,
+          "effort_max": 4,
+          "scope": "none",
+          "reversibility": "high"
+        },
+        "simulation": {
+          "paired_n": 0,
+          "confidence": null,
+          "verdict": "baseline"
+        },
+        "composite_score": 0.0,
+        "tradeoffs": []
+      },
+      {
+        "label": "conservative",
+        "kind": "UNKNOWN",
+        "is_baseline": false,
+        "is_approved": false,
+        "description": "Release Interval Δ15.0%",
+        "target_toolgroups": [
+          "WE_FE_8",
+          "WE_FE_83",
+          "Dielectric_FE_30",
+          "Planar_FE_77",
+          "LithoMet_FE_19",
+          "Diffusion_FE_125",
+          "DE_FE_1",
+          "DefMet_FE_34"
+        ],
+        "params": {
+          "release_interval": null,
+          "lot_priority_rule": null,
+          "superhotlot_enable": null
+        },
+        "kpi_impact": [
+          {
+            "kpi": "q_time_min",
+            "unit": "min",
+            "now": 63.9,
+            "after": 63.9,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "unchanged",
+            "verdict_token": "neutral",
+            "confidence": 0.5,
+            "ci_low": 0.0,
+            "ci_high": 0.0,
+            "ci_width": 0.0,
+            "paired_t_p": null,
+            "significant": null
+          },
+          {
+            "kpi": "wip",
+            "unit": "lots",
+            "now": 15.0,
+            "after": 15.0,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "unchanged",
+            "verdict_token": "neutral",
+            "confidence": 0.5,
+            "ci_low": 0.0,
+            "ci_high": 0.0,
+            "ci_width": 0.0,
+            "paired_t_p": null,
+            "significant": null
+          },
+          {
+            "kpi": "wait_ratio",
+            "unit": "ratio",
+            "now": 6.5,
+            "after": 6.5,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "unchanged",
+            "verdict_token": "neutral",
+            "confidence": 0.5,
+            "ci_low": 0.0,
+            "ci_high": 0.0,
+            "ci_width": 0.0,
+            "paired_t_p": null,
+            "significant": null
+          },
+          {
+            "kpi": "utilization_avg",
+            "unit": "ratio",
+            "now": 0.9896,
+            "after": 0.9896,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "unchanged",
+            "verdict_token": "neutral",
+            "confidence": 0.5,
+            "ci_low": 0.0,
+            "ci_high": 0.0,
+            "ci_width": 0.0,
+            "paired_t_p": null,
+            "significant": null
+          },
+          {
+            "kpi": "available_tool_ratio",
+            "unit": "ratio",
+            "now": 1.0,
+            "after": 1.0,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "unchanged",
+            "verdict_token": "neutral",
+            "confidence": 0.5,
+            "ci_low": 0.0,
+            "ci_high": 0.0,
+            "ci_width": 0.0,
+            "paired_t_p": null,
+            "significant": null
+          }
+        ],
+        "operational": {
+          "effort": 99,
+          "effort_max": 4,
+          "scope": "unknown",
+          "reversibility": "unknown"
+        },
+        "simulation": {
+          "paired_n": 30,
+          "confidence": 0.5,
+          "verdict": "unchanged"
+        },
+        "composite_score": 0.0,
+        "tradeoffs": []
+      },
+      {
+        "label": "standard",
+        "kind": "UNKNOWN",
+        "is_baseline": false,
+        "is_approved": false,
+        "description": "Release Interval Δ22.0%",
+        "target_toolgroups": [
+          "WE_FE_8",
+          "WE_FE_83",
+          "Dielectric_FE_30",
+          "Planar_FE_77",
+          "LithoMet_FE_19",
+          "Diffusion_FE_125",
+          "DE_FE_1",
+          "DefMet_FE_34"
+        ],
+        "params": {
+          "release_interval": null,
+          "lot_priority_rule": null,
+          "superhotlot_enable": null
+        },
+        "kpi_impact": [
+          {
+            "kpi": "q_time_min",
+            "unit": "min",
+            "now": 63.9,
+            "after": 63.9,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "unchanged",
+            "verdict_token": "neutral",
+            "confidence": 0.5,
+            "ci_low": 0.0,
+            "ci_high": 0.0,
+            "ci_width": 0.0,
+            "paired_t_p": null,
+            "significant": null
+          },
+          {
+            "kpi": "wip",
+            "unit": "lots",
+            "now": 15.0,
+            "after": 15.0,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "unchanged",
+            "verdict_token": "neutral",
+            "confidence": 0.5,
+            "ci_low": 0.0,
+            "ci_high": 0.0,
+            "ci_width": 0.0,
+            "paired_t_p": null,
+            "significant": null
+          },
+          {
+            "kpi": "wait_ratio",
+            "unit": "ratio",
+            "now": 6.5,
+            "after": 6.5,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "unchanged",
+            "verdict_token": "neutral",
+            "confidence": 0.5,
+            "ci_low": 0.0,
+            "ci_high": 0.0,
+            "ci_width": 0.0,
+            "paired_t_p": null,
+            "significant": null
+          },
+          {
+            "kpi": "utilization_avg",
+            "unit": "ratio",
+            "now": 0.9896,
+            "after": 0.9896,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "unchanged",
+            "verdict_token": "neutral",
+            "confidence": 0.5,
+            "ci_low": 0.0,
+            "ci_high": 0.0,
+            "ci_width": 0.0,
+            "paired_t_p": null,
+            "significant": null
+          },
+          {
+            "kpi": "available_tool_ratio",
+            "unit": "ratio",
+            "now": 1.0,
+            "after": 1.0,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "unchanged",
+            "verdict_token": "neutral",
+            "confidence": 0.5,
+            "ci_low": 0.0,
+            "ci_high": 0.0,
+            "ci_width": 0.0,
+            "paired_t_p": null,
+            "significant": null
+          }
+        ],
+        "operational": {
+          "effort": 99,
+          "effort_max": 4,
+          "scope": "unknown",
+          "reversibility": "unknown"
+        },
+        "simulation": {
+          "paired_n": 30,
+          "confidence": 0.5,
+          "verdict": "unchanged"
+        },
+        "composite_score": 0.0,
+        "tradeoffs": []
+      },
+      {
+        "label": "aggressive",
+        "kind": "UNKNOWN",
+        "is_baseline": false,
+        "is_approved": false,
+        "description": "Release Interval Δ28.0%",
+        "target_toolgroups": [
+          "WE_FE_8",
+          "WE_FE_83",
+          "Dielectric_FE_30",
+          "Planar_FE_77",
+          "LithoMet_FE_19",
+          "Diffusion_FE_125",
+          "DE_FE_1",
+          "DefMet_FE_34"
+        ],
+        "params": {
+          "release_interval": null,
+          "lot_priority_rule": null,
+          "superhotlot_enable": null
+        },
+        "kpi_impact": [
+          {
+            "kpi": "q_time_min",
+            "unit": "min",
+            "now": 63.9,
+            "after": 63.9,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "unchanged",
+            "verdict_token": "neutral",
+            "confidence": 0.5,
+            "ci_low": 0.0,
+            "ci_high": 0.0,
+            "ci_width": 0.0,
+            "paired_t_p": null,
+            "significant": null
+          },
+          {
+            "kpi": "wip",
+            "unit": "lots",
+            "now": 15.0,
+            "after": 15.0,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "unchanged",
+            "verdict_token": "neutral",
+            "confidence": 0.5,
+            "ci_low": 0.0,
+            "ci_high": 0.0,
+            "ci_width": 0.0,
+            "paired_t_p": null,
+            "significant": null
+          },
+          {
+            "kpi": "wait_ratio",
+            "unit": "ratio",
+            "now": 6.5,
+            "after": 6.5,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "unchanged",
+            "verdict_token": "neutral",
+            "confidence": 0.5,
+            "ci_low": 0.0,
+            "ci_high": 0.0,
+            "ci_width": 0.0,
+            "paired_t_p": null,
+            "significant": null
+          },
+          {
+            "kpi": "utilization_avg",
+            "unit": "ratio",
+            "now": 0.9896,
+            "after": 0.9896,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "unchanged",
+            "verdict_token": "neutral",
+            "confidence": 0.5,
+            "ci_low": 0.0,
+            "ci_high": 0.0,
+            "ci_width": 0.0,
+            "paired_t_p": null,
+            "significant": null
+          },
+          {
+            "kpi": "available_tool_ratio",
+            "unit": "ratio",
+            "now": 1.0,
+            "after": 1.0,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "unchanged",
+            "verdict_token": "neutral",
+            "confidence": 0.5,
+            "ci_low": 0.0,
+            "ci_high": 0.0,
+            "ci_width": 0.0,
+            "paired_t_p": null,
+            "significant": null
+          }
+        ],
+        "operational": {
+          "effort": 99,
+          "effort_max": 4,
+          "scope": "unknown",
+          "reversibility": "unknown"
+        },
+        "simulation": {
+          "paired_n": 30,
+          "confidence": 0.5,
+          "verdict": "unchanged"
+        },
+        "composite_score": 0.0,
+        "tradeoffs": []
+      }
+    ],
+    "recommendation": {
+      "headline": "A 잠정 추천 — 시뮬 효과 미관측, composite_score 0.0 동률",
+      "primary_reason": "주요 병목은 설비_포화(max_util_delta_120, max_util, utilization_avg)이며, SHAP 합의도 HIGH로 이 요인이 total score 0.830, 기여율 83.0%로 압도적입니다. 다만 시뮬레이션에서는 conservative/standard/aggressive 모두 WIP·평균 대기시간·대기비율·가동률·가용장비비율이 현재 기준값 대비 변화 0으로 관측되어, 시뮬 범위 내 개선이 반영되지 않았습니다. 현재 WIP 15개, 평균 대기시간 63.9분, 대기비율 6.5, 가동률 0.9896이며, 2h 자연 진행 예측은 WIP 15.0→6.0(Δ-9.00), wait_ratio 6.5→2.0(Δ-4.50)로 완화 가능성이 있어 원인 대응 조치는 필요하나 시뮬 엔진이 액션을 무시한 것으로 의심됩니다.",
+      "confidence_level": "low",
+      "confidence_token": "low",
+      "tradeoffs": [
+        "시뮬 결과가 모두 동일하여 WIP 15개→15개, 평균 대기시간 63.9분→63.9분, 대기비율 6.5→6.5로 예측상 개선이 없습니다.",
+        "대신 현재 병목 원인인 설비_포화에 대한 조치 가능성을 유지하면서도 가장 보수적인 변경안을 택합니다."
+      ],
+      "why_not_others": [
+        {
+          "label": "standard",
+          "reason": "composite_score 0.0으로 conservative와 동률이며, effort 99와 release_interval_delta 999.0도 동일합니다."
+        },
+        {
+          "label": "aggressive",
+          "reason": "composite_score 0.0으로 선두가 아니며, effort 99와 release_interval_delta 999.0도 동일합니다."
+        }
+      ],
+      "caveats": [
+        "시뮬레이션 horizon은 120.0분이며, 이 범위 밖의 효과는 판단할 수 없습니다.",
+        "baseline ↔ whatif 모든 KPI mean_delta=0(paired_n=30)로 SIM_KPI_IDENTICAL 경고가 있어 시뮬 엔진이 whatif 액션을 무시한 것으로 의심됩니다.",
+        "따라서 본 추천은 현장 대응 우선순위용 잠정 판단이며, KPI 예측값은 모두 시뮬레이션 예측값입니다."
+      ],
+      "tiebreaker_chain": ["composite_score"],
+      "selected_by": "tiebreaker"
+    },
+    "playbook": {
+      "available": true,
+      "immediate_actions": [
+        {
+          "order": 1,
+          "text": "1) 글로벌 플랜 A/B 대상 TG 8개에 대해 Release Interval Δ15.0%를 conservative 기준으로 먼저 적용합니다."
+        },
+        {
+          "order": 2,
+          "text": "2) 적용 직후 LithoMet_FE_19, Litho_REG_FE_64, Litho_FE_92 업스트림 공정의 WIP 누적 여부와 max_util 상승 여부를 동시에 점검합니다."
+        },
+        {
+          "order": 3,
+          "text": "3) 시행 후 30분 동안 WE_FE_83, WE_FE_108, WE_FE_84, DefMet_FE_43, WE_FE_85로의 연쇄 영향 TG에서 대기열 증가와 REQUEUE_TOOL 발생 여부를 확인합니다."
+        },
+        {
+          "order": 4,
+          "text": "4) 시뮬 효과 미관측이므로 현장에서는 dispatch rule override 또는 LOT_HOLD 필요 여부를 병행 진단합니다."
+        }
+      ],
+      "monitoring": [
+        {
+          "kpi": "wip",
+          "target": null,
+          "unit": "lots",
+          "check_after_min": 30
+        },
+        {
+          "kpi": "average wait time",
+          "target": null,
+          "unit": "",
+          "check_after_min": 30
+        },
+        {
+          "kpi": "wait_ratio",
+          "target": null,
+          "unit": "ratio",
+          "check_after_min": 60
+        }
+      ],
+      "rollback_condition": "조치 후 30분 시점에 WIP가 15개를 초과하거나 평균 대기시간이 63.9분 이상으로 유지되면 Release Interval Δ15.0% 적용을 중단하고 원복합니다."
+    }
+  },
+  "data_quality": {
+    "status": "warning",
+    "warnings": [
+      {
+        "code": "SIM_KPI_IDENTICAL",
+        "toolgroup": null,
+        "field": null,
+        "value": null,
+        "message": "baseline ↔ whatif 모든 KPI mean_delta=0 (paired_n=30). 시뮬 엔진이 whatif 액션을 무시하는 것으로 의심됩니다."
+      }
+    ]
+  },
+  "provenance": {
+    "snapshot_time": 12300.0,
+    "t0": 12300.0,
+    "run_id": null,
+    "scenario_id": null,
+    "target_toolgroups": [
+      "WE_FE_8",
+      "WE_FE_83",
+      "Dielectric_FE_30",
+      "Planar_FE_77",
+      "LithoMet_FE_19",
+      "Diffusion_FE_125",
+      "DE_FE_1",
+      "DefMet_FE_34"
+    ]
+  },
+  "sections": {
+    "header": "# FAB 병목 대응 보고서\n\n| 항목 | 내용 |\n|------|------|\n| 공정명 | `WE_FE_8` |\n| 심각도 | **🚨 CRITICAL** |\n| 탐지시각 | 2026-06-13 16:52 |\n| 보고서 생성일시 | 2026-06-13 16:52 |\n\n---",
+    "review": "## 검토 결과\n\n| 항목 | 내용 |\n|------|------|\n| 상태 | **🟢 승인** |\n| 승인자 | DJKEE (팀장) |\n| 승인일시 | 2026-06-13 16:43 |\n| 의견 | AI 추천 반영 |\n\n---",
+    "summary": "## 1. 요약\n\n> **WE_FE_8에서 risk_score 81.8로 CRITICAL 병목이 확인됨.**\n> **현재 WIP 15.0 lots와 wait_ratio 6.5 ratio로 대기와 적체가 심화된 상태이며, utilization_avg 0.9896 ratio와 max_util 0.9916 ratio로 설비 포화가 임계 수준임.**\n> **120분 내 무대응 시 WIP 6.0 lots, wait_ratio 2.0 ratio로 개선 예측이 아니라 악화 판단이 아니라 현재 보고서상 수치 기준 변화가 제시되며, 즉시 대응이 필요함.**\n\n| 지표 | 값 |\n|------|----|\n| 심각도 | Critical |\n| risk_score | 81.8 |\n| 현재 평균 대기시간 | 63.9분 |\n| load_ratio (wait_ratio) | 6.5 |\n| 가동률 | 99.0% |\n| WIP | 15개 |\n| 가용 호기 비율 | 1 |\n| 최대 가동률 | 99.2% |\n\n---",
+    "diffusion": "## 2. 확산 영향 분석\n\n**탐지시각**: 2026-06-13 16:52\n\n### ① 병목 발생 여부 및 위치\n병목 확산 경로는 WE_FE_8에서 LithoMet_FE_19, WE_FE_83, DE_FE_1 순으로 연결됨. high_impact_count 8로 영향 범위가 크며, Q-time 63.9분과 wait_ratio 6.5 ratio가 높은 수준으로 유지되어 확산 압력이 지속되는 상태임.\n- **확산 경로**: WE_FE_8 → LithoMet_FE_19 → WE_FE_83 → DE_FE_1\n\n### ② 확산 현황 (공정별 가동률 현황)\n\n| 공정 | 가동률(%) | wait_ratio | WIP | 상태 |\n|------|-----------|-----------|-----|------|\n| LithoMet_FE_19 | 69.2 | 1 | 34 | 영향 |\n| WE_FE_83 | 97.5 | 0.43 | 10 | 영향 |\n| DE_FE_1 | 60.2 | 1.14 | 12 | 영향 |\n| Dielectric_FE_30 | 92.2 | 0.5 | 2 | 영향 |\n| Diffusion_FE_125 | 80.1 | 0.33 | 5 | 영향 |\n| Diffusion_FE_127 | 85.9 | 0 | 8 | 영향 |\n| Diffusion_FE_120 | 81 | 0 | 9 | 영향 |\n| DE_FE_86 | 35.8 | 0 | 56 | 영향 |\n\n### ③ 위험도 및 전 라인 정지 예상 시간\n- **위험도**: Critical\n- **전 라인 정지 예상**: 2064분 이내\n\n### ④ 추이 데이터\n\n| 시각 | wip | wait_ratio | utilization_avg |\n|------|---------|---------|---------|\n| T-300분 | 9 | 3.5 | 0.9706 |\n| T-240분 | 9 | 3.5 | 0.9835 |\n| T-180분 | 9 | 3.5 | 0.9532 |\n| T-120분 | 12 | 5 | 0.9717 |\n| T-60분 | 12 | 5 | 0.9684 |\n| T-0분 | 15 | 6.5 | 0.9896 |\n\n### ⑤ Forward Simulation (120분 후 예측)\n\n| Tool Group | wait_ratio (미래) | WIP (미래) | 병목 예측 |\n|------------|-----------------|----------|----------|\n| WE_FE_8 | 2 | 6 | ✅ 정상 |\n\n---",
+    "cause": "## 3. 원인 분석 TOP\n\n| 순위 | 원인(feature) | 기여도(%) | 현재값 | 4개 분석 수렴 | 신뢰도 |\n|------|--------------|----------|--------|-------------|--------|\n| 1 | max_util_delta_120 | 35.1 | 0.0122 | 1/4 | MEDIUM |\n| 2 | max_util | 33.3 | 0.9916 | 1/4 | MEDIUM |\n| 3 | wip | 17 | 15 | 3/4 | HIGH |\n| 4 | utilization_avg | 14.6 | 0.9896 | 1/4 | LOW |\n\n### 판정 근거\n주원인은 설비_포화임. max_util_delta_120, max_util, utilization_avg가 모두 병목 방향으로 작용했고, 설비_포화의 total score 0.830과 SHAP 기여율 83.0%가 이를 지지함. 보조 원인: WIP_누적임. 기각: 대기_누적, 공급_부족 (이유: SHAP 기여가 0.0%이고 score도 낮음).\n\n### 업스트림 과부하 공정\n과부하 공정: LithoMet_FE_19 → Litho_REG_FE_64 → Litho_FE_92 → LithoTrack_FE_115 → DE_FE_86 (WIP 과공급으로 병목 TG에 유입)\n\n### 4축 합의 (4/4)\n- SHAP: ✅ / 트렌드: ✅ / 업스트림: ✅ / G*: ✅\n\n### G* 인과 확증 (Monte Carlo)\n- **확증 여부**: ✅ 확정 (probability 0.7627)\n- **시뮬 결과**: 총 106회 중 9회 병목 확인 (8.5%)\n- **업스트림 인과 확증 TG**: LithoMet_FE_19\n\n### 4가지 분석 수렴 증거\n\n| 피처 | SHAP | 트렌드 유의 | 업스트림 일치 | G* 유의 | 수렴 수 | 신뢰도 |\n|------|------|-----------|------------|--------|--------|--------|\n| wip | +0.8646 | ✅ | ✅ | ❌ | 3/4 | HIGH |\n| wait_ratio | - | ✅ | ✅ | ❌ | 2/4 | MEDIUM |\n| max_util_delta_120 | +1.782 | ❌ | ❌ | ❌ | 1/4 | MEDIUM |\n| max_util | +1.688 | ❌ | ❌ | ❌ | 1/4 | MEDIUM |\n| utilization_avg | +0.7395 | ❌ | ❌ | ❌ | 1/4 | LOW |\n| available_tool_ratio | - | ❌ | ✅ | ❌ | 1/4 | LOW |\n\n### ML 모델 SHAP 분석 (Top features)\n\n| 피처명 | 현재값 | 기여도(%) | 방향 |\n|--------|--------|----------|------|\n| max_util_delta_120 | 0.0122 | 35.1 | 병목 쪽으로 기여(+) |\n| max_util | 0.9916 | 33.3 | 병목 쪽으로 기여(+) |\n| wip | 15 | 17 | 병목 쪽으로 기여(+) |\n| utilization_avg | 0.9896 | 14.6 | 병목 쪽으로 기여(+) |\n\n### 트렌드 악화 속도\n\n| 피처 | 시간당 변화율 | R² | 통계 유의 |\n|------|------------|-----|---------|\n| wip | +1.2/h | 0.84 | ✅ |\n| wait_ratio | +0.6/h | 0.84 | ✅ |\n| utilization_avg | +0.0019/h | 0.0824 | ❌ |\n\n---",
+    "actions": "## 4. 승인된 대응안\n\n### ① 의사결정 상태\n- **상태**: 🚨 효과 미검증 (운영 부담 최저 잠정 추천)\n- **추천 신뢰도**: low\n\n### ② 승인된 대응안 예상 효과\n- **대응안**: - — -\n- **핵심 근거**: 주요 병목은 설비_포화(max_util_delta_120, max_util, utilization_avg)이며, SHAP 합의도 HIGH로 이 요인이 total score 0.830, 기여율 83.0%로 압도적입니다. 다만 시뮬레이션에서는 conservative/standard/aggressive 모두 WIP·평균 대기시간·대기비율·가동률·가용장비비율이 현재 기준값 대비 변화 0으로 관측되어, 시뮬 범위 내 개선이 반영되지 않았습니다. 현재 WIP 15개, 평균 대기시간 63.9분, 대기비율 6.5, 가동률 0.9896이며, 2h 자연 진행 예측은 WIP 15.0→6.0(Δ-9.00), wait_ratio 6.5→2.0(Δ-4.50)로 완화 가능성이 있어 원인 대응 조치는 필요하나 시뮬 엔진이 액션을 무시한 것으로 의심됩니다.\n- **예상 효과 요약**: 승인된 대응안은 CONSERVATIVE이며, 승인 상태는 승인임. 다만 decision_status가 no_meaningful_effect로 표시되어 실질적 개선 효과는 없는 것으로 판단됨.\n\n### ③ 받아들이는 트레이드오프\n- 시뮬 결과가 모두 동일하여 WIP 15개→15개, 평균 대기시간 63.9분→63.9분, 대기비율 6.5→6.5로 예측상 개선이 없습니다.\n- 대신 현재 병목 원인인 설비_포화에 대한 조치 가능성을 유지하면서도 가장 보수적인 변경안을 택합니다.\n\n### ④ 다른 후보를 선택하지 않은 이유\n- **standard**: composite_score 0.0으로 conservative와 동률이며, effort 99와 release_interval_delta 999.0도 동일합니다.\n- **aggressive**: composite_score 0.0으로 선두가 아니며, effort 99와 release_interval_delta 999.0도 동일합니다.\n\n### ⑤ 주의사항\n- 시뮬레이션 horizon은 120.0분이며, 이 범위 밖의 효과는 판단할 수 없습니다.\n- baseline ↔ whatif 모든 KPI mean_delta=0(paired_n=30)로 SIM_KPI_IDENTICAL 경고가 있어 시뮬 엔진이 whatif 액션을 무시한 것으로 의심됩니다.\n- 따라서 본 추천은 현장 대응 우선순위용 잠정 판단이며, KPI 예측값은 모두 시뮬레이션 예측값입니다.\n\n### ⑥ 현장 Playbook\n\n#### 즉시 실행\n1. 1) 글로벌 플랜 A/B 대상 TG 8개에 대해 Release Interval Δ15.0%를 conservative 기준으로 먼저 적용합니다.\n2. 2) 적용 직후 LithoMet_FE_19, Litho_REG_FE_64, Litho_FE_92 업스트림 공정의 WIP 누적 여부와 max_util 상승 여부를 동시에 점검합니다.\n3. 3) 시행 후 30분 동안 WE_FE_83, WE_FE_108, WE_FE_84, DefMet_FE_43, WE_FE_85로의 연쇄 영향 TG에서 대기열 증가와 REQUEUE_TOOL 발생 여부를 확인합니다.\n4. 4) 시뮬 효과 미관측이므로 현장에서는 dispatch rule override 또는 LOT_HOLD 필요 여부를 병행 진단합니다.\n\n#### 모니터링\n- T+30분: wip ≤ - lots\n- T+30분: average wait time ≤ -\n- T+60분: wait_ratio ≤ - ratio\n\n#### 롤백 조건\n- ⚠️ 조치 후 30분 시점에 WIP가 15개를 초과하거나 평균 대기시간이 63.9분 이상으로 유지되면 Release Interval Δ15.0% 적용을 중단하고 원복합니다.\n\n### ⑦ 대응안 비교\n\n| 대응안 | 종류 | 설명 | 대기시간 변화 | WIP 변화 | 시뮬 신뢰도 | 운영 부담 | 영향 범위 | 가역성 |\n|--------|------|------|-------------|---------|-----------|----------|----------|--------|\n| 현재상태 | NO_ACTION | 조치 없음 — 병목 유지 | 0분 | 0 | - | 0/4 | none | high |\n| conservative | UNKNOWN | Release Interval Δ15.0% | 0분 | 0 | 50% | 99/4 | unknown | unknown |\n| standard | UNKNOWN | Release Interval Δ22.0% | 0분 | 0 | 50% | 99/4 | unknown | unknown |\n| aggressive | UNKNOWN | Release Interval Δ28.0% | 0분 | 0 | 50% | 99/4 | unknown | unknown |\n\n---"
+  },
+  "rendered": {
+    "markdown": "# FAB 병목 대응 보고서\n\n| 항목 | 내용 |\n|------|------|\n| 공정명 | `WE_FE_8` |\n| 심각도 | **🚨 CRITICAL** |\n| 탐지시각 | 2026-06-13 16:52 |\n| 보고서 생성일시 | 2026-06-13 16:52 |\n\n---\n\n## 검토 결과\n\n| 항목 | 내용 |\n|------|------|\n| 상태 | **🟢 승인** |\n| 승인자 | DJKEE (팀장) |\n| 승인일시 | 2026-06-13 16:43 |\n| 의견 | AI 추천 반영 |\n\n---\n\n## 1. 요약\n\n> **WE_FE_8에서 risk_score 81.8로 CRITICAL 병목이 확인됨.**\n> **현재 WIP 15.0 lots와 wait_ratio 6.5 ratio로 대기와 적체가 심화된 상태이며, utilization_avg 0.9896 ratio와 max_util 0.9916 ratio로 설비 포화가 임계 수준임.**\n> **120분 내 무대응 시 WIP 6.0 lots, wait_ratio 2.0 ratio로 개선 예측이 아니라 악화 판단이 아니라 현재 보고서상 수치 기준 변화가 제시되며, 즉시 대응이 필요함.**\n\n| 지표 | 값 |\n|------|----|\n| 심각도 | Critical |\n| risk_score | 81.8 |\n| 현재 평균 대기시간 | 63.9분 |\n| load_ratio (wait_ratio) | 6.5 |\n| 가동률 | 99.0% |\n| WIP | 15개 |\n| 가용 호기 비율 | 1 |\n| 최대 가동률 | 99.2% |\n\n---\n\n## 2. 확산 영향 분석\n\n**탐지시각**: 2026-06-13 16:52\n\n### ① 병목 발생 여부 및 위치\n병목 확산 경로는 WE_FE_8에서 LithoMet_FE_19, WE_FE_83, DE_FE_1 순으로 연결됨. high_impact_count 8로 영향 범위가 크며, Q-time 63.9분과 wait_ratio 6.5 ratio가 높은 수준으로 유지되어 확산 압력이 지속되는 상태임.\n- **확산 경로**: WE_FE_8 → LithoMet_FE_19 → WE_FE_83 → DE_FE_1\n\n### ② 확산 현황 (공정별 가동률 현황)\n\n| 공정 | 가동률(%) | wait_ratio | WIP | 상태 |\n|------|-----------|-----------|-----|------|\n| LithoMet_FE_19 | 69.2 | 1 | 34 | 영향 |\n| WE_FE_83 | 97.5 | 0.43 | 10 | 영향 |\n| DE_FE_1 | 60.2 | 1.14 | 12 | 영향 |\n| Dielectric_FE_30 | 92.2 | 0.5 | 2 | 영향 |\n| Diffusion_FE_125 | 80.1 | 0.33 | 5 | 영향 |\n| Diffusion_FE_127 | 85.9 | 0 | 8 | 영향 |\n| Diffusion_FE_120 | 81 | 0 | 9 | 영향 |\n| DE_FE_86 | 35.8 | 0 | 56 | 영향 |\n\n### ③ 위험도 및 전 라인 정지 예상 시간\n- **위험도**: Critical\n- **전 라인 정지 예상**: 2064분 이내\n\n### ④ 추이 데이터\n\n| 시각 | wip | wait_ratio | utilization_avg |\n|------|---------|---------|---------|\n| T-300분 | 9 | 3.5 | 0.9706 |\n| T-240분 | 9 | 3.5 | 0.9835 |\n| T-180분 | 9 | 3.5 | 0.9532 |\n| T-120분 | 12 | 5 | 0.9717 |\n| T-60분 | 12 | 5 | 0.9684 |\n| T-0분 | 15 | 6.5 | 0.9896 |\n\n### ⑤ Forward Simulation (120분 후 예측)\n\n| Tool Group | wait_ratio (미래) | WIP (미래) | 병목 예측 |\n|------------|-----------------|----------|----------|\n| WE_FE_8 | 2 | 6 | ✅ 정상 |\n\n---\n\n## 3. 원인 분석 TOP\n\n| 순위 | 원인(feature) | 기여도(%) | 현재값 | 4개 분석 수렴 | 신뢰도 |\n|------|--------------|----------|--------|-------------|--------|\n| 1 | max_util_delta_120 | 35.1 | 0.0122 | 1/4 | MEDIUM |\n| 2 | max_util | 33.3 | 0.9916 | 1/4 | MEDIUM |\n| 3 | wip | 17 | 15 | 3/4 | HIGH |\n| 4 | utilization_avg | 14.6 | 0.9896 | 1/4 | LOW |\n\n### 판정 근거\n주원인은 설비_포화임. max_util_delta_120, max_util, utilization_avg가 모두 병목 방향으로 작용했고, 설비_포화의 total score 0.830과 SHAP 기여율 83.0%가 이를 지지함. 보조 원인: WIP_누적임. 기각: 대기_누적, 공급_부족 (이유: SHAP 기여가 0.0%이고 score도 낮음).\n\n### 업스트림 과부하 공정\n과부하 공정: LithoMet_FE_19 → Litho_REG_FE_64 → Litho_FE_92 → LithoTrack_FE_115 → DE_FE_86 (WIP 과공급으로 병목 TG에 유입)\n\n### 4축 합의 (4/4)\n- SHAP: ✅ / 트렌드: ✅ / 업스트림: ✅ / G*: ✅\n\n### G* 인과 확증 (Monte Carlo)\n- **확증 여부**: ✅ 확정 (probability 0.7627)\n- **시뮬 결과**: 총 106회 중 9회 병목 확인 (8.5%)\n- **업스트림 인과 확증 TG**: LithoMet_FE_19\n\n### 4가지 분석 수렴 증거\n\n| 피처 | SHAP | 트렌드 유의 | 업스트림 일치 | G* 유의 | 수렴 수 | 신뢰도 |\n|------|------|-----------|------------|--------|--------|--------|\n| wip | +0.8646 | ✅ | ✅ | ❌ | 3/4 | HIGH |\n| wait_ratio | - | ✅ | ✅ | ❌ | 2/4 | MEDIUM |\n| max_util_delta_120 | +1.782 | ❌ | ❌ | ❌ | 1/4 | MEDIUM |\n| max_util | +1.688 | ❌ | ❌ | ❌ | 1/4 | MEDIUM |\n| utilization_avg | +0.7395 | ❌ | ❌ | ❌ | 1/4 | LOW |\n| available_tool_ratio | - | ❌ | ✅ | ❌ | 1/4 | LOW |\n\n### ML 모델 SHAP 분석 (Top features)\n\n| 피처명 | 현재값 | 기여도(%) | 방향 |\n|--------|--------|----------|------|\n| max_util_delta_120 | 0.0122 | 35.1 | 병목 쪽으로 기여(+) |\n| max_util | 0.9916 | 33.3 | 병목 쪽으로 기여(+) |\n| wip | 15 | 17 | 병목 쪽으로 기여(+) |\n| utilization_avg | 0.9896 | 14.6 | 병목 쪽으로 기여(+) |\n\n### 트렌드 악화 속도\n\n| 피처 | 시간당 변화율 | R² | 통계 유의 |\n|------|------------|-----|---------|\n| wip | +1.2/h | 0.84 | ✅ |\n| wait_ratio | +0.6/h | 0.84 | ✅ |\n| utilization_avg | +0.0019/h | 0.0824 | ❌ |\n\n---\n\n## 4. 승인된 대응안\n\n### ① 의사결정 상태\n- **상태**: 🚨 효과 미검증 (운영 부담 최저 잠정 추천)\n- **추천 신뢰도**: low\n\n### ② 승인된 대응안 예상 효과\n- **대응안**: - — -\n- **핵심 근거**: 주요 병목은 설비_포화(max_util_delta_120, max_util, utilization_avg)이며, SHAP 합의도 HIGH로 이 요인이 total score 0.830, 기여율 83.0%로 압도적입니다. 다만 시뮬레이션에서는 conservative/standard/aggressive 모두 WIP·평균 대기시간·대기비율·가동률·가용장비비율이 현재 기준값 대비 변화 0으로 관측되어, 시뮬 범위 내 개선이 반영되지 않았습니다. 현재 WIP 15개, 평균 대기시간 63.9분, 대기비율 6.5, 가동률 0.9896이며, 2h 자연 진행 예측은 WIP 15.0→6.0(Δ-9.00), wait_ratio 6.5→2.0(Δ-4.50)로 완화 가능성이 있어 원인 대응 조치는 필요하나 시뮬 엔진이 액션을 무시한 것으로 의심됩니다.\n- **예상 효과 요약**: 승인된 대응안은 CONSERVATIVE이며, 승인 상태는 승인임. 다만 decision_status가 no_meaningful_effect로 표시되어 실질적 개선 효과는 없는 것으로 판단됨.\n\n### ③ 받아들이는 트레이드오프\n- 시뮬 결과가 모두 동일하여 WIP 15개→15개, 평균 대기시간 63.9분→63.9분, 대기비율 6.5→6.5로 예측상 개선이 없습니다.\n- 대신 현재 병목 원인인 설비_포화에 대한 조치 가능성을 유지하면서도 가장 보수적인 변경안을 택합니다.\n\n### ④ 다른 후보를 선택하지 않은 이유\n- **standard**: composite_score 0.0으로 conservative와 동률이며, effort 99와 release_interval_delta 999.0도 동일합니다.\n- **aggressive**: composite_score 0.0으로 선두가 아니며, effort 99와 release_interval_delta 999.0도 동일합니다.\n\n### ⑤ 주의사항\n- 시뮬레이션 horizon은 120.0분이며, 이 범위 밖의 효과는 판단할 수 없습니다.\n- baseline ↔ whatif 모든 KPI mean_delta=0(paired_n=30)로 SIM_KPI_IDENTICAL 경고가 있어 시뮬 엔진이 whatif 액션을 무시한 것으로 의심됩니다.\n- 따라서 본 추천은 현장 대응 우선순위용 잠정 판단이며, KPI 예측값은 모두 시뮬레이션 예측값입니다.\n\n### ⑥ 현장 Playbook\n\n#### 즉시 실행\n1. 1) 글로벌 플랜 A/B 대상 TG 8개에 대해 Release Interval Δ15.0%를 conservative 기준으로 먼저 적용합니다.\n2. 2) 적용 직후 LithoMet_FE_19, Litho_REG_FE_64, Litho_FE_92 업스트림 공정의 WIP 누적 여부와 max_util 상승 여부를 동시에 점검합니다.\n3. 3) 시행 후 30분 동안 WE_FE_83, WE_FE_108, WE_FE_84, DefMet_FE_43, WE_FE_85로의 연쇄 영향 TG에서 대기열 증가와 REQUEUE_TOOL 발생 여부를 확인합니다.\n4. 4) 시뮬 효과 미관측이므로 현장에서는 dispatch rule override 또는 LOT_HOLD 필요 여부를 병행 진단합니다.\n\n#### 모니터링\n- T+30분: wip ≤ - lots\n- T+30분: average wait time ≤ -\n- T+60분: wait_ratio ≤ - ratio\n\n#### 롤백 조건\n- ⚠️ 조치 후 30분 시점에 WIP가 15개를 초과하거나 평균 대기시간이 63.9분 이상으로 유지되면 Release Interval Δ15.0% 적용을 중단하고 원복합니다.\n\n### ⑦ 대응안 비교\n\n| 대응안 | 종류 | 설명 | 대기시간 변화 | WIP 변화 | 시뮬 신뢰도 | 운영 부담 | 영향 범위 | 가역성 |\n|--------|------|------|-------------|---------|-----------|----------|----------|--------|\n| 현재상태 | NO_ACTION | 조치 없음 — 병목 유지 | 0분 | 0 | - | 0/4 | none | high |\n| conservative | UNKNOWN | Release Interval Δ15.0% | 0분 | 0 | 50% | 99/4 | unknown | unknown |\n| standard | UNKNOWN | Release Interval Δ22.0% | 0분 | 0 | 50% | 99/4 | unknown | unknown |\n| aggressive | UNKNOWN | Release Interval Δ28.0% | 0분 | 0 | 50% | 99/4 | unknown | unknown |\n\n---"
+  },
+  "legacy": {
+    "bottleneck_info": {
+      "tool_group": "WE_FE_8",
+      "risk_score": 81.8,
+      "delayed_orders": 394,
+      "avg_queue_time_min": 63.9,
+      "utilization_pct": 99.0,
+      "load_ratio": 6.5,
+      "wip_count": 15,
+      "available_tool_ratio": 1.0
+    },
+    "fab_kpi": {
+      "wip_total": 15,
+      "utilization_avg_pct": 99.0,
+      "q_time_min": 63.9,
+      "wait_ratio": 6.5
+    },
+    "diffusion_analysis": {
+      "is_bottleneck": true,
+      "bottleneck_location": "WE_FE_8",
+      "diffusion_path": ["WE_FE_8", "WE_FE_83", "WE_FE_108", "WE_FE_84"],
+      "affected_processes": [
+        {
+          "process": "WE_FE_83",
+          "status": "영향",
+          "utilization_pct": 97.5,
+          "wait_ratio": 0.43,
+          "wip": 10
+        },
+        {
+          "process": "WE_FE_108",
+          "status": "영향",
+          "utilization_pct": 49.2,
+          "wait_ratio": 0.0,
+          "wip": 22
+        },
+        {
+          "process": "WE_FE_84",
+          "status": "영향",
+          "utilization_pct": 58.6,
+          "wait_ratio": 0.0,
+          "wip": 8
+        },
+        {
+          "process": "DefMet_FE_43",
+          "status": "영향",
+          "utilization_pct": 42.4,
+          "wait_ratio": 0.0,
+          "wip": 2
+        },
+        {
+          "process": "WE_FE_85",
+          "status": "영향",
+          "utilization_pct": 0.0,
+          "wait_ratio": 0.0,
+          "wip": 0
+        },
+        {
+          "process": "LithoMet_FE_19",
+          "status": "영향",
+          "utilization_pct": 69.2,
+          "wait_ratio": 1.0,
+          "wip": 34
+        },
+        {
+          "process": "Dielectric_FE_112",
+          "status": "영향",
+          "utilization_pct": 37.0,
+          "wait_ratio": 0.0,
+          "wip": 7
+        },
+        {
+          "process": "Litho_FE_111",
+          "status": "영향",
+          "utilization_pct": 41.4,
+          "wait_ratio": 0.0,
+          "wip": 10
+        },
+        {
+          "process": "DE_FE_86",
+          "status": "영향",
+          "utilization_pct": 35.8,
+          "wait_ratio": 0.0,
+          "wip": 56
+        },
+        {
+          "process": "Delay_32",
+          "status": "영향",
+          "utilization_pct": 11.6,
+          "wait_ratio": 0.0,
+          "wip": 43
+        },
+        {
+          "process": "TF_FE_131",
+          "status": "영향",
+          "utilization_pct": 41.1,
+          "wait_ratio": 0.0,
+          "wip": 4
+        },
+        {
+          "process": "Diffusion_FE_120",
+          "status": "영향",
+          "utilization_pct": 81.0,
+          "wait_ratio": 0.0,
+          "wip": 9
+        },
+        {
+          "process": "Implant_91",
+          "status": "영향",
+          "utilization_pct": 19.4,
+          "wait_ratio": 0.0,
+          "wip": 1
+        },
+        {
+          "process": "TF_Met_FE_61",
+          "status": "영향",
+          "utilization_pct": 39.0,
+          "wait_ratio": 0.0,
+          "wip": 0
+        },
+        {
+          "process": "Implant_128",
+          "status": "영향",
+          "utilization_pct": 31.3,
+          "wait_ratio": 0.0,
+          "wip": 4
+        },
+        {
+          "process": "DE_FE_62",
+          "status": "영향",
+          "utilization_pct": 0.0,
+          "wait_ratio": 0.0,
+          "wip": 0
+        },
+        {
+          "process": "DefMet_FE_10",
+          "status": "영향",
+          "utilization_pct": 33.2,
+          "wait_ratio": 0.0,
+          "wip": 3
+        },
+        {
+          "process": "Diffusion_FE_101",
+          "status": "영향",
+          "utilization_pct": 0.0,
+          "wait_ratio": 0.0,
+          "wip": 0
+        },
+        {
+          "process": "DE_FE_58",
+          "status": "영향",
+          "utilization_pct": 0.0,
+          "wait_ratio": 0.0,
+          "wip": 0
+        },
+        {
+          "process": "Implant_119",
+          "status": "영향",
+          "utilization_pct": 0.0,
+          "wait_ratio": 0.0,
+          "wip": 0
+        }
+      ],
+      "forward_simulation": {
+        "horizon_min": 120,
+        "results": [
+          {
+            "toolgroup": "WE_FE_8",
+            "q_time_future": null,
+            "wait_ratio_future": 2.0,
+            "wip_future": 6,
+            "y_bottleneck": 0
+          }
+        ]
+      },
+      "line_stop_expected_min": 2064,
+      "risk_level": "Critical"
+    },
+    "cause_analysis": {
+      "shap_top": [
+        {
+          "rank": 1,
+          "feature": "max_util_delta_120",
+          "kpi_value": 0.0122,
+          "shap_value": 1.7825,
+          "contribution_pct": 35.1
+        },
+        {
+          "rank": 2,
+          "feature": "max_util",
+          "kpi_value": 0.9916,
+          "shap_value": 1.6879,
+          "contribution_pct": 33.3
+        },
+        {
+          "rank": 3,
+          "feature": "wip",
+          "kpi_value": 15.0,
+          "shap_value": 0.8646,
+          "contribution_pct": 17.0
+        },
+        {
+          "rank": 4,
+          "feature": "utilization_avg",
+          "kpi_value": 0.9896,
+          "shap_value": 0.7395,
+          "contribution_pct": 14.6
+        }
+      ],
+      "categories": [
+        {
+          "name": "설비_포화",
+          "features": ["max_util", "max_util_delta_120", "utilization_avg"],
+          "shap_share_pct": 83.0,
+          "n_trend_significant": 0,
+          "upstream_match": false,
+          "g_star_confirmed": false,
+          "total_score": 0.8296,
+          "confidence": "HIGH"
+        },
+        {
+          "name": "WIP_누적",
+          "features": ["wip"],
+          "shap_share_pct": 17.0,
+          "n_trend_significant": 1,
+          "upstream_match": true,
+          "g_star_confirmed": false,
+          "total_score": 0.4004,
+          "confidence": "MEDIUM"
+        },
+        {
+          "name": "대기_누적",
+          "features": ["wait_ratio"],
+          "shap_share_pct": 0.0,
+          "n_trend_significant": 1,
+          "upstream_match": true,
+          "g_star_confirmed": false,
+          "total_score": 0.23,
+          "confidence": "LOW"
+        },
+        {
+          "name": "공급_부족",
+          "features": ["available_tool_ratio"],
+          "shap_share_pct": 0.0,
+          "n_trend_significant": 0,
+          "upstream_match": true,
+          "g_star_confirmed": false,
+          "total_score": 0.08,
+          "confidence": "LOW"
+        }
+      ],
+      "summary": "[주요 원인] 설비_포화(max_util_delta_120, max_util, utilization_avg)로 병목이 형성됨. [악화 추세] max_util_delta_120과 max_util이 모두 병목 방향으로 크게 증가. [업스트림] WIP_누적이 일부 동반되어 upstream 압력이 존재함. [2시간 전망] 설비 포화가 지속되면 WIP 누적이 추가로 강화될 가능성이 큼.",
+      "consensus": {
+        "confidence_level": "HIGH",
+        "agreed_features": ["max_util_delta_120", "WIP_누적"],
+        "conflicted_features": ["대기_누적", "공급_부족"],
+        "upstream_aligns": true,
+        "sim_aligns": false,
+        "g_star_confirmed": true,
+        "g_star_proba": 0.76270485,
+        "g_star_upstream_confirmed": ["LithoMet_FE_19"],
+        "g_star_sig_kpis": [],
+        "summary": "설비_포화가 total score 0.830으로 가장 높고 SHAP 기여율도 83.0%로 압도적입니다. 대표 피처인 max_util_delta_120(+1.782)과 max_util(+1.688), utilization_avg(+0.740)가 모두 병목 방향으로 작용해 설비 포화가 주원인으로 판단됩니다."
+      },
+      "judgment": {
+        "primary_category": "설비_포화",
+        "primary_cause": "max_util_delta_120",
+        "primary_confidence": "HIGH",
+        "primary_reasoning": "설비_포화가 total score 0.830으로 가장 높고 SHAP 기여율도 83.0%로 압도적입니다. 대표 피처인 max_util_delta_120(+1.782)과 max_util(+1.688), utilization_avg(+0.740)가 모두 병목 방향으로 작용해 설비 포화가 주원인으로 판단됩니다.",
+        "secondary_causes": ["WIP_누적"],
+        "dismissed": ["대기_누적", "공급_부족"],
+        "dismissed_reason": "WIP_누적은 보조적으로 수렴하지만 score 0.400 및 SHAP 17.0%로 1순위보다 약합니다. 대기_누적과 공급_부족은 SHAP 기여가 0.0%이며 score도 낮아 주원인으로 보기 어렵습니다."
+      },
+      "evidence_bundle": [
+        {
+          "feature": "wip",
+          "votes": 3,
+          "confidence": "HIGH",
+          "shap_value": 0.8646,
+          "trend_slope": 1.2,
+          "trend_r2": 0.84,
+          "trend_significant": true,
+          "upstream_match": true,
+          "g_star_p_value": null,
+          "g_star_significant": false
+        },
+        {
+          "feature": "wait_ratio",
+          "votes": 2,
+          "confidence": "MEDIUM",
+          "shap_value": null,
+          "trend_slope": 0.6,
+          "trend_r2": 0.84,
+          "trend_significant": true,
+          "upstream_match": true,
+          "g_star_p_value": null,
+          "g_star_significant": false
+        },
+        {
+          "feature": "max_util_delta_120",
+          "votes": 1,
+          "confidence": "MEDIUM",
+          "shap_value": 1.7825,
+          "trend_slope": null,
+          "trend_r2": null,
+          "trend_significant": false,
+          "upstream_match": false,
+          "g_star_p_value": null,
+          "g_star_significant": false
+        },
+        {
+          "feature": "max_util",
+          "votes": 1,
+          "confidence": "MEDIUM",
+          "shap_value": 1.6879,
+          "trend_slope": null,
+          "trend_r2": null,
+          "trend_significant": false,
+          "upstream_match": false,
+          "g_star_p_value": null,
+          "g_star_significant": false
+        },
+        {
+          "feature": "utilization_avg",
+          "votes": 1,
+          "confidence": "LOW",
+          "shap_value": 0.7395,
+          "trend_slope": 0.0019,
+          "trend_r2": 0.0824,
+          "trend_significant": false,
+          "upstream_match": false,
+          "g_star_p_value": null,
+          "g_star_significant": false
+        },
+        {
+          "feature": "available_tool_ratio",
+          "votes": 1,
+          "confidence": "LOW",
+          "shap_value": null,
+          "trend_slope": null,
+          "trend_r2": null,
+          "trend_significant": false,
+          "upstream_match": true,
+          "g_star_p_value": null,
+          "g_star_significant": false
+        }
+      ],
+      "upstream_suspects": ["LithoMet_FE_19", "Litho_REG_FE_64", "Litho_FE_92", "LithoTrack_FE_115", "DE_FE_86"]
+    },
+    "action_effects": [
+      {
+        "label": "현재상태",
+        "kind": "NO_ACTION",
+        "description": "조치 없음 — 병목 유지",
+        "target_toolgroups": [],
+        "params": {},
+        "kpi_impact": {
+          "wip": {
+            "now": 15,
+            "after": 15,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "baseline",
+            "confidence": 1.0,
+            "ci_width": 0.0
+          },
+          "q_time_min": {
+            "now": 63.9,
+            "after": 63.9,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "baseline",
+            "confidence": 1.0,
+            "ci_width": 0.0
+          },
+          "wait_ratio": {
+            "now": 6.5,
+            "after": 6.5,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "baseline",
+            "confidence": 1.0,
+            "ci_width": 0.0
+          },
+          "utilization_avg": {
+            "now": 0.9896,
+            "after": 0.9896,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "baseline",
+            "confidence": 1.0,
+            "ci_width": 0.0
+          },
+          "available_tool_ratio": {
+            "now": 1.0,
+            "after": 1.0,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "baseline",
+            "confidence": 1.0,
+            "ci_width": 0.0
+          }
+        },
+        "operational": {
+          "effort": 0,
+          "scope": "none",
+          "reversibility": "high"
+        },
+        "composite_score": 0.0,
+        "simulation": {
+          "paired_n": 0,
+          "verdict": "baseline",
+          "paired_t_p": null
+        },
+        "is_recommended": false,
+        "recommendation_status": null,
+        "badge": null,
+        "is_baseline": true,
+        "tradeoffs": [],
+        "outcome_if_kept": "추가 조치 없을 경우 심각한 병목 상황이 지속·악화될 위험이 높습니다."
+      },
+      {
+        "label": "conservative",
+        "kind": "UNKNOWN",
+        "description": "Release Interval Δ15.0%",
+        "target_toolgroups": [
+          "WE_FE_8",
+          "WE_FE_83",
+          "Dielectric_FE_30",
+          "Planar_FE_77",
+          "LithoMet_FE_19",
+          "Diffusion_FE_125",
+          "DE_FE_1",
+          "DefMet_FE_34"
+        ],
+        "params": {
+          "release_interval_delta_pct": 15.0
+        },
+        "kpi_impact": {
+          "q_time_min": {
+            "now": 63.9,
+            "after": 63.9,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "unchanged",
+            "confidence": 0.5,
+            "ci_width": 0.0
+          },
+          "wip": {
+            "now": 15,
+            "after": 15.0,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "unchanged",
+            "confidence": 0.5,
+            "ci_width": 0.0
+          },
+          "wait_ratio": {
+            "now": 6.5,
+            "after": 6.5,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "unchanged",
+            "confidence": 0.5,
+            "ci_width": 0.0
+          },
+          "utilization_avg": {
+            "now": 0.9896,
+            "after": 0.9896,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "unchanged",
+            "confidence": 0.5,
+            "ci_width": 0.0
+          },
+          "available_tool_ratio": {
+            "now": 1.0,
+            "after": 1.0,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "unchanged",
+            "confidence": 0.5,
+            "ci_width": 0.0
+          }
+        },
+        "operational": {
+          "effort": 99,
+          "scope": "unknown",
+          "reversibility": "unknown"
+        },
+        "composite_score": 0.0,
+        "simulation": {
+          "paired_n": 30,
+          "verdict": "unchanged",
+          "paired_t_p": null,
+          "simulation_confidence": 0.5
+        },
+        "is_recommended": true,
+        "recommendation_status": "tentative_no_effect",
+        "badge": "tentative",
+        "is_baseline": false,
+        "tradeoffs": []
+      },
+      {
+        "label": "standard",
+        "kind": "UNKNOWN",
+        "description": "Release Interval Δ22.0%",
+        "target_toolgroups": [
+          "WE_FE_8",
+          "WE_FE_83",
+          "Dielectric_FE_30",
+          "Planar_FE_77",
+          "LithoMet_FE_19",
+          "Diffusion_FE_125",
+          "DE_FE_1",
+          "DefMet_FE_34"
+        ],
+        "params": {
+          "release_interval_delta_pct": 22.0
+        },
+        "kpi_impact": {
+          "q_time_min": {
+            "now": 63.9,
+            "after": 63.9,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "unchanged",
+            "confidence": 0.5,
+            "ci_width": 0.0
+          },
+          "wip": {
+            "now": 15,
+            "after": 15.0,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "unchanged",
+            "confidence": 0.5,
+            "ci_width": 0.0
+          },
+          "wait_ratio": {
+            "now": 6.5,
+            "after": 6.5,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "unchanged",
+            "confidence": 0.5,
+            "ci_width": 0.0
+          },
+          "utilization_avg": {
+            "now": 0.9896,
+            "after": 0.9896,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "unchanged",
+            "confidence": 0.5,
+            "ci_width": 0.0
+          },
+          "available_tool_ratio": {
+            "now": 1.0,
+            "after": 1.0,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "unchanged",
+            "confidence": 0.5,
+            "ci_width": 0.0
+          }
+        },
+        "operational": {
+          "effort": 99,
+          "scope": "unknown",
+          "reversibility": "unknown"
+        },
+        "composite_score": 0.0,
+        "simulation": {
+          "paired_n": 30,
+          "verdict": "unchanged",
+          "paired_t_p": null,
+          "simulation_confidence": 0.5
+        },
+        "is_recommended": false,
+        "recommendation_status": null,
+        "badge": null,
+        "is_baseline": false,
+        "tradeoffs": []
+      },
+      {
+        "label": "aggressive",
+        "kind": "UNKNOWN",
+        "description": "Release Interval Δ28.0%",
+        "target_toolgroups": [
+          "WE_FE_8",
+          "WE_FE_83",
+          "Dielectric_FE_30",
+          "Planar_FE_77",
+          "LithoMet_FE_19",
+          "Diffusion_FE_125",
+          "DE_FE_1",
+          "DefMet_FE_34"
+        ],
+        "params": {
+          "release_interval_delta_pct": 28.0
+        },
+        "kpi_impact": {
+          "q_time_min": {
+            "now": 63.9,
+            "after": 63.9,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "unchanged",
+            "confidence": 0.5,
+            "ci_width": 0.0
+          },
+          "wip": {
+            "now": 15,
+            "after": 15.0,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "unchanged",
+            "confidence": 0.5,
+            "ci_width": 0.0
+          },
+          "wait_ratio": {
+            "now": 6.5,
+            "after": 6.5,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "unchanged",
+            "confidence": 0.5,
+            "ci_width": 0.0
+          },
+          "utilization_avg": {
+            "now": 0.9896,
+            "after": 0.9896,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "unchanged",
+            "confidence": 0.5,
+            "ci_width": 0.0
+          },
+          "available_tool_ratio": {
+            "now": 1.0,
+            "after": 1.0,
+            "delta": 0.0,
+            "pct_change": 0.0,
+            "verdict": "unchanged",
+            "confidence": 0.5,
+            "ci_width": 0.0
+          }
+        },
+        "operational": {
+          "effort": 99,
+          "scope": "unknown",
+          "reversibility": "unknown"
+        },
+        "composite_score": 0.0,
+        "simulation": {
+          "paired_n": 30,
+          "verdict": "unchanged",
+          "paired_t_p": null,
+          "simulation_confidence": 0.5
+        },
+        "is_recommended": false,
+        "recommendation_status": null,
+        "badge": null,
+        "is_baseline": false,
+        "tradeoffs": []
+      }
+    ],
+    "recommendation": {
+      "headline": "A 잠정 추천 — 시뮬 효과 미관측, composite_score 0.0 동률",
+      "primary_reason": "주요 병목은 설비_포화(max_util_delta_120, max_util, utilization_avg)이며, SHAP 합의도 HIGH로 이 요인이 total score 0.830, 기여율 83.0%로 압도적입니다. 다만 시뮬레이션에서는 conservative/standard/aggressive 모두 WIP·평균 대기시간·대기비율·가동률·가용장비비율이 현재 기준값 대비 변화 0으로 관측되어, 시뮬 범위 내 개선이 반영되지 않았습니다. 현재 WIP 15개, 평균 대기시간 63.9분, 대기비율 6.5, 가동률 0.9896이며, 2h 자연 진행 예측은 WIP 15.0→6.0(Δ-9.00), wait_ratio 6.5→2.0(Δ-4.50)로 완화 가능성이 있어 원인 대응 조치는 필요하나 시뮬 엔진이 액션을 무시한 것으로 의심됩니다.",
+      "why_recommended": {
+        "selected_by": "tiebreaker",
+        "tiebreaker_chain": ["composite_score"],
+        "explanation": "operational_effort는 conservative=99, standard=99, aggressive=99로 동률이고 release_interval_delta도 999.0=999.0=999.0로 동률이어서, composite_score가 0.0인 후보 중 conservative를 선택했습니다."
+      },
+      "tradeoffs": [
+        "시뮬 결과가 모두 동일하여 WIP 15개→15개, 평균 대기시간 63.9분→63.9분, 대기비율 6.5→6.5로 예측상 개선이 없습니다.",
+        "대신 현재 병목 원인인 설비_포화에 대한 조치 가능성을 유지하면서도 가장 보수적인 변경안을 택합니다."
+      ],
+      "why_not_others": {
+        "standard": "composite_score 0.0으로 conservative와 동률이며, effort 99와 release_interval_delta 999.0도 동일합니다.",
+        "aggressive": "composite_score 0.0으로 선두가 아니며, effort 99와 release_interval_delta 999.0도 동일합니다."
+      },
+      "caveats": [
+        "시뮬레이션 horizon은 120.0분이며, 이 범위 밖의 효과는 판단할 수 없습니다.",
+        "baseline ↔ whatif 모든 KPI mean_delta=0(paired_n=30)로 SIM_KPI_IDENTICAL 경고가 있어 시뮬 엔진이 whatif 액션을 무시한 것으로 의심됩니다.",
+        "따라서 본 추천은 현장 대응 우선순위용 잠정 판단이며, KPI 예측값은 모두 시뮬레이션 예측값입니다."
+      ],
+      "confidence_level": "low",
+      "immediate_actions": [
+        "1) 글로벌 플랜 A/B 대상 TG 8개에 대해 Release Interval Δ15.0%를 conservative 기준으로 먼저 적용합니다.",
+        "2) 적용 직후 LithoMet_FE_19, Litho_REG_FE_64, Litho_FE_92 업스트림 공정의 WIP 누적 여부와 max_util 상승 여부를 동시에 점검합니다.",
+        "3) 시행 후 30분 동안 WE_FE_83, WE_FE_108, WE_FE_84, DefMet_FE_43, WE_FE_85로의 연쇄 영향 TG에서 대기열 증가와 REQUEUE_TOOL 발생 여부를 확인합니다.",
+        "4) 시뮬 효과 미관측이므로 현장에서는 dispatch rule override 또는 LOT_HOLD 필요 여부를 병행 진단합니다."
+      ],
+      "monitoring_kpis": [
+        {
+          "kpi": "wip",
+          "target": "현재 15개 대비 감소 여부 확인",
+          "check_after_min": 30
+        },
+        {
+          "kpi": "average wait time",
+          "target": "현재 63.9분 대비 악화 없음",
+          "check_after_min": 30
+        },
+        {
+          "kpi": "wait_ratio",
+          "target": "현재 6.5 대비 감소 여부 확인",
+          "check_after_min": 60
+        }
+      ],
+      "rollback_condition": "조치 후 30분 시점에 WIP가 15개를 초과하거나 평균 대기시간이 63.9분 이상으로 유지되면 Release Interval Δ15.0% 적용을 중단하고 원복합니다.",
+      "recommended_label": "conservative",
+      "recommendation_status": "tentative_no_effect"
+    },
+    "decision_info": {
+      "decision_status": "no_meaningful_effect",
+      "top_label": "conservative",
+      "equivalent_set": ["conservative", "standard", "aggressive"],
+      "tiebreaker_used": "composite_score",
+      "tiebreaker_chain_evaluated": [
+        {
+          "step": "operational_effort",
+          "values": {
+            "conservative": 99,
+            "standard": 99,
+            "aggressive": 99
+          },
+          "result": "tied"
+        },
+        {
+          "step": "release_interval_delta",
+          "values": {
+            "conservative": 999.0,
+            "standard": 999.0,
+            "aggressive": 999.0
+          },
+          "result": "tied"
+        },
+        {
+          "step": "composite_score",
+          "values": {
+            "conservative": 0.0,
+            "standard": 0.0,
+            "aggressive": 0.0
+          },
+          "result": "conservative"
+        }
+      ],
+      "decision_caveat": "모든 후보에서 시뮬레이션상 통계적으로 유의미한 KPI 개선이 관측되지 않았습니다 (전 KPI verdict=unchanged). tie-breaker(composite_score)로 conservative을(를) 잠정 추천하나 추가 검증이 필요합니다."
+    },
+    "approval_info": {
+      "status": "승인",
+      "approved_by": "DJKEE",
+      "approved_role": "팀장",
+      "approved_at": "2026-06-13 16:43",
+      "comment": "AI 추천 반영",
+      "rejection_reason": null,
+      "selected_label": "CONSERVATIVE"
+    },
+    "data_sufficiency": {
+      "actions_available": true
+    },
+    "full_markdown": "# FAB 병목 대응 보고서\n\n| 항목 | 내용 |\n|------|------|\n| 공정명 | `WE_FE_8` |\n| 심각도 | **🚨 CRITICAL** |\n| 탐지시각 | 2026-06-13 16:52 |\n| 보고서 생성일시 | 2026-06-13 16:52 |\n\n---\n\n## 검토 결과\n\n| 항목 | 내용 |\n|------|------|\n| 상태 | **🟢 승인** |\n| 승인자 | DJKEE (팀장) |\n| 승인일시 | 2026-06-13 16:43 |\n| 의견 | AI 추천 반영 |\n\n---\n\n## 1. 요약\n\n> **WE_FE_8에서 risk_score 81.8로 CRITICAL 병목이 확인됨.**\n> **현재 WIP 15.0 lots와 wait_ratio 6.5 ratio로 대기와 적체가 심화된 상태이며, utilization_avg 0.9896 ratio와 max_util 0.9916 ratio로 설비 포화가 임계 수준임.**\n> **120분 내 무대응 시 WIP 6.0 lots, wait_ratio 2.0 ratio로 개선 예측이 아니라 악화 판단이 아니라 현재 보고서상 수치 기준 변화가 제시되며, 즉시 대응이 필요함.**\n\n| 지표 | 값 |\n|------|----|\n| 심각도 | Critical |\n| risk_score | 81.8 |\n| 현재 평균 대기시간 | 63.9분 |\n| load_ratio (wait_ratio) | 6.5 |\n| 가동률 | 99.0% |\n| WIP | 15개 |\n| 가용 호기 비율 | 1 |\n| 최대 가동률 | 99.2% |\n\n---\n\n## 2. 확산 영향 분석\n\n**탐지시각**: 2026-06-13 16:52\n\n### ① 병목 발생 여부 및 위치\n병목 확산 경로는 WE_FE_8에서 LithoMet_FE_19, WE_FE_83, DE_FE_1 순으로 연결됨. high_impact_count 8로 영향 범위가 크며, Q-time 63.9분과 wait_ratio 6.5 ratio가 높은 수준으로 유지되어 확산 압력이 지속되는 상태임.\n- **확산 경로**: WE_FE_8 → LithoMet_FE_19 → WE_FE_83 → DE_FE_1\n\n### ② 확산 현황 (공정별 가동률 현황)\n\n| 공정 | 가동률(%) | wait_ratio | WIP | 상태 |\n|------|-----------|-----------|-----|------|\n| LithoMet_FE_19 | 69.2 | 1 | 34 | 영향 |\n| WE_FE_83 | 97.5 | 0.43 | 10 | 영향 |\n| DE_FE_1 | 60.2 | 1.14 | 12 | 영향 |\n| Dielectric_FE_30 | 92.2 | 0.5 | 2 | 영향 |\n| Diffusion_FE_125 | 80.1 | 0.33 | 5 | 영향 |\n| Diffusion_FE_127 | 85.9 | 0 | 8 | 영향 |\n| Diffusion_FE_120 | 81 | 0 | 9 | 영향 |\n| DE_FE_86 | 35.8 | 0 | 56 | 영향 |\n\n### ③ 위험도 및 전 라인 정지 예상 시간\n- **위험도**: Critical\n- **전 라인 정지 예상**: 2064분 이내\n\n### ④ 추이 데이터\n\n| 시각 | wip | wait_ratio | utilization_avg |\n|------|---------|---------|---------|\n| T-300분 | 9 | 3.5 | 0.9706 |\n| T-240분 | 9 | 3.5 | 0.9835 |\n| T-180분 | 9 | 3.5 | 0.9532 |\n| T-120분 | 12 | 5 | 0.9717 |\n| T-60분 | 12 | 5 | 0.9684 |\n| T-0분 | 15 | 6.5 | 0.9896 |\n\n### ⑤ Forward Simulation (120분 후 예측)\n\n| Tool Group | wait_ratio (미래) | WIP (미래) | 병목 예측 |\n|------------|-----------------|----------|----------|\n| WE_FE_8 | 2 | 6 | ✅ 정상 |\n\n---\n\n## 3. 원인 분석 TOP\n\n| 순위 | 원인(feature) | 기여도(%) | 현재값 | 4개 분석 수렴 | 신뢰도 |\n|------|--------------|----------|--------|-------------|--------|\n| 1 | max_util_delta_120 | 35.1 | 0.0122 | 1/4 | MEDIUM |\n| 2 | max_util | 33.3 | 0.9916 | 1/4 | MEDIUM |\n| 3 | wip | 17 | 15 | 3/4 | HIGH |\n| 4 | utilization_avg | 14.6 | 0.9896 | 1/4 | LOW |\n\n### 판정 근거\n주원인은 설비_포화임. max_util_delta_120, max_util, utilization_avg가 모두 병목 방향으로 작용했고, 설비_포화의 total score 0.830과 SHAP 기여율 83.0%가 이를 지지함. 보조 원인: WIP_누적임. 기각: 대기_누적, 공급_부족 (이유: SHAP 기여가 0.0%이고 score도 낮음).\n\n### 업스트림 과부하 공정\n과부하 공정: LithoMet_FE_19 → Litho_REG_FE_64 → Litho_FE_92 → LithoTrack_FE_115 → DE_FE_86 (WIP 과공급으로 병목 TG에 유입)\n\n### 4축 합의 (4/4)\n- SHAP: ✅ / 트렌드: ✅ / 업스트림: ✅ / G*: ✅\n\n### G* 인과 확증 (Monte Carlo)\n- **확증 여부**: ✅ 확정 (probability 0.7627)\n- **시뮬 결과**: 총 106회 중 9회 병목 확인 (8.5%)\n- **업스트림 인과 확증 TG**: LithoMet_FE_19\n\n### 4가지 분석 수렴 증거\n\n| 피처 | SHAP | 트렌드 유의 | 업스트림 일치 | G* 유의 | 수렴 수 | 신뢰도 |\n|------|------|-----------|------------|--------|--------|--------|\n| wip | +0.8646 | ✅ | ✅ | ❌ | 3/4 | HIGH |\n| wait_ratio | - | ✅ | ✅ | ❌ | 2/4 | MEDIUM |\n| max_util_delta_120 | +1.782 | ❌ | ❌ | ❌ | 1/4 | MEDIUM |\n| max_util | +1.688 | ❌ | ❌ | ❌ | 1/4 | MEDIUM |\n| utilization_avg | +0.7395 | ❌ | ❌ | ❌ | 1/4 | LOW |\n| available_tool_ratio | - | ❌ | ✅ | ❌ | 1/4 | LOW |\n\n### ML 모델 SHAP 분석 (Top features)\n\n| 피처명 | 현재값 | 기여도(%) | 방향 |\n|--------|--------|----------|------|\n| max_util_delta_120 | 0.0122 | 35.1 | 병목 쪽으로 기여(+) |\n| max_util | 0.9916 | 33.3 | 병목 쪽으로 기여(+) |\n| wip | 15 | 17 | 병목 쪽으로 기여(+) |\n| utilization_avg | 0.9896 | 14.6 | 병목 쪽으로 기여(+) |\n\n### 트렌드 악화 속도\n\n| 피처 | 시간당 변화율 | R² | 통계 유의 |\n|------|------------|-----|---------|\n| wip | +1.2/h | 0.84 | ✅ |\n| wait_ratio | +0.6/h | 0.84 | ✅ |\n| utilization_avg | +0.0019/h | 0.0824 | ❌ |\n\n---\n\n## 4. 승인된 대응안\n\n### ① 의사결정 상태\n- **상태**: 🚨 효과 미검증 (운영 부담 최저 잠정 추천)\n- **추천 신뢰도**: low\n\n### ② 승인된 대응안 예상 효과\n- **대응안**: - — -\n- **핵심 근거**: 주요 병목은 설비_포화(max_util_delta_120, max_util, utilization_avg)이며, SHAP 합의도 HIGH로 이 요인이 total score 0.830, 기여율 83.0%로 압도적입니다. 다만 시뮬레이션에서는 conservative/standard/aggressive 모두 WIP·평균 대기시간·대기비율·가동률·가용장비비율이 현재 기준값 대비 변화 0으로 관측되어, 시뮬 범위 내 개선이 반영되지 않았습니다. 현재 WIP 15개, 평균 대기시간 63.9분, 대기비율 6.5, 가동률 0.9896이며, 2h 자연 진행 예측은 WIP 15.0→6.0(Δ-9.00), wait_ratio 6.5→2.0(Δ-4.50)로 완화 가능성이 있어 원인 대응 조치는 필요하나 시뮬 엔진이 액션을 무시한 것으로 의심됩니다.\n- **예상 효과 요약**: 승인된 대응안은 CONSERVATIVE이며, 승인 상태는 승인임. 다만 decision_status가 no_meaningful_effect로 표시되어 실질적 개선 효과는 없는 것으로 판단됨.\n\n### ③ 받아들이는 트레이드오프\n- 시뮬 결과가 모두 동일하여 WIP 15개→15개, 평균 대기시간 63.9분→63.9분, 대기비율 6.5→6.5로 예측상 개선이 없습니다.\n- 대신 현재 병목 원인인 설비_포화에 대한 조치 가능성을 유지하면서도 가장 보수적인 변경안을 택합니다.\n\n### ④ 다른 후보를 선택하지 않은 이유\n- **standard**: composite_score 0.0으로 conservative와 동률이며, effort 99와 release_interval_delta 999.0도 동일합니다.\n- **aggressive**: composite_score 0.0으로 선두가 아니며, effort 99와 release_interval_delta 999.0도 동일합니다.\n\n### ⑤ 주의사항\n- 시뮬레이션 horizon은 120.0분이며, 이 범위 밖의 효과는 판단할 수 없습니다.\n- baseline ↔ whatif 모든 KPI mean_delta=0(paired_n=30)로 SIM_KPI_IDENTICAL 경고가 있어 시뮬 엔진이 whatif 액션을 무시한 것으로 의심됩니다.\n- 따라서 본 추천은 현장 대응 우선순위용 잠정 판단이며, KPI 예측값은 모두 시뮬레이션 예측값입니다.\n\n### ⑥ 현장 Playbook\n\n#### 즉시 실행\n1. 1) 글로벌 플랜 A/B 대상 TG 8개에 대해 Release Interval Δ15.0%를 conservative 기준으로 먼저 적용합니다.\n2. 2) 적용 직후 LithoMet_FE_19, Litho_REG_FE_64, Litho_FE_92 업스트림 공정의 WIP 누적 여부와 max_util 상승 여부를 동시에 점검합니다.\n3. 3) 시행 후 30분 동안 WE_FE_83, WE_FE_108, WE_FE_84, DefMet_FE_43, WE_FE_85로의 연쇄 영향 TG에서 대기열 증가와 REQUEUE_TOOL 발생 여부를 확인합니다.\n4. 4) 시뮬 효과 미관측이므로 현장에서는 dispatch rule override 또는 LOT_HOLD 필요 여부를 병행 진단합니다.\n\n#### 모니터링\n- T+30분: wip ≤ - lots\n- T+30분: average wait time ≤ -\n- T+60분: wait_ratio ≤ - ratio\n\n#### 롤백 조건\n- ⚠️ 조치 후 30분 시점에 WIP가 15개를 초과하거나 평균 대기시간이 63.9분 이상으로 유지되면 Release Interval Δ15.0% 적용을 중단하고 원복합니다.\n\n### ⑦ 대응안 비교\n\n| 대응안 | 종류 | 설명 | 대기시간 변화 | WIP 변화 | 시뮬 신뢰도 | 운영 부담 | 영향 범위 | 가역성 |\n|--------|------|------|-------------|---------|-----------|----------|----------|--------|\n| 현재상태 | NO_ACTION | 조치 없음 — 병목 유지 | 0분 | 0 | - | 0/4 | none | high |\n| conservative | UNKNOWN | Release Interval Δ15.0% | 0분 | 0 | 50% | 99/4 | unknown | unknown |\n| standard | UNKNOWN | Release Interval Δ22.0% | 0분 | 0 | 50% | 99/4 | unknown | unknown |\n| aggressive | UNKNOWN | Release Interval Δ28.0% | 0분 | 0 | 50% | 99/4 | unknown | unknown |\n\n---"
+  }
+}

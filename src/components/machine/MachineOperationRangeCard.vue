@@ -134,6 +134,7 @@ function applyCustomRange() {
           <input v-model="draftTo" type="datetime-local" />
         </label>
         <button type="button" class="operation-range-card__apply-btn" @click="applyCustomRange">조회</button>
+        <button type="button" class="operation-range-card__reset-btn" @click="applyQuickRange('24H')">초기화</button>
       </div>
     </div>
     <div class="operation-range-card__status">
@@ -269,6 +270,24 @@ function applyCustomRange() {
 
 .operation-range-card__apply-btn:hover {
   filter: brightness(0.96);
+}
+
+.operation-range-card__reset-btn {
+  height: 34px;
+  border: var(--border-width-default) solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+  padding: 0 var(--space-3);
+  color: var(--color-fg-muted);
+  cursor: pointer;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+.operation-range-card__reset-btn:hover {
+  border-color: var(--color-border-strong);
+  color: var(--color-fg);
 }
 
 .operation-range-card__status {

@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { computed, onMounted, watch } from 'vue';
+import { useRoute } from 'vue-router';
 
 import { useMachineMonitoring } from '@/composables/useMachineMonitoring';
+
+import type { DashboardTrendKey } from '@/types/dashboardApi';
 
 import FabBearProgressLoader from '@/components/base/FabBearProgressLoader.vue';
 import MachineAnalysisTab from '@/components/machine/MachineAnalysisTab.vue';
 import MachineOverviewTab from '@/components/machine/MachineOverviewTab.vue';
-
-import { formatKoMonthDayTime } from '@/utils/format';
 
 const {
   data,
@@ -28,6 +29,8 @@ const {
   analysisSeries,
   trendLabels,
   analysisInsight,
+  analysisPresets,
+  selectedAnalysisPresetKey,
   // 액션
   loadMachineMonitoringData,
   setActiveTab,
@@ -38,10 +41,43 @@ const {
   toggleCompareToolGroup,
   toggleCompareTool,
   clearCompareTargets,
+  applyAnalysisPreset,
+  applyDashboardKpiDrill,
+  resetAnalysisPreset,
 } = useMachineMonitoring();
 
-onMounted(() => {
-  void loadMachineMonitoringData();
+const route = useRoute();
+const DASHBOARD_KPI_KEYS: DashboardTrendKey[] = ['rtf', 'throughput24h', 'avgQtimeMin', 'wip'];
+
+const dashboardKpiKey = computed<DashboardTrendKey | null>(() => {
+  if (route.query.focus !== 'dashboardKpi') return null;
+  const key = route.query.kpi;
+  return typeof key === 'string' && DASHBOARD_KPI_KEYS.includes(key as DashboardTrendKey)
+    ? (key as DashboardTrendKey)
+    : null;
+});
+
+function syncRouteTab() {
+  if (route.query.tab === 'analysis' || dashboardKpiKey.value) {
+    setActiveTab('analysis');
+  }
+}
+
+onMounted(async () => {
+  syncRouteTab();
+  await loadMachineMonitoringData();
+  // 데이터(toolGroups) 로드 후에야 기여 TG 랭킹이 가능 → 여기서 드릴 적용
+  if (dashboardKpiKey.value) applyDashboardKpiDrill(dashboardKpiKey.value);
+});
+
+watch(
+  () => [route.query.tab, route.query.focus, route.query.kpi],
+  () => syncRouteTab()
+);
+
+// 페이지에 머문 채 다른 KPI로 재진입(데이터는 이미 로드됨) → 즉시 드릴 재적용
+watch(dashboardKpiKey, (key) => {
+  if (key) applyDashboardKpiDrill(key);
 });
 </script>
 
@@ -54,9 +90,6 @@ onMounted(() => {
           현황 탭에서 전체 장비를 필터링하고, 분석 탭에서 TG·Tool 지표를 자유롭게 비교합니다.
         </p>
       </div>
-      <p v-if="data" class="machine-monitor-view__timestamp">
-        Day {{ data.summary.simulationDay }} · {{ formatKoMonthDayTime(data.summary.measuredAt) }}
-      </p>
     </header>
 
     <FabBearProgressLoader v-if="isLoading" label="장비 데이터를 불러오는 중입니다" />
@@ -99,7 +132,10 @@ onMounted(() => {
         :analysis-series="analysisSeries"
         :trend-labels="trendLabels"
         :analysis-insight="analysisInsight"
+        :presets="analysisPresets"
+        :selected-preset-key="selectedAnalysisPresetKey"
         :max-compare="MAX_COMPARE"
+        :dashboard-kpi-key="dashboardKpiKey"
         @update:target-type="setAnalysisTargetType"
         @update:period-preset="setAnalysisPeriodPreset"
         @update:period-range="setAnalysisPeriodRange"
@@ -107,6 +143,8 @@ onMounted(() => {
         @toggle-tool-group="toggleCompareToolGroup"
         @toggle-tool="toggleCompareTool"
         @clear-targets="clearCompareTargets"
+        @apply-preset="applyAnalysisPreset"
+        @reset-preset="resetAnalysisPreset"
       />
     </template>
   </div>

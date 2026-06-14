@@ -4,10 +4,19 @@ import type { AgentTaskResponse } from '@/types/agentTask';
 import type { ChatReportContextInput } from '@/types/chatbot';
 import type { FinalBottleneckReport } from '@/types/report';
 
+export interface CasePromptPayload {
+  caseId: string | null;
+  caseLabel: string;
+  sourcePage: AgentTaskSourcePage;
+  title: string;
+  prompt: string;
+}
+
 const isOpen = ref(false);
 const pendingReport = ref<FinalBottleneckReport | null>(null);
 const pendingReportContext = ref<ChatReportContextInput | null>(null);
 const pendingAgentTask = ref<AgentTaskResponse | null>(null);
+const pendingCasePrompt = ref<CasePromptPayload | null>(null);
 
 export function useChatDrawer() {
   function openWithReport(report: FinalBottleneckReport) {
@@ -21,6 +30,7 @@ export function useChatDrawer() {
     pendingReport.value = null;
     pendingReportContext.value = context;
     pendingAgentTask.value = null;
+    pendingCasePrompt.value = null;
     isOpen.value = true;
   }
 
@@ -35,6 +45,7 @@ export function useChatDrawer() {
     pendingReport.value = null;
     pendingReportContext.value = null;
     pendingAgentTask.value = null;
+    pendingCasePrompt.value = null;
     isOpen.value = true;
   }
 
@@ -60,18 +71,27 @@ export function useChatDrawer() {
     return task;
   }
 
+  function consumePendingCasePrompt(): CasePromptPayload | null {
+    const payload = pendingCasePrompt.value;
+    pendingCasePrompt.value = null;
+    return payload;
+  }
+
   return {
     isOpen,
     pendingReport,
     pendingReportContext,
     pendingAgentTask,
+    pendingCasePrompt,
     open,
     openWithReport,
     openWithReportContext,
     openWithAgentTask,
+    openWithCasePrompt,
     close,
     consumePendingReport,
     consumePendingReportContext,
     consumePendingAgentTask,
+    consumePendingCasePrompt,
   };
 }

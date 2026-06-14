@@ -1,9 +1,4 @@
-export type AgentTaskType =
-  | 'FAB_SNAPSHOT_BRIEFING'
-  | 'FAB_TG_DIAGNOSIS'
-  | 'REPORT_PERIOD_SUMMARY'
-  | 'REPORT_CASE_QA'
-  | 'BNC_CASE_EXPLAIN';
+export type AgentTaskType = 'FAB_SNAPSHOT_BRIEFING' | 'REPORT_PERIOD_SUMMARY';
 
 export type AgentTaskSourcePage = 'FAB3D' | 'REPORT_ARCHIVE' | 'RESPONSE_CENTER' | 'CHAT';
 

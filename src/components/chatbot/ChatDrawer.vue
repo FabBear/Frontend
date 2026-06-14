@@ -41,6 +41,7 @@ const {
   initWithReport,
   initWithReportContext,
   initWithAgentTask,
+  initWithCasePrompt,
   clearReportContext,
   clearAgentContext,
 } = useChat();
@@ -133,9 +134,11 @@ watch(
       const report = consumePendingReport();
       const reportContext = consumePendingReportContext();
       const agentTask = consumePendingAgentTask();
+      const casePrompt = consumePendingCasePrompt();
       if (report) initWithReport(report);
       if (reportContext) initWithReportContext(reportContext);
       if (agentTask) initWithAgentTask(agentTask);
+      if (casePrompt) void initWithCasePrompt(casePrompt);
     }
   }
 );

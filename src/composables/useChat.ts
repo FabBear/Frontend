@@ -17,6 +17,8 @@ import {
 } from '@/services/chatbotService';
 import { fetchPresentationNow } from '@/services/clockService';
 
+import type { CasePromptPayload } from '@/composables/useChatDrawer';
+
 import { MOCK_CHAT_QUICK_PROMPTS } from '@/constants/mockData/chatbot';
 
 import type { AgentTaskResponse } from '@/types/agentTask';
@@ -506,6 +508,44 @@ export function useChat() {
     }
   }
 
+  async function initWithCasePrompt(payload: CasePromptPayload) {
+    const sessionId = `local-case-${payload.caseId ?? Date.now()}`;
+    const context: AgentContext = {
+      taskId: sessionId,
+      title: payload.title,
+      sourcePage: payload.sourcePage,
+      relatedCaseId: payload.caseId,
+      relatedTgId: null,
+      followUpPrompts: [],
+    };
+    const existing = sessions.value.find((session) => sessionHasCase(session, payload.caseId));
+    if (existing) {
+      activeSessionId.value = existing.sessionId;
+      sessions.value = sessions.value.map((session) =>
+        session.sessionId === existing.sessionId
+          ? { ...session, isActive: true, agentContext: context, reportContext: null }
+          : { ...session, isActive: false }
+      );
+    } else {
+      const createdAt = nowIso();
+      const session: ChatSession = {
+        sessionId,
+        sessionTitle: context.title,
+        isActive: true,
+        createdAt,
+        lastMessageAt: createdAt,
+        messages: [],
+        agentContext: context,
+        reportContext: null,
+      };
+      sessions.value = [session, ...sessions.value.map((item) => ({ ...item, isActive: false }))];
+      activeSessionId.value = session.sessionId;
+    }
+    agentContext.value = context;
+    reportContext.value = null;
+    await sendMessage(payload.prompt);
+  }
+
   function clearReportContext() {
     reportContext.value = null;
     sessions.value = sessions.value.map((session) =>
@@ -720,7 +760,7 @@ export function useChat() {
   }
 
   function requiresSpringGrounding(ctx: ChatSession['agentContext']) {
-    return Boolean(ctx && (ctx.sourcePage === 'REPORT_ARCHIVE' || ctx.taskType === 'BNC_CASE_EXPLAIN'));
+    return Boolean(ctx && ctx.sourcePage === 'REPORT_ARCHIVE' && ctx.taskType === 'REPORT_PERIOD_SUMMARY');
   }
 
   function findLatestTgFor3d() {
@@ -906,6 +946,7 @@ export function useChat() {
     initWithReport,
     initWithReportContext,
     initWithAgentTask,
+    initWithCasePrompt,
     clearReportContext,
     clearAgentContext,
   };

@@ -63,12 +63,16 @@ export interface ChatSession {
     taskType?: string;
     followUpPrompts?: string[];
   } | null;
-  reportContext?: {
-    processName: string;
-    severity: string;
-    riskScore: number;
-    detectedAt: string;
-  } | null;
+  reportContext?: ChatReportContextInput | null;
+}
+
+export interface ChatReportContextInput {
+  caseId?: string | null;
+  reportId?: string | null;
+  processName: string;
+  severity: string;
+  riskScore: number;
+  detectedAt: string;
 }
 
 export interface ChatQuickPrompt {
@@ -86,6 +90,7 @@ export interface ChatSendRequest {
   sessionId: string | null;
   message: string;
   contextCaseId?: string | null;
+  contextReportId?: string | null;
   contextTaskId?: string | null;
   contextTgId?: string | null;
   sourcePage?: string | null;

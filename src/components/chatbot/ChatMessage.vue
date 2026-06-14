@@ -380,8 +380,10 @@ const showObservability = computed(
 }
 .chat-message__markdown :deep(blockquote) {
   margin: var(--space-1) 0;
-  padding-left: var(--space-3);
-  border-left: 3px solid var(--color-border-default);
+  border: var(--border-width-default) solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle);
+  padding: var(--space-2) var(--space-3);
   color: var(--color-fg-muted);
 }
 
@@ -422,22 +424,24 @@ const showObservability = computed(
   grid-template-columns: minmax(82px, 0.35fr) minmax(0, 1fr);
   gap: var(--space-2);
   border: 1px solid var(--color-border-subtle);
-  border-left-width: 3px;
   border-radius: var(--radius-md);
   background: var(--color-bg-page);
   padding: var(--space-2);
 }
 
 .chat-message__evidence-item--critical {
-  border-left-color: var(--color-risk-critical) !important;
+  border-color: color-mix(in srgb, var(--color-risk-critical) 36%, var(--color-border-subtle)) !important;
+  background: color-mix(in srgb, var(--color-risk-critical) 6%, var(--color-bg-page)) !important;
 }
 
 .chat-message__evidence-item--warning {
-  border-left-color: var(--color-risk-high) !important;
+  border-color: color-mix(in srgb, var(--color-risk-high) 34%, var(--color-border-subtle)) !important;
+  background: color-mix(in srgb, var(--color-risk-high) 6%, var(--color-bg-page)) !important;
 }
 
 .chat-message__evidence-item--info {
-  border-left-color: var(--color-action-primary) !important;
+  border-color: color-mix(in srgb, var(--color-action-primary) 28%, var(--color-border-subtle)) !important;
+  background: color-mix(in srgb, var(--color-action-primary) 5%, var(--color-bg-page)) !important;
 }
 
 .chat-message__evidence dt {
@@ -490,18 +494,19 @@ const showObservability = computed(
   display: grid;
   gap: 1px;
   border: 1px solid var(--color-border-subtle);
-  border-left: 3px solid var(--color-action-primary);
   border-radius: var(--radius-md);
   background: var(--color-bg-page);
   padding: var(--space-2);
 }
 
 .chat-message__watch--critical {
-  border-left-color: var(--color-risk-critical);
+  border-color: color-mix(in srgb, var(--color-risk-critical) 36%, var(--color-border-subtle));
+  background: color-mix(in srgb, var(--color-risk-critical) 6%, var(--color-bg-page));
 }
 
 .chat-message__watch--warning {
-  border-left-color: var(--color-risk-high);
+  border-color: color-mix(in srgb, var(--color-risk-high) 34%, var(--color-border-subtle));
+  background: color-mix(in srgb, var(--color-risk-high) 6%, var(--color-bg-page));
 }
 
 .chat-message__watch strong {

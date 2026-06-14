@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 
-import { FileJson, FileText, MessageCircle, Printer } from '@lucide/vue';
+import { MessageCircle, Printer } from '@lucide/vue';
 
 import { downloadBncReportPdf } from '@/services/bncService';
 
@@ -10,6 +10,7 @@ import type { BncReportPayload } from '@/types/bnc';
 import BaseButton from '@/components/base/BaseButton.vue';
 import FabBearProgressLoader from '@/components/base/FabBearProgressLoader.vue';
 import FinalBottleneckReportView from '@/components/report/FinalBottleneckReportView.vue';
+import ReportV1BottleneckReportView from '@/components/report/ReportV1BottleneckReportView.vue';
 
 import { formatKoMonthDayTime } from '@/utils/format';
 
@@ -24,16 +25,18 @@ defineEmits<{
   askAi: [];
 }>();
 
-type FinalReportInstance = InstanceType<typeof FinalBottleneckReportView>;
+type ReportViewInstance = {
+  triggerPdfDownload: () => Promise<void> | void;
+};
 
-const finalReportRef = ref<FinalReportInstance | null>(null);
+const reportViewRef = ref<ReportViewInstance | null>(null);
 const isDownloading = ref(false);
 
 async function handlePdfDownload() {
-  if (!finalReportRef.value || isDownloading.value) return;
+  if (!reportViewRef.value || isDownloading.value) return;
   isDownloading.value = true;
   try {
-    await finalReportRef.value.triggerPdfDownload();
+    await reportViewRef.value.triggerPdfDownload();
   } finally {
     isDownloading.value = false;
   }
@@ -47,14 +50,6 @@ async function handleBackendPdfDownload(caseId: string) {
   } finally {
     isDownloading.value = false;
   }
-}
-
-function handleMarkdownDownload() {
-  finalReportRef.value?.downloadMarkdown();
-}
-
-function handleJsonDownload() {
-  finalReportRef.value?.downloadJson();
 }
 
 function elapsedMin(from: string, to: string): number {
@@ -89,7 +84,32 @@ function sanitizeReportHtml(html?: string | null): string {
     </p>
 
     <template v-else>
-      <template v-if="report.finalReport">
+      <template v-if="report.reportV1">
+        <header class="bnc-report__header">
+          <div class="bnc-report__header-meta">
+            <h3 class="bnc-report__title">AI 대응 리포트</h3>
+            <div class="bnc-report__header-sub">
+              <span>생성 {{ report.reportV1.meta.generated_at }}</span>
+              <span>대상 {{ report.reportV1.meta.process_name }}</span>
+              <span v-if="report.qdrantIndexed" class="bnc-report__indexed">유사 사례 색인됨</span>
+            </div>
+          </div>
+          <div class="bnc-report__actions">
+            <BaseButton size="sm" :disabled="isDownloading" @click="handlePdfDownload">
+              <Printer :size="14" />
+              {{ isDownloading ? 'PDF 생성 중…' : '인쇄용 PDF' }}
+            </BaseButton>
+            <BaseButton class="bnc-report__ask-button" size="sm" :disabled="aiBusy" @click="$emit('askAi')">
+              <MessageCircle :size="14" />
+              {{ aiBusy ? 'AI 분석 중…' : '대화에서 더 물어보기' }}
+            </BaseButton>
+          </div>
+        </header>
+
+        <ReportV1BottleneckReportView ref="reportViewRef" :report="report.reportV1" />
+      </template>
+
+      <template v-else-if="report.finalReport">
         <header class="bnc-report__header">
           <div class="bnc-report__header-meta">
             <h3 class="bnc-report__title">AI 대응 리포트 전문</h3>
@@ -104,22 +124,14 @@ function sanitizeReportHtml(html?: string | null): string {
               <Printer :size="14" />
               {{ isDownloading ? 'PDF 생성 중…' : '인쇄용 PDF' }}
             </BaseButton>
-            <BaseButton variant="ghost" size="sm" @click="handleMarkdownDownload">
-              <FileText :size="14" />
-              Markdown
-            </BaseButton>
-            <BaseButton variant="ghost" size="sm" @click="handleJsonDownload">
-              <FileJson :size="14" />
-              JSON
-            </BaseButton>
-            <BaseButton variant="ghost" size="sm" :disabled="aiBusy" @click="$emit('askAi')">
+            <BaseButton class="bnc-report__ask-button" size="sm" :disabled="aiBusy" @click="$emit('askAi')">
               <MessageCircle :size="14" />
               {{ aiBusy ? 'AI 분석 중…' : '대화에서 더 물어보기' }}
             </BaseButton>
           </div>
         </header>
 
-        <FinalBottleneckReportView ref="finalReportRef" :report="report.finalReport" />
+        <FinalBottleneckReportView ref="reportViewRef" :report="report.finalReport" />
       </template>
 
       <template v-else>
@@ -146,7 +158,7 @@ function sanitizeReportHtml(html?: string | null): string {
               <Printer :size="14" />
               {{ isDownloading ? 'PDF 다운로드 중…' : 'PDF 다운로드' }}
             </BaseButton>
-            <BaseButton variant="ghost" size="sm" :disabled="aiBusy" @click="$emit('askAi')">
+            <BaseButton class="bnc-report__ask-button" size="sm" :disabled="aiBusy" @click="$emit('askAi')">
               <MessageCircle :size="14" />
               {{ aiBusy ? 'AI 분석 중…' : '대화에서 더 물어보기' }}
             </BaseButton>
@@ -243,6 +255,14 @@ function sanitizeReportHtml(html?: string | null): string {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+}
+
+.bnc-report__actions :deep(.bnc-report__ask-button) {
+  border-color: color-mix(in srgb, var(--color-action-primary) 32%, var(--color-border-default));
+  background: color-mix(in srgb, var(--color-action-primary) 10%, var(--color-bg-card));
+  color: var(--color-action-primary);
+  border-radius: var(--radius-pill);
+  font-weight: var(--font-weight-bold);
 }
 
 .bnc-report__header-meta {
@@ -350,8 +370,7 @@ function sanitizeReportHtml(html?: string | null): string {
   gap: var(--space-2);
   padding: var(--space-4);
   background: var(--color-bg-page);
-  border: 1px solid var(--color-border-subtle);
-  border-left: 3px solid var(--color-action-primary);
+  border: 1px solid color-mix(in srgb, var(--color-action-primary) 22%, var(--color-border-subtle));
   border-radius: var(--radius-md);
 }
 

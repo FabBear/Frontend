@@ -1339,7 +1339,6 @@ function handleRejectConfirm() {
   min-width: 0;
   padding: var(--space-3) var(--space-4);
   border: 1px solid color-mix(in srgb, var(--color-action-primary) 22%, var(--color-border-default));
-  border-left: 4px solid var(--color-action-primary);
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--color-action-primary) 5%, var(--color-bg-surface));
 }
@@ -1465,13 +1464,11 @@ function handleRejectConfirm() {
 /* 추천/잠정 선택 카드 — 판정 성격에 따라 accent 색상 분리 */
 .bnc-solutions__card--recommended {
   border-color: color-mix(in srgb, var(--color-status-success) 45%, var(--color-border-default));
-  border-top: 3px solid var(--color-status-success);
   background: color-mix(in srgb, var(--color-status-success) 4%, var(--color-bg-card));
 }
 
 .bnc-solutions__card--recommended-success {
   border-color: color-mix(in srgb, var(--color-status-success) 45%, var(--color-border-default));
-  border-top-color: var(--color-status-success);
   background: color-mix(in srgb, var(--color-status-success) 4%, var(--color-bg-card));
 }
 

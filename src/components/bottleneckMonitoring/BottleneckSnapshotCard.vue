@@ -70,7 +70,6 @@ const emit = defineEmits<{
   gap: var(--space-2);
   min-height: 112px;
   border: var(--border-width-default) solid var(--color-border-default);
-  border-left: 4px solid var(--color-action-primary);
   border-radius: var(--radius-lg);
   background: var(--color-bg-card);
   padding: var(--space-3);

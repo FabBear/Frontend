@@ -16,6 +16,9 @@ import type { BaseTableColumn, BaseTableRow } from '@/components/base/BaseTable.
 
 const authStore = useAuthStore();
 
+// 프롬프트 편집/복원은 백엔드 미연동(임시 메모리). 조회 전용으로 노출하고 쓰기는 비활성화한다.
+const isReadonly = true;
+
 const templates = ref(MOCK_PROMPT_TEMPLATES.map((t) => ({ ...t, variables: [...t.variables] })));
 const allVersions = ref(MOCK_PROMPT_VERSIONS.map((v) => ({ ...v })));
 const selectedId = ref(templates.value[0]?.id ?? '');
@@ -167,8 +170,11 @@ function toRow(version: AdminPromptVersion): BaseTableRow {
   <div class="admin-prompt-view">
     <header class="admin-prompt-view__header">
       <div>
-        <h1>프롬프트 관리</h1>
-        <p>Agent 카테고리별 활성 프롬프트와 버전 이력을 관리합니다.</p>
+        <div class="admin-prompt-view__title-row">
+          <h1>프롬프트 관리</h1>
+          <BaseBadge v-if="isReadonly" variant="warning">준비중 · 변경은 저장되지 않습니다</BaseBadge>
+        </div>
+        <p>Agent 카테고리별 활성 프롬프트와 버전 이력을 조회합니다. (조회 전용)</p>
       </div>
       <BaseBadge variant="info">카테고리당 활성 1개</BaseBadge>
     </header>
@@ -194,7 +200,7 @@ function toRow(version: AdminPromptVersion): BaseTableRow {
           </div>
           <div class="admin-prompt-view__edit-actions">
             <template v-if="!isEditing">
-              <BaseButton size="sm" variant="ghost" @click="startEdit">편집</BaseButton>
+              <BaseButton size="sm" variant="ghost" :disabled="isReadonly" @click="startEdit">편집</BaseButton>
             </template>
             <template v-else>
               <BaseButton size="sm" @click="requestSave">저장</BaseButton>
@@ -250,7 +256,13 @@ function toRow(version: AdminPromptVersion): BaseTableRow {
           </BaseBadge>
         </template>
         <template #cell-_action="{ row }">
-          <BaseButton v-if="row.status !== 'ACTIVE'" size="sm" variant="ghost" @click="handleRestoreClick(row)">
+          <BaseButton
+            v-if="row.status !== 'ACTIVE'"
+            size="sm"
+            variant="ghost"
+            :disabled="isReadonly"
+            @click="handleRestoreClick(row)"
+          >
             복원
           </BaseButton>
         </template>
@@ -328,6 +340,13 @@ function toRow(version: AdminPromptVersion): BaseTableRow {
   align-items: end;
   justify-content: space-between;
   gap: var(--space-3);
+}
+
+.admin-prompt-view__title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .admin-prompt-view__tabs,
@@ -480,8 +499,10 @@ pre {
 }
 
 .admin-prompt-view__confirm-warn {
-  border-left: 3px solid var(--color-risk-high);
-  padding-left: var(--space-3);
+  border: var(--border-width-default) solid color-mix(in srgb, var(--color-risk-high) 36%, var(--color-border-default));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-risk-high) 6%, var(--color-bg-card));
+  padding: var(--space-2) var(--space-3);
   font-size: var(--font-size-sm);
 }
 

@@ -16,49 +16,49 @@ export const ADMIN_RESOURCE_META: Record<AdminResourceKey, AdminResourceMeta> = 
   thresholds: {
     key: 'thresholds',
     title: '임계값 관리',
-    description: 'tm_threshold_config 기준 현재 임계값만 조회합니다.',
+    description: '공장 단위 병목·KPI·대응 임계값의 현재값을 조회합니다.',
     primaryLabel: '설정 키',
     secondaryLabel: '분류',
   },
   access: {
     key: 'access',
     title: '권한 관리',
-    description: 'tm_app_user, tm_role 기준 사용자와 역할만 조회합니다.',
+    description: '사용자 계정과 역할을 조회합니다.',
     primaryLabel: '사용자',
     secondaryLabel: '역할',
   },
   mlflow: {
     key: 'mlflow',
     title: 'MLflow 모니터링',
-    description: 'th_ml_model_version 기준 모델 버전 메타만 조회합니다.',
+    description: '모델 버전 메타데이터를 조회합니다.',
     primaryLabel: '모델',
     secondaryLabel: 'Stage',
   },
   mesInterface: {
     key: 'mesInterface',
     title: 'MES 인터페이스',
-    description: 'tm_mes_field_mapping 기준 필드 매핑만 조회합니다.',
+    description: '고객 MES 필드와 표준 필드 매핑을 조회합니다.',
     primaryLabel: '인터페이스',
     secondaryLabel: 'Endpoint',
   },
   prompts: {
     key: 'prompts',
     title: '프롬프트 관리',
-    description: 'tm_prompt_template, th_prompt_version 기준 활성 프롬프트 버전만 조회합니다.',
+    description: '활성 프롬프트 버전을 조회합니다.',
     primaryLabel: '프롬프트',
     secondaryLabel: 'Agent',
   },
   ingestion: {
     key: 'ingestion',
     title: '데이터 수집',
-    description: 'tb_mes_collect_job 기준 수집 잡 상태만 조회합니다.',
+    description: '수집 잡 상태와 수신 현황을 조회합니다.',
     primaryLabel: '수집 잡',
     secondaryLabel: '스케줄',
   },
   logs: {
     key: 'logs',
     title: '운영 로그',
-    description: 'th_audit_log 기준 감사 로그만 조회합니다.',
+    description: '시스템 감사 로그를 조회합니다.',
     primaryLabel: '이벤트',
     secondaryLabel: '소스',
   },
@@ -257,23 +257,23 @@ export const MOCK_ADMIN_ITEMS: AdminResourceItem[] = [
   ),
   item(
     'logs',
-    'USER 변경 감사',
-    'th_audit_log',
+    '사용자 계정 변경 감사',
+    '감사 로그',
     'Audit',
     'NORMAL',
     'System',
-    'entity_type USER',
-    'INSERT/UPDATE/DELETE'
+    '대상: 사용자 계정',
+    '등록 / 수정 / 삭제'
   ),
   item(
     'logs',
-    'ROLE 변경 감사',
-    'th_audit_log',
+    '역할·권한 변경 감사',
+    '감사 로그',
     'Audit',
     'NORMAL',
     'System',
-    'entity_type ROLE',
-    'INSERT/UPDATE/DELETE'
+    '대상: 역할·권한',
+    '등록 / 수정 / 삭제'
   ),
 ];
 

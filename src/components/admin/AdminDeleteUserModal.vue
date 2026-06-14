@@ -71,14 +71,19 @@ defineEmits<{
 }
 
 .admin-delete-user-modal__sub {
-  border-left: 3px solid var(--color-risk-critical);
-  padding-left: var(--space-3);
+  border: var(--border-width-default) solid
+    color-mix(in srgb, var(--color-risk-critical) 36%, var(--color-border-default));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-risk-critical) 6%, var(--color-bg-card));
+  padding: var(--space-2) var(--space-3);
   font-size: var(--font-size-sm);
 }
 
 .admin-delete-user-modal__warn {
-  border-left: 3px solid var(--color-risk-high);
-  padding-left: var(--space-3);
+  border: var(--border-width-default) solid color-mix(in srgb, var(--color-risk-high) 36%, var(--color-border-default));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-risk-high) 6%, var(--color-bg-card));
+  padding: var(--space-2) var(--space-3);
   font-size: var(--font-size-sm);
 }
 

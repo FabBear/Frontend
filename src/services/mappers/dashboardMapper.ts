@@ -185,7 +185,9 @@ function getRiskGradeByUtilization(utilizationRate: number): string {
 
 export function mapTrends(trends: DashboardTrendsResponse): KpiTrendSeries[] {
   return (Object.keys(TREND_META) as DashboardTrendKey[]).flatMap((key) => {
-    const points = trends.series[key] ?? [];
+    const points = (trends.series[key] ?? []).filter(
+      (point): point is { measuredAt: string; value: number } => point.value !== null
+    );
     if (points.length === 0) return [];
 
     const meta = TREND_META[key];

@@ -8,6 +8,7 @@ import { useTheme } from '@/composables/useTheme';
 import type { AuthUser } from '@/types/auth';
 
 import BaseButton from '@/components/base/BaseButton.vue';
+import DataAsOfBadge from '@/components/layout/DataAsOfBadge.vue';
 
 interface Props {
   title: string;
@@ -15,6 +16,7 @@ interface Props {
   user: AuthUser | null;
   notificationOpen?: boolean;
   chatOpen?: boolean;
+  dataAsOf?: string | null;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -54,6 +56,7 @@ const userSecondaryLabel = computed(() => {
     </div>
 
     <div class="the-header__actions">
+      <DataAsOfBadge :as-of="dataAsOf ?? null" />
       <BaseButton
         class="the-header__chat-button"
         :class="{ 'the-header__chat-button--active': chatOpen }"

@@ -119,7 +119,6 @@ const levelLabelMap: Record<NotificationLevel, string> = {
   width: 340px;
   max-height: calc(100svh - var(--layout-header-height));
   overflow-y: auto;
-  border-left: var(--border-width-default) solid var(--color-border-default);
   background: var(--color-bg-surface);
   box-shadow: var(--shadow-panel);
 }

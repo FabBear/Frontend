@@ -242,7 +242,7 @@ function getRiskFilterColor(value: MesRiskGrade | 'ALL') {
 .tool-group-list-panel__item--selected {
   border-color: var(--color-action-primary-border);
   background: var(--color-action-primary-soft);
-  box-shadow: inset 3px 0 0 var(--color-action-primary);
+  box-shadow: inset 0 0 0 1px var(--color-action-primary-border);
 }
 
 .tool-group-list-panel__item-top {

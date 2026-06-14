@@ -55,7 +55,7 @@ function handleClick() {
 <template>
   <article
     class="kpi-card"
-    :class="{ 'kpi-card--clickable': clickable, 'kpi-card--active': active }"
+    :class="{ 'kpi-card--clickable': clickable, 'kpi-card--active': active, 'kpi-card--with-trend': $slots.trend }"
     :role="clickable ? 'button' : undefined"
     :tabindex="clickable ? 0 : undefined"
     @click="handleClick"
@@ -71,8 +71,18 @@ function handleClick() {
         {{ formatDelta() }}
       </span>
     </div>
-    <p v-if="subtitle" class="kpi-card__subtitle">{{ subtitle }}</p>
+    <p
+      v-if="subtitle || $slots.trend"
+      class="kpi-card__subtitle"
+      :class="{ 'kpi-card__subtitle--empty': !subtitle }"
+      :aria-hidden="subtitle ? undefined : 'true'"
+    >
+      {{ subtitle }}
+    </p>
     <p v-if="note" class="kpi-card__note">{{ note }}</p>
+    <div v-if="$slots.trend" class="kpi-card__trend">
+      <slot name="trend" />
+    </div>
   </article>
 </template>
 
@@ -80,6 +90,7 @@ function handleClick() {
 .kpi-card {
   display: grid;
   align-content: start;
+  min-width: 0;
   gap: var(--space-1);
   border: var(--border-width-default) solid var(--color-border-default);
   border-radius: var(--radius-lg);
@@ -88,17 +99,26 @@ function handleClick() {
   box-shadow: var(--shadow-sm);
 }
 
+.kpi-card--with-trend {
+  align-content: stretch;
+  grid-template-rows: 18px 30px 18px minmax(58px, 1fr);
+}
+
 .kpi-card--clickable {
   cursor: pointer;
   transition:
     border-color 120ms,
-    background 120ms;
+    background 120ms,
+    transform 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .kpi-card--clickable:hover,
 .kpi-card--clickable:focus-visible {
   border-color: var(--color-border-strong);
   background: var(--color-bg-surface);
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-panel);
   outline: none;
 }
 
@@ -109,9 +129,13 @@ function handleClick() {
 }
 
 .kpi-card__title {
+  overflow: hidden;
   color: var(--color-fg-muted);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .kpi-card__value-row {
@@ -119,12 +143,14 @@ function handleClick() {
   flex-wrap: wrap;
   align-items: baseline;
   gap: var(--space-2);
+  min-height: 30px;
 }
 
 .kpi-card__value {
   color: var(--color-fg-strong);
   font-size: var(--font-size-xl);
   line-height: var(--line-height-tight);
+  font-weight: var(--font-weight-extrabold);
 }
 
 .kpi-card__delta {
@@ -143,12 +169,25 @@ function handleClick() {
 }
 
 .kpi-card__subtitle {
+  overflow: hidden;
   color: var(--color-fg-muted);
   font-size: var(--font-size-sm);
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kpi-card__subtitle--empty {
+  visibility: hidden;
 }
 
 .kpi-card__note {
   color: var(--color-fg-muted);
   font-size: var(--font-size-sm);
+}
+
+.kpi-card__trend {
+  min-width: 0;
+  min-height: 0;
 }
 </style>

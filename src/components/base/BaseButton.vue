@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 
 interface Props {
-  variant?: 'primary' | 'ghost';
+  variant?: 'primary' | 'ghost' | 'soft';
   size?: 'sm' | 'md';
   disabled?: boolean;
   loading?: boolean;
@@ -59,6 +59,18 @@ const isDisabled = computed(() => props.disabled || props.loading);
   display: inline-flex;
   align-items: center;
   gap: var(--spacing-control-gap);
+}
+
+.button--soft {
+  border-color: var(--color-login-panel-border);
+  background: var(--color-login-panel-bg);
+  color: var(--color-action-primary);
+}
+
+.button--soft:hover:not(:disabled) {
+  border-color: var(--color-action-primary-border);
+  background: var(--color-action-primary-soft);
+  color: var(--color-action-primary);
 }
 
 .base-button__spinner {

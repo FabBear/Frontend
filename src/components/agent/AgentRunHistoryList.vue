@@ -5,9 +5,13 @@ defineProps<{
   items: AgentRunListItem[];
   loading?: boolean;
   title?: string;
+  deletable?: boolean;
 }>();
 
-const emit = defineEmits<{ (e: 'select', item: AgentRunListItem): void }>();
+const emit = defineEmits<{
+  (e: 'select', item: AgentRunListItem): void;
+  (e: 'delete', item: AgentRunListItem): void;
+}>();
 
 function fmt(ts: string | null): string {
   if (!ts) return '';
@@ -24,14 +28,26 @@ function fmt(ts: string | null): string {
     <p v-if="loading" class="agent-run-history__state">불러오는 중…</p>
     <p v-else-if="items.length === 0" class="agent-run-history__state">아직 실행 이력이 없습니다.</p>
     <ul v-else class="agent-run-history__list">
-      <li v-for="item in items" :key="item.id">
+      <li v-for="item in items" :key="item.id" class="agent-run-history__row">
         <button type="button" class="agent-run-history__item" @click="emit('select', item)">
           <span class="agent-run-history__summary">{{ item.summary ?? '(요약 없음)' }}</span>
           <span class="agent-run-history__meta">
-            <span class="agent-run-history__status" :data-status="item.status">{{ item.status }}</span>
+            <span v-if="item.status !== 'SUCCEEDED'" class="agent-run-history__status" :data-status="item.status">{{
+              item.status
+            }}</span>
             <span v-if="item.reportIntent">· {{ item.reportIntent }}</span>
             <time>{{ fmt(item.completedAt ?? item.createdAt) }}</time>
           </span>
+        </button>
+        <button
+          v-if="deletable"
+          type="button"
+          class="agent-run-history__delete"
+          title="이력 삭제"
+          aria-label="이력 삭제"
+          @click.stop="emit('delete', item)"
+        >
+          ×
         </button>
       </li>
     </ul>
@@ -60,8 +76,14 @@ function fmt(ts: string | null): string {
   max-height: 320px;
   overflow-y: auto;
 }
+.agent-run-history__row {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+}
 .agent-run-history__item {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   text-align: left;
   display: grid;
   gap: 4px;
@@ -71,14 +93,31 @@ function fmt(ts: string | null): string {
   background: transparent;
   cursor: pointer;
 }
+.agent-run-history__delete {
+  flex: 0 0 auto;
+  width: 32px;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+  border-radius: var(--radius-2, 8px);
+  background: transparent;
+  color: var(--text-muted, #999);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.agent-run-history__delete:hover {
+  border-color: var(--danger, #e5484d);
+  color: var(--danger, #e5484d);
+}
 .agent-run-history__item:hover {
   background: var(--surface-hover, rgba(255, 255, 255, 0.04));
 }
 .agent-run-history__summary {
   font-size: 0.9rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .agent-run-history__meta {
   display: flex;

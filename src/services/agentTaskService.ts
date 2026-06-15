@@ -127,6 +127,10 @@ export async function fetchAgentRunResult(runId: string): Promise<AgentTaskResul
   return data ?? null;
 }
 
+export async function deleteFabBriefing(briefingId: string): Promise<void> {
+  await api.delete(`/v1/fab-briefings/${briefingId}`);
+}
+
 export async function listFabBriefings(page = 0, size = 20): Promise<AgentRunListResult> {
   const { data } = await api.get<{
     items: {
@@ -151,7 +155,7 @@ export async function listFabBriefings(page = 0, size = 20): Promise<AgentRunLis
   };
 }
 
-export async function listPeriodReports(page = 0, size = 20): Promise<AgentRunListResult> {
+export async function listPeriodReports(page = 0, size = 20, intent?: string): Promise<AgentRunListResult> {
   const { data } = await api.get<{
     items: {
       reportRunId: string;
@@ -164,7 +168,7 @@ export async function listPeriodReports(page = 0, size = 20): Promise<AgentRunLi
       completedAt: string | null;
     }[];
     pageInfo: PageInfo;
-  }>('/v1/period-reports', { params: { page, size } });
+  }>('/v1/period-reports', { params: { page, size, intent } });
   return {
     items: data.items.map((it) => ({
       id: it.reportRunId,

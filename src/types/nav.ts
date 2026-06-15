@@ -8,6 +8,7 @@ export interface NavItem {
 }
 
 export interface NavSection {
-  title: string;
+  title?: string;
+  adminOnly?: boolean;
   items: NavItem[];
 }

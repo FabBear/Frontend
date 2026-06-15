@@ -4,9 +4,9 @@ import { useRoute, useRouter } from 'vue-router';
 
 import { useAuthStore } from '@/stores/auth';
 
-import { MOCK_AUTH_ACCOUNTS } from '@/constants/mockData/auth';
+import { getApiErrorMessage } from '@/services/api';
 
-import type { LoginRequest, MockAuthAccount } from '@/types/auth';
+import type { LoginRequest } from '@/types/auth';
 
 import LoginBrandPanel from '@/components/auth/LoginBrandPanel.vue';
 import LoginForm from '@/components/auth/LoginForm.vue';
@@ -16,7 +16,6 @@ const route = useRoute();
 const authStore = useAuthStore();
 const loginError = ref('');
 const isLoading = ref(false);
-const loginFormRef = ref<InstanceType<typeof LoginForm> | null>(null);
 
 function resolveSafeRedirect(rawRedirect: unknown): string {
   if (typeof rawRedirect !== 'string') return '/dashboard';
@@ -37,20 +36,22 @@ onMounted(async () => {
   }
 });
 
-function fillDemo(account: MockAuthAccount) {
-  loginFormRef.value?.fill(account.loginId, account.password, account.fabId);
-}
-
 async function handleLogin(payload: LoginRequest) {
   loginError.value = '';
   isLoading.value = true;
 
   try {
+    const latestFabs = await authStore.fetchFabs();
+    if (!latestFabs.some((fab) => fab.fabId === payload.fabId)) {
+      loginError.value = 'Fab 목록이 갱신되었습니다. Fab을 다시 선택해 주세요.';
+      return;
+    }
+
     await authStore.login(payload);
     const redirect = resolveSafeRedirect(route.query.redirect);
     router.push(redirect);
   } catch (error) {
-    loginError.value = error instanceof Error ? error.message : '로그인 중 알 수 없는 오류가 발생했습니다.';
+    loginError.value = getApiErrorMessage(error, '로그인 중 알 수 없는 오류가 발생했습니다.');
   } finally {
     isLoading.value = false;
   }
@@ -64,27 +65,12 @@ async function handleLogin(payload: LoginRequest) {
 
     <div class="login-view__right">
       <section class="login-view__panel" aria-labelledby="login-title">
-        <LoginForm ref="loginFormRef" :fabs="authStore.fabs" :loading="isLoading" @submit="handleLogin" />
+        <LoginForm :fabs="authStore.fabs" :loading="isLoading" @submit="handleLogin" />
 
         <p v-if="loginError" class="login-view__error" role="alert">
           {{ loginError }}
         </p>
       </section>
-
-      <!-- TODO: 프로덕션 배포 전 제거 — 데모 계정 자동완성 버튼 -->
-      <div class="login-view__demo">
-        <p>Demo 계정</p>
-        <dl>
-          <div v-for="account in MOCK_AUTH_ACCOUNTS" :key="account.userId">
-            <dt>{{ account.roles.includes('ADMIN') ? '관리자' : '일반 엔지니어' }}</dt>
-            <dd>
-              <button class="login-view__demo-fill" type="button" @click="fillDemo(account)">
-                {{ account.fabCode }} · {{ account.loginId }} / {{ account.password }}
-              </button>
-            </dd>
-          </div>
-        </dl>
-      </div>
     </div>
   </main>
 </template>
@@ -219,16 +205,6 @@ async function handleLogin(payload: LoginRequest) {
     inset 0 1px 0 #ffffff;
 }
 
-.login-view__demo {
-  display: grid;
-  gap: var(--space-2);
-  width: min(100%, 440px);
-  border-top: var(--border-width-default) solid color-mix(in srgb, var(--color-login-panel-border) 48%, transparent);
-  padding-top: var(--space-4);
-  color: color-mix(in srgb, var(--color-brand-brown) 42%, var(--color-fg-muted));
-  font-size: var(--font-size-sm);
-}
-
 .login-view__error {
   border: var(--border-width-default) solid color-mix(in srgb, var(--color-status-danger) 30%, transparent);
   border-radius: var(--radius-md);
@@ -237,45 +213,6 @@ async function handleLogin(payload: LoginRequest) {
   color: var(--color-status-danger);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
-}
-
-.login-view__demo p {
-  font-weight: var(--font-weight-bold);
-}
-
-.login-view__demo dl {
-  display: grid;
-  gap: var(--space-2);
-}
-
-.login-view__demo div {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.login-view__demo dt {
-  color: var(--color-fg);
-  font-weight: var(--font-weight-semibold);
-}
-
-.login-view__demo dd {
-  margin: 0;
-}
-
-.login-view__demo-fill {
-  border: 0;
-  background: transparent;
-  color: color-mix(in srgb, var(--color-brand-brown) 56%, var(--color-fg-muted));
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: var(--font-size-sm);
-  text-decoration: underline dashed;
-  text-underline-offset: 3px;
-  cursor: pointer;
-}
-
-.login-view__demo-fill:hover {
-  color: var(--color-gold);
 }
 
 @media (max-width: 860px) {

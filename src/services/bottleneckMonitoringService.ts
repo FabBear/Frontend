@@ -48,6 +48,7 @@ export async function fetchBottleneckAlertsPage({
       page,
       size,
       sort: 'detectedAt,desc',
+      riskGrade: 'CRITICAL',
       ...(detectedFrom ? { detectedFrom } : {}),
       ...(detectedTo ? { detectedTo } : {}),
     },
@@ -88,7 +89,7 @@ async function fetchRankingsResponse(
   return data;
 }
 
-export async function fetchBottleneckRankings(snapshotId: string): Promise<BottleneckRankingsResponse> {
+export async function fetchBottleneckRankings(snapshotId?: string | null): Promise<BottleneckRankingsResponse> {
   return fetchRankingsResponse(snapshotId);
 }
 

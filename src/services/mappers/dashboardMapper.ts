@@ -201,7 +201,6 @@ export function mapTrends(trends: DashboardTrendsResponse): KpiTrendSeries[] {
         colorToken: meta.colorToken,
         xLabels: points.map((point) => formatTrendLabel(point.measuredAt, trends.intervalMin)),
         valueFormat: meta.valueFormat,
-        targetValue: meta.targetValue,
       },
     ];
   });
@@ -219,9 +218,12 @@ function buildTrendSubtitle(range: string, intervalMin: number, key: DashboardTr
 }
 
 function formatRangeLabel(range: string): string {
+  if (range === '6h') return '6시간';
   if (range === '24h') return '24시간';
   if (range === '7d') return '7일';
+  if (range === '30d') return '30일';
   if (range === '1h') return '1시간';
+  if (range === 'custom') return '직접 설정';
   return range;
 }
 

@@ -179,14 +179,33 @@ export function useBottleneckMonitoring() {
     detailErrorMessage.value = null;
 
     try {
-      const snapshotData = await fetchBottleneckSnapshot(caseId);
+      // 1) 케이스 기준 스냅샷 조회. 케이스에 연결된 스냅샷이 없으면(E-BN-001) 최신 스냅샷으로 폴백한다.
+      let snapshotData: BottleneckSnapshot;
+      try {
+        snapshotData = await fetchBottleneckSnapshot(caseId);
+      } catch (snapshotError) {
+        if (caseId && isNoSnapshotError(snapshotError)) {
+          snapshotData = await fetchBottleneckSnapshot(null);
+        } else {
+          throw snapshotError;
+        }
+      }
 
-      // processMap과 rankings는 모두 snapshotId만 필요 → 병렬 호출
-      const [processMapData, rankingsRaw] = await Promise.all([
-        fetchBottleneckProcessMap(snapshotData.snapshotId),
-        fetchBottleneckRankings(snapshotData.snapshotId),
-      ]);
-      const rankings = mapBottleneckRankings(rankingsRaw, processMapData.areas);
+      // 2) 스냅샷 시각 기준 공정맵/랭킹 (snapshotId만 필요 → 병렬)
+      let processMapData = await fetchBottleneckProcessMap(snapshotData.snapshotId);
+      let rankingsRaw = await fetchBottleneckRankings(snapshotData.snapshotId);
+      let rankings = mapBottleneckRankings(rankingsRaw, processMapData.areas);
+
+      // 3) 스냅샷 capturedAt 시각에 적재된 tg_metrics가 없어 결과가 비면(메트릭 적재 시각과
+      //    스냅샷 시각 어긋남) 빈 화면 대신 최신 메트릭 기준으로 폴백해 현황을 보여준다.
+      //    snapshot.value는 케이스 스냅샷을 유지하므로 스냅샷 카드의 감지 시각/대상 TG는 그대로다.
+      if (rankings.length === 0 && processMapData.areas.length === 0) {
+        [processMapData, rankingsRaw] = await Promise.all([
+          fetchBottleneckProcessMap(null),
+          fetchBottleneckRankings(null),
+        ]);
+        rankings = mapBottleneckRankings(rankingsRaw, processMapData.areas);
+      }
 
       snapshot.value = snapshotData;
       applyToolGroups(rankings, initialAreaCode);

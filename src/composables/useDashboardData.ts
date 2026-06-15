@@ -1,4 +1,6 @@
-import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue';
+import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue';
+
+import { useAuthStore } from '@/stores/auth';
 
 import { fetchDashboardData } from '@/services/dashboardService';
 
@@ -7,6 +9,7 @@ import { DASHBOARD_POLL_INTERVAL_MS } from '@/constants/dashboard';
 import type { DashboardSectionData, DashboardSectionErrors } from '@/types/dashboard';
 
 export function useDashboardData() {
+  const authStore = useAuthStore();
   const dashboardData = shallowRef<DashboardSectionData>({
     kpi: null,
     alerts: null,
@@ -22,6 +25,7 @@ export function useDashboardData() {
   });
 
   async function loadDashboardData() {
+    if (!authStore.isLoggedIn) return;
     if (isLoading.value) return;
     isLoading.value = true;
     sectionErrors.value = {};
@@ -37,6 +41,7 @@ export function useDashboardData() {
   }
 
   async function pollDashboardData() {
+    if (!authStore.isLoggedIn) return;
     if (isLoading.value) return;
     try {
       const { data, errors } = await fetchDashboardData();
@@ -84,13 +89,39 @@ export function useDashboardData() {
 
   let pollTimer: ReturnType<typeof setInterval> | null = null;
 
-  onMounted(() => {
-    void loadDashboardData();
+  function startPolling() {
+    if (pollTimer !== null) return;
     pollTimer = setInterval(() => void pollDashboardData(), DASHBOARD_POLL_INTERVAL_MS);
+  }
+
+  function stopPolling() {
+    if (pollTimer === null) return;
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+
+  onMounted(() => {
+    if (!authStore.isLoggedIn) return;
+
+    void loadDashboardData();
+    startPolling();
   });
 
+  watch(
+    () => authStore.isLoggedIn,
+    (isLoggedIn) => {
+      if (!isLoggedIn) {
+        stopPolling();
+        return;
+      }
+
+      void loadDashboardData();
+      startPolling();
+    }
+  );
+
   onUnmounted(() => {
-    if (pollTimer !== null) clearInterval(pollTimer);
+    stopPolling();
   });
 
   return {

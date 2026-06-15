@@ -154,6 +154,7 @@ const processedAreas = computed(() =>
         >
           <button
             class="process-map__process-btn"
+            :class="{ 'process-map__process-btn--selected': item.isSelected }"
             type="button"
             :style="item.btnStyle"
             :aria-label="`${item.area.areaCode} (${item.nameKo}) ${metricMode === 'bottleneck' ? '병목 확률' : '가동률'} ${item.metricValue === null ? '-' : `${(item.metricValue * 100).toFixed(0)}%`}`"
@@ -285,8 +286,14 @@ const processedAreas = computed(() =>
 
 .process-map__process-btn:hover,
 .process-map__process-btn:focus-visible {
-  box-shadow: var(--shadow-sm);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-panel);
   outline: none;
+}
+
+.process-map__process-btn--selected {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-panel);
 }
 
 .process-map__process-btn strong {

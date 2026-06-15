@@ -23,8 +23,10 @@ import type {
   DashboardPageInfo,
   DashboardProcessMapResponse,
   DashboardRiskAlertsResponse,
+  DashboardTrendKey,
   DashboardTrendsResponse,
 } from '@/types/dashboardApi';
+import type { MachinePeriodRange } from '@/types/machine';
 
 interface DashboardLoadResult {
   data: DashboardSectionData;
@@ -58,6 +60,7 @@ export async function fetchDashboardRiskAlertsPage({
     params: {
       page,
       size,
+      riskGrade: 'CRITICAL',
       ...(detectedFrom ? { detectedFrom } : {}),
       ...(detectedTo ? { detectedTo } : {}),
     },
@@ -91,9 +94,40 @@ export async function fetchDashboardTrends(): Promise<KpiTrendSeries[]> {
   return sortDashboardTrends([...mapTrends(hourly.data), ...mapTrends(daily.data)]);
 }
 
+export async function fetchDashboardTrendsForPeriod(
+  periodRange: MachinePeriodRange,
+  kpis: DashboardTrendKey[]
+): Promise<KpiTrendSeries[]> {
+  const { data } = await api.get<DashboardTrendsResponse>('/v1/dashboard/trends', {
+    params: {
+      range: toDashboardTrendRange(periodRange),
+      kpi: kpis.join(','),
+      from: periodRange.from,
+      to: periodRange.to,
+    },
+  });
+  return sortDashboardTrends(mapTrends(data));
+}
+
 function sortDashboardTrends(trends: KpiTrendSeries[]): KpiTrendSeries[] {
   const order = Object.keys(TREND_META);
   return [...trends].sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
+}
+
+function toDashboardTrendRange(periodRange: MachinePeriodRange): string {
+  switch (periodRange.preset) {
+    case '6H':
+      return '6h';
+    case '7D':
+      return '7d';
+    case '30D':
+      return '30d';
+    case 'CUSTOM':
+      return 'custom';
+    case '24H':
+    default:
+      return '24h';
+  }
 }
 
 export async function fetchDashboardData(): Promise<DashboardLoadResult> {

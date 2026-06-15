@@ -224,6 +224,22 @@ export interface ReportV1KpiImpact {
   significant: boolean | null;
 }
 
+export type ReportV1ForecastKpiKey =
+  | 'q_time_min'
+  | 'wip'
+  | 'wait_ratio'
+  | 'utilization_avg'
+  | 'available_tool_ratio'
+  | string;
+
+export type ReportV1ForecastKpiValues = Partial<Record<ReportV1ForecastKpiKey, number | null>>;
+
+export interface ReportV1PerTgForecast {
+  current?: ReportV1ForecastKpiValues;
+  no_action?: ReportV1ForecastKpiValues;
+  action?: ReportV1ForecastKpiValues;
+}
+
 export interface ReportV1ActionCandidate {
   label: string;
   kind: string;
@@ -231,7 +247,7 @@ export interface ReportV1ActionCandidate {
   is_approved: boolean;
   description: string;
   target_toolgroups: string[];
-  params: Record<string, string | number | boolean | null> | null;
+  params: Record<string, unknown> | null;
   kpi_impact: ReportV1KpiImpact[];
   operational: {
     effort: number;
@@ -246,6 +262,59 @@ export interface ReportV1ActionCandidate {
   };
   composite_score: number;
   tradeoffs: string[];
+  comparison_basis?: string;
+  per_tg_forecasts?: Record<string, ReportV1PerTgForecast>;
+}
+
+export interface ReportV1RagHit {
+  case_id: string;
+  score?: number;
+  tg_code?: string;
+  area_name?: string;
+  bottleneck_cause_type?: string;
+  risk_grade?: string;
+  cause_summary?: string;
+  report_title?: string;
+  report_url?: string;
+  text?: string;
+  source_path?: string;
+}
+
+export interface ReportV1RagCaseSummary {
+  case_id?: string;
+  summary: string;
+  relevance?: string;
+  supports_effect?: boolean;
+  shows_risk?: boolean;
+}
+
+export interface ReportV1RagClaim {
+  text?: string;
+  case_ids?: string[];
+}
+
+export interface ReportV1RagCandidateEvidence {
+  effect_outlook?: string;
+  risk_level?: string;
+  evidence_strength?: string;
+  candidate_summary?: string;
+  case_summaries?: ReportV1RagCaseSummary[];
+  claims?: Array<string | ReportV1RagClaim>;
+}
+
+export interface ReportV1RagCandidate {
+  label: string;
+  profile?: string;
+  plan_description?: string;
+  hits?: ReportV1RagHit[];
+  evidence?: ReportV1RagCandidateEvidence;
+}
+
+export interface ReportV1RagComparison {
+  ranking_status?: string;
+  ranking?: unknown[];
+  rag_summary?: string;
+  overall_comment?: string;
 }
 
 export interface ReportV1 {
@@ -422,12 +491,20 @@ export interface ReportV1 {
     playbook: {
       available: boolean;
       immediate_actions: Array<{ order: number; text: string }>;
-      monitoring: Array<{ kpi: string; target: number | null; unit: string; check_after_min: number }>;
+      monitoring: Array<{ kpi: string; target: number | string | null; unit: string; check_after_min: number }>;
       rollback_condition: string;
     };
   };
   sections: Record<string, string>;
   rendered: {
     markdown: string;
+  };
+  rag_evidence?: {
+    toolgroup?: string;
+    common_hits?: ReportV1RagHit[];
+    candidates?:
+      | ReportV1RagCandidate[]
+      | Record<string, ReportV1RagCandidate | { evidence?: ReportV1RagCandidateEvidence }>;
+    comparison?: ReportV1RagComparison;
   };
 }

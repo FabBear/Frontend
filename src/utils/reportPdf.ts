@@ -97,6 +97,7 @@ function buildPdfPageSlices(
     '[data-pdf-avoid-break]',
     'thead',
     'tr',
+    'table',
     '.final-report__pdf-chart',
     '.final-report__pdf-forecast',
     '.final-report__pdf-consensus',

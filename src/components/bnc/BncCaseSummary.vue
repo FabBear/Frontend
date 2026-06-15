@@ -1,40 +1,29 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { BNC_STATUS_META } from '@/constants/bnc';
-import { RISK_LEVEL_META, riskGradeToLevel } from '@/constants/riskLevel';
+import type { BncAlertCase, BncAlertMetrics, BncCaseDetail } from '@/types/bnc';
 
-import type { BncAlertCase, BncCaseDetail } from '@/types/bnc';
-
-import BaseBadge from '@/components/base/BaseBadge.vue';
-
-import { formatKoMonthDayTime, formatRatioPercent } from '@/utils/format';
+import { formatKoMonthDayTime, formatNumber, formatRatioPercent } from '@/utils/format';
 
 const props = defineProps<{
   item: BncAlertCase;
   detail?: BncCaseDetail | null;
 }>();
 
-const riskLevel = computed(() => riskGradeToLevel(props.item.riskGrade));
-const riskMeta = computed(() => RISK_LEVEL_META[riskLevel.value]);
-const statusMeta = computed(() => BNC_STATUS_META[props.item.status]);
+const metrics = computed<BncAlertMetrics | null>(() => props.item.alertMetrics ?? null);
 
-function formatElapsed(fromIso: string, toIso?: string | null): string {
-  const start = new Date(fromIso).getTime();
-  const end = toIso ? new Date(toIso).getTime() : Date.now();
-  const totalMin = Math.max(0, Math.floor((end - start) / 60000));
-  if (totalMin < 60) return `${totalMin}분`;
-  const h = Math.floor(totalMin / 60);
-  const m = totalMin % 60;
-  if (h < 24) return m > 0 ? `${h}시간 ${m}분` : `${h}시간`;
-  return `${Math.floor(h / 24)}일 ${h % 24}시간`;
-}
-
-const elapsedText = computed(() => formatElapsed(props.item.detectedAt));
-const resolutionText = computed(() =>
-  props.detail?.resolvedAt ? formatElapsed(props.item.detectedAt, props.detail.resolvedAt) : null
-);
-const summary = computed(() => props.detail?.agentSummary ?? null);
+// stage1 알림 지표 6종 (composite_score·probability·impact_score는 %, 나머지는 수치)
+const metricCells = computed(() => {
+  const m = metrics.value;
+  return [
+    { label: '종합', value: m ? formatRatioPercent(m.compositeScore) : '-', tone: 'risk' },
+    { label: '확률', value: m ? formatRatioPercent(m.probability) : '-', tone: 'risk' },
+    { label: '영향', value: m ? formatRatioPercent(m.impactScore) : '-', tone: 'risk' },
+    { label: '후속 TG', value: m ? `${formatNumber(m.affectedCount)}개` : '-', tone: 'plain' },
+    { label: 'CT 증가', value: m ? `${formatNumber(m.ctIncreaseMin)}분` : '-', tone: 'plain' },
+    { label: '위험 Lot', value: m ? formatNumber(m.atRiskLots) : '-', tone: 'plain' },
+  ];
+});
 </script>
 
 <template>
@@ -46,36 +35,13 @@ const summary = computed(() => props.detail?.agentSummary ?? null);
         >
         <strong class="bnc-case-summary__title">{{ item.tgName }}</strong>
       </div>
-      <div class="bnc-case-summary__badges">
-        <BaseBadge :variant="riskLevel">{{ riskMeta.label }}</BaseBadge>
-        <BaseBadge :variant="statusMeta.variant">{{ statusMeta.label }}</BaseBadge>
-      </div>
     </div>
 
     <dl class="bnc-case-summary__metrics">
-      <div>
-        <dt>{{ resolutionText ? '해결 소요' : '감지 경과' }}</dt>
-        <dd>{{ resolutionText ?? elapsedText }}</dd>
+      <div v-for="cell in metricCells" :key="cell.label">
+        <dt>{{ cell.label }}</dt>
+        <dd :class="{ 'bnc-case-summary__metric--risk': cell.tone === 'risk' }">{{ cell.value }}</dd>
       </div>
-      <template v-if="summary">
-        <div>
-          <dt>영향 TG</dt>
-          <dd>{{ summary.bottleneckCount }}개</dd>
-        </div>
-        <div>
-          <dt>Critical TG</dt>
-          <dd>{{ summary.criticalCount }}개</dd>
-        </div>
-        <div>
-          <dt>최대 가동률</dt>
-          <dd>{{ formatRatioPercent(summary.maxUtilizationRate) }}</dd>
-        </div>
-      </template>
-      <template v-else>
-        <div class="bnc-case-summary__metric--placeholder" />
-        <div class="bnc-case-summary__metric--placeholder" />
-        <div class="bnc-case-summary__metric--placeholder" />
-      </template>
     </dl>
   </section>
 </template>
@@ -114,14 +80,9 @@ const summary = computed(() => props.detail?.agentSummary ?? null);
   font-weight: var(--font-weight-bold);
 }
 
-.bnc-case-summary__badges {
-  display: flex;
-  flex-shrink: 0;
-  gap: var(--space-2);
-}
-
 .bnc-case-summary__metrics {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 1px;
   margin: 0;
   overflow: hidden;
@@ -131,15 +92,9 @@ const summary = computed(() => props.detail?.agentSummary ?? null);
 }
 
 .bnc-case-summary__metrics div {
-  flex: 1;
   min-width: 0;
   padding: var(--space-2) var(--space-3);
   background: var(--color-bg-page);
-}
-
-.bnc-case-summary__metric--placeholder {
-  background: var(--color-bg-page);
-  opacity: 0.4;
 }
 
 .bnc-case-summary__metrics dt {
@@ -156,5 +111,22 @@ const summary = computed(() => props.detail?.agentSummary ?? null);
   font-weight: var(--font-weight-bold);
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.bnc-case-summary__metric--risk {
+  color: var(--color-status-danger);
+}
+
+@media (max-width: 900px) {
+  .bnc-case-summary__metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .bnc-case-summary__metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 </style>

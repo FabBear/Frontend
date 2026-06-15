@@ -317,11 +317,25 @@ watch(selectedCaseDetail, (detail) => {
   gap: var(--space-4);
 }
 
+.bnc-view__workspace > :first-child {
+  position: sticky;
+  top: var(--space-4);
+  max-height: calc(100vh - var(--space-4) * 2);
+  overflow-y: auto;
+}
+
 .bnc-view__main {
   display: grid;
   min-width: 0;
   align-content: start;
   gap: var(--space-4);
+  /* 오른쪽 패널(요약 카드 + 모든 탭) 글씨를 전체적으로 키운다.
+     커스텀 프로퍼티는 하위로 상속되므로 자식 컴포넌트(BncCauseTab 등)에도 적용된다. */
+  --font-size-xs: 14px;
+  --font-size-sm: 16px;
+  --font-size-base: 18px;
+  --font-size-lg: 21px;
+  --font-size-xl: 26px;
 }
 
 .bnc-view__tab-panel {

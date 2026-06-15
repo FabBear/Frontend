@@ -18,6 +18,7 @@ import type {
   BncAlertCase,
   BncCaseDetail,
   BncCaseListData,
+  BncCaseStatus,
   BncCauseAnalysis,
   BncPageInfo,
   BncReportPayload,
@@ -26,6 +27,7 @@ import type {
 
 const DEFAULT_TAB: BncTabId = 'progress';
 const CASE_PAGE_SIZE = 10;
+const TOTAL_BNC_STEPS = 6;
 const USE_BNC_MOCK_DATA = import.meta.env.VITE_USE_BNC_MOCK_DATA === 'true';
 const DEFAULT_PAGE_INFO: BncPageInfo = {
   page: 0,
@@ -41,9 +43,11 @@ function cloneMock<T>(value: T): T {
 }
 
 function getMockCasesPage(nextPage: number): BncCaseListData {
-  const totalElements = MOCK_BNC_CASE_LIST.items.length;
+  // 병목 대응 센터는 Critical로 판명된 케이스만 노출한다.
+  const criticalItems = MOCK_BNC_CASE_LIST.items.filter((item) => item.riskGrade === 'CRITICAL');
+  const totalElements = criticalItems.length;
   const startIndex = nextPage * CASE_PAGE_SIZE;
-  const items = MOCK_BNC_CASE_LIST.items.slice(startIndex, startIndex + CASE_PAGE_SIZE);
+  const items = criticalItems.slice(startIndex, startIndex + CASE_PAGE_SIZE);
 
   return {
     items: cloneMock(items),
@@ -67,6 +71,43 @@ function getMockCaseArtifacts(caseId: string) {
     actions: cloneMock(MOCK_BNC_ACTION_PLANS[caseId] ?? null),
     report: cloneMock(MOCK_BNC_REPORTS[caseId] ?? null),
   };
+}
+
+function normalizeCaseStatus(status: string): BncCaseStatus {
+  const normalized = status.toUpperCase();
+  if (
+    normalized === 'DETECTED' ||
+    normalized === 'ANALYZING' ||
+    normalized === 'AWAITING_HITL' ||
+    normalized === 'RESOLVED'
+  ) {
+    return normalized;
+  }
+  return 'DETECTED';
+}
+
+function normalizeRiskGrade(riskGrade: string): BncAlertCase['riskGrade'] {
+  const normalized = riskGrade.toUpperCase();
+  if (normalized === 'CRITICAL' || normalized === 'HIGH' || normalized === 'MEDIUM') {
+    return normalized;
+  }
+  return 'MEDIUM';
+}
+
+function resolveCurrentStepName(detail: BncCaseDetail): string | null {
+  const activeStep = [...detail.agentProgress]
+    .filter((step) => step.status === 'RUNNING' || step.status === 'FAILED')
+    .sort((a, b) => b.stepOrder - a.stepOrder)[0];
+  if (activeStep) return activeStep.stepName;
+
+  return (
+    [...detail.agentProgress].filter((step) => step.status === 'DONE').sort((a, b) => b.stepOrder - a.stepOrder)[0]
+      ?.stepName ?? null
+  );
+}
+
+function resolveStepProgress(detail: BncCaseDetail): number {
+  return Math.max(0, ...detail.agentProgress.filter((step) => step.status === 'DONE').map((step) => step.stepOrder));
 }
 
 export function useBnc(initialCaseId?: string | null, initialTab?: string | null) {
@@ -96,9 +137,12 @@ export function useBnc(initialCaseId?: string | null, initialTab?: string | null
     })
   );
 
-  const selectedCase = computed(
-    () => sortedCases.value.find((item) => item.caseId === selectedCaseId.value) ?? sortedCases.value[0] ?? null
-  );
+  const selectedCase = computed(() => {
+    if (selectedCaseId.value) {
+      return sortedCases.value.find((item) => item.caseId === selectedCaseId.value) ?? null;
+    }
+    return sortedCases.value[0] ?? null;
+  });
 
   const highPriorityCount = computed(
     () =>
@@ -148,19 +192,20 @@ export function useBnc(initialCaseId?: string | null, initialTab?: string | null
         pageInfo.value = data.pageInfo;
         page.value = data.pageInfo.page;
 
-        if (!selectedCaseId.value || !cases.value.some((item) => item.caseId === selectedCaseId.value)) {
+        if (!selectedCaseId.value) {
           selectedCaseId.value = sortedCases.value[0]?.caseId ?? null;
         }
 
         return;
       }
 
-      const data = await fetchBncCases({ page: nextPage, size: CASE_PAGE_SIZE });
+      // 병목 대응 센터는 Critical로 판명된 케이스만 노출한다.
+      const data = await fetchBncCases({ page: nextPage, size: CASE_PAGE_SIZE, riskGrade: 'CRITICAL' });
       cases.value = data.items;
       pageInfo.value = data.pageInfo;
       page.value = data.pageInfo.page;
 
-      if (!selectedCaseId.value || !cases.value.some((item) => item.caseId === selectedCaseId.value)) {
+      if (!selectedCaseId.value) {
         selectedCaseId.value = sortedCases.value[0]?.caseId ?? null;
       }
     } catch {
@@ -186,11 +231,13 @@ export function useBnc(initialCaseId?: string | null, initialTab?: string | null
     try {
       if (USE_BNC_MOCK_DATA) {
         selectedCaseDetail.value = getMockCaseDetail(caseId);
+        if (selectedCaseDetail.value) ensureCaseInList(selectedCaseDetail.value);
         detailErrorMessage.value = selectedCaseDetail.value ? null : '목업 Agent 진행 상세가 없습니다.';
         return;
       }
 
       selectedCaseDetail.value = await fetchBncCaseDetail(caseId);
+      ensureCaseInList(selectedCaseDetail.value);
     } catch {
       selectedCaseDetail.value = null;
       detailErrorMessage.value = 'Agent 진행 상세를 불러오지 못했습니다.';
@@ -282,6 +329,29 @@ export function useBnc(initialCaseId?: string | null, initialTab?: string | null
 
   function selectTab(tabId: BncTabId) {
     activeTab.value = tabId;
+  }
+
+  function ensureCaseInList(detail: BncCaseDetail) {
+    if (cases.value.some((item) => item.caseId === detail.caseId)) return;
+    cases.value = [toAlertCase(detail), ...cases.value];
+  }
+
+  function toAlertCase(detail: BncCaseDetail): BncAlertCase {
+    return {
+      caseId: detail.caseId,
+      tgId: detail.tgId,
+      tgName: detail.tgName,
+      areaName: detail.areaName,
+      riskGrade: normalizeRiskGrade(detail.riskGrade),
+      bottleneckProb: detail.bottleneckProb,
+      utilizationRate: detail.agentSummary.maxUtilizationRate ?? 0,
+      wipCount: detail.agentSummary.maxWipCount ?? 0,
+      detectedAt: detail.detectedAt,
+      status: normalizeCaseStatus(detail.status),
+      currentStepName: resolveCurrentStepName(detail),
+      stepProgress: resolveStepProgress(detail),
+      totalSteps: TOTAL_BNC_STEPS,
+    };
   }
 
   async function handlePageChange(nextPage: number) {

@@ -248,9 +248,7 @@ function handleSelect(point: MapPoint) {
           :style="{ left: `${point.left}%`, top: `${point.top}%` }"
           :title="`${point.tg.tgName} · ${point.roles.map(roleLabel).join(', ')}`"
           @click="handleSelect(point)"
-        >
-          <span>{{ point.roles.includes('anchor') ? '!' : '' }}</span>
-        </button>
+        />
       </div>
 
       <aside class="bnc-target-map__detail">
@@ -274,13 +272,6 @@ function handleSelect(point: MapPoint) {
         </template>
         <p v-else>표시할 대상 TG가 없습니다.</p>
       </aside>
-    </div>
-
-    <div class="bnc-target-map__legend">
-      <span class="bnc-target-map__legend-item bnc-target-map__legend-item--anchor">병목 기준</span>
-      <span class="bnc-target-map__legend-item bnc-target-map__legend-item--cause">원인 후보</span>
-      <span class="bnc-target-map__legend-item bnc-target-map__legend-item--affected">확산 영향</span>
-      <span class="bnc-target-map__legend-item bnc-target-map__legend-item--target">조치 대상</span>
     </div>
 
     <div v-if="visiblePoints.length || missingNames.length" class="bnc-target-map__chips">
@@ -356,7 +347,7 @@ function handleSelect(point: MapPoint) {
 
 .bnc-target-map__canvas {
   position: relative;
-  min-height: 220px;
+  min-height: 260px;
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
   overflow: hidden;
@@ -378,20 +369,22 @@ function handleSelect(point: MapPoint) {
 
 .bnc-target-map__bay {
   position: absolute;
-  width: 10.4%;
-  min-height: 7.6%;
+  width: 13%;
+  min-height: 10%;
   transform: translate(-50%, -50%);
   border: 1px solid color-mix(in srgb, var(--color-fg-muted) 16%, transparent);
   border-radius: 6px;
   background: color-mix(in srgb, var(--color-bg-subtle) 62%, transparent);
   color: color-mix(in srgb, var(--color-fg-muted) 72%, transparent);
-  font-size: 8px;
+  font-size: 7.5px;
   font-weight: var(--font-weight-semibold);
   text-align: center;
-  line-height: 1.2;
+  line-height: 1.25;
   display: grid;
   place-items: center;
   pointer-events: none;
+  overflow: visible;
+  word-break: break-word;
 }
 
 .bnc-target-map__point {
@@ -406,17 +399,6 @@ function handleSelect(point: MapPoint) {
     0 0 0 2px #2563eb33,
     0 3px 8px #0f172a2a;
   cursor: pointer;
-}
-
-.bnc-target-map__point span {
-  position: absolute;
-  inset: -1px;
-  display: grid;
-  place-items: center;
-  color: #fff;
-  font-size: 9px;
-  font-weight: var(--font-weight-black);
-  line-height: 1;
 }
 
 .bnc-target-map__point--anchor {
@@ -509,7 +491,6 @@ function handleSelect(point: MapPoint) {
   text-align: right;
 }
 
-.bnc-target-map__legend,
 .bnc-target-map__chips {
   display: flex;
   flex-wrap: wrap;
@@ -517,7 +498,6 @@ function handleSelect(point: MapPoint) {
   min-width: 0;
 }
 
-.bnc-target-map__legend-item,
 .bnc-target-map__chips button,
 .bnc-target-map__missing {
   display: inline-flex;
@@ -541,28 +521,6 @@ function handleSelect(point: MapPoint) {
 .bnc-target-map__chip--active {
   border-color: var(--color-action-primary);
   color: var(--color-action-primary);
-}
-
-.bnc-target-map__legend-item::before {
-  content: '';
-  width: 7px;
-  height: 7px;
-  margin-right: var(--space-1);
-  border-radius: 999px;
-  background: #2563eb;
-}
-
-.bnc-target-map__legend-item--anchor::before {
-  background: var(--color-status-danger);
-}
-.bnc-target-map__legend-item--cause::before {
-  background: var(--color-status-warning);
-}
-.bnc-target-map__legend-item--affected::before {
-  background: #7c3aed;
-}
-.bnc-target-map__legend-item--target::before {
-  background: #2563eb;
 }
 
 .bnc-target-map__missing {

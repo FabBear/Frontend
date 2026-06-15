@@ -89,13 +89,7 @@ function handleSelect() {
         </span>
         <strong class="bottleneck-case-card__title">{{ title }}</strong>
       </div>
-      <div class="bottleneck-case-card__header-right">
-        <BaseBadge :variant="riskLevel">
-          <span class="bottleneck-case-card__risk-dot" aria-hidden="true" />
-          {{ riskMeta.label }}
-        </BaseBadge>
-        <time v-if="timeLabel" class="bottleneck-case-card__time" :datetime="timeDatetime">{{ timeLabel }}</time>
-      </div>
+      <time v-if="timeLabel" class="bottleneck-case-card__time" :datetime="timeDatetime">{{ timeLabel }}</time>
     </header>
 
     <dl v-if="metrics.length" class="bottleneck-case-card__metrics">
@@ -179,7 +173,7 @@ function handleSelect() {
 /* 선택: primary 링으로 또렷하게(배경 채움 없이 선택 여부 명확) */
 .bottleneck-case-card--selected {
   border-color: var(--color-action-primary);
-  box-shadow: 0 0 0 2px var(--color-action-primary);
+  box-shadow: inset 0 0 0 2px var(--color-action-primary);
 }
 
 .bottleneck-case-card:focus-visible {
@@ -230,22 +224,8 @@ function handleSelect() {
   font-size: var(--font-size-sm);
 }
 
-.bottleneck-case-card__header-right {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  flex-shrink: 0;
-  gap: 6px;
-}
-
-.bottleneck-case-card__risk-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: var(--radius-pill);
-  background: currentColor;
-}
-
 .bottleneck-case-card__time {
+  flex-shrink: 0;
   color: var(--color-fg-muted);
   font-size: var(--font-size-xs);
   white-space: nowrap;

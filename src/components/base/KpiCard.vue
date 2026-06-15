@@ -62,7 +62,10 @@ function handleClick() {
     @keydown.enter.prevent="handleClick"
     @keydown.space.prevent="handleClick"
   >
-    <p class="kpi-card__title">{{ title }}</p>
+    <div class="kpi-card__header">
+      <p class="kpi-card__title">{{ title }}</p>
+      <slot name="meta" />
+    </div>
     <div class="kpi-card__value-row">
       <strong class="kpi-card__value" :style="valueColor ? { color: valueColor } : {}">
         {{ value }}
@@ -71,14 +74,7 @@ function handleClick() {
         {{ formatDelta() }}
       </span>
     </div>
-    <p
-      v-if="subtitle || $slots.trend"
-      class="kpi-card__subtitle"
-      :class="{ 'kpi-card__subtitle--empty': !subtitle }"
-      :aria-hidden="subtitle ? undefined : 'true'"
-    >
-      {{ subtitle }}
-    </p>
+    <p v-if="subtitle && !$slots.trend" class="kpi-card__subtitle">{{ subtitle }}</p>
     <p v-if="note" class="kpi-card__note">{{ note }}</p>
     <div v-if="$slots.trend" class="kpi-card__trend">
       <slot name="trend" />
@@ -101,7 +97,8 @@ function handleClick() {
 
 .kpi-card--with-trend {
   align-content: stretch;
-  grid-template-rows: 18px 30px 18px minmax(58px, 1fr);
+  /* 하단 설명 줄 제거분을 추이(스파크라인) 높이로 돌려준다. */
+  grid-template-rows: 18px 30px minmax(82px, 1fr);
 }
 
 .kpi-card--clickable {
@@ -117,7 +114,7 @@ function handleClick() {
 .kpi-card--clickable:focus-visible {
   border-color: var(--color-border-strong);
   background: var(--color-bg-surface);
-  transform: translateY(-5px);
+  transform: translateY(-2px);
   box-shadow: var(--shadow-panel);
   outline: none;
 }
@@ -125,10 +122,20 @@ function handleClick() {
 .kpi-card--active {
   border-color: var(--color-action-primary);
   background: color-mix(in srgb, var(--color-action-primary) 6%, transparent);
+  transform: translateY(-2px);
   box-shadow: 0 0 0 1px var(--color-action-primary);
 }
 
+.kpi-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  gap: var(--space-2);
+}
+
 .kpi-card__title {
+  min-width: 0;
   overflow: hidden;
   color: var(--color-fg-muted);
   font-size: var(--font-size-sm);
@@ -175,10 +182,6 @@ function handleClick() {
   line-height: 18px;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.kpi-card__subtitle--empty {
-  visibility: hidden;
 }
 
 .kpi-card__note {

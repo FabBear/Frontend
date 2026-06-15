@@ -28,7 +28,7 @@ function handleOpenBottleneckCenter(caseId: string) {
 }
 
 function handleSelectArea(areaCode: string) {
-  router.push({ name: ROUTE_NAMES.bottleneckMonitoring, query: { areaCode } });
+  router.push({ name: ROUTE_NAMES.mesMonitoring, query: { tab: 'toolGroup', area: areaCode } });
 }
 
 function handleSelectKpi(key: DashboardTrendKey) {

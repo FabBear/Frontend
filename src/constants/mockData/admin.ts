@@ -804,7 +804,7 @@ function accessUser(
   status: AdminAccessUser['status'],
   isActive: boolean
 ): AdminAccessUser {
-  return { id, name, role, department, fabAccess, lastLogin, status, isActive };
+  return { userId: id, id, name, role, department, fabAccess, lastLogin, status, isActive };
 }
 
 function mesField(

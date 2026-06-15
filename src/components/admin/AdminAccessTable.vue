@@ -62,7 +62,6 @@ function roleLabel(role: string) {
   const labels: Record<string, string> = {
     ADMIN: '관리자',
     ENGINEER: '공정 엔지니어',
-    VIEWER: '조회자',
   };
   return labels[role] ?? role;
 }

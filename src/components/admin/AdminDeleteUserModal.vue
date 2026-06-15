@@ -8,6 +8,7 @@ defineProps<{
   modelValue: boolean;
   user: AdminAccessUser | null;
   isLastAdmin?: boolean;
+  blockedMessage?: string;
 }>();
 
 defineEmits<{
@@ -20,7 +21,7 @@ defineEmits<{
   <BaseModal :model-value="modelValue" title="사용자 삭제" @update:model-value="$emit('update:modelValue', $event)">
     <div class="admin-delete-user-modal">
       <p v-if="isLastAdmin" class="admin-delete-user-modal__warn">
-        관리자(ADMIN) 계정은 최소 1개 이상 유지해야 합니다. 다른 관리자를 먼저 지정하세요.
+        {{ blockedMessage || '관리자(ADMIN) 계정은 최소 1개 이상 유지해야 합니다. 다른 관리자를 먼저 지정하세요.' }}
       </p>
       <template v-else>
         <p>

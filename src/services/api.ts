@@ -52,6 +52,12 @@ api.interceptors.response.use(
     // 인증 만료 401 — 쿠키 세션이 실제로 만료됐는지 /me로 확인 후 로컬 세션 초기화
     if (error.response?.status === 401 && !isAuthUrl && !config._authVerifiedOn401) {
       config._authVerifiedOn401 = true;
+      const { useAuthStore } = await import('@/stores/auth');
+      const authStore = useAuthStore();
+      if (!authStore.isLoggedIn) {
+        return Promise.reject(error);
+      }
+
       try {
         await axios.get('/v1/auth/me', {
           baseURL: api.defaults.baseURL,
@@ -60,8 +66,7 @@ api.interceptors.response.use(
         });
       } catch (meError) {
         if (axios.isAxiosError(meError) && meError.response?.status === 401) {
-          const { useAuthStore } = await import('@/stores/auth');
-          useAuthStore().clearAuth();
+          authStore.clearAuth();
         }
       }
     }
@@ -69,5 +74,21 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+/**
+ * 공통 응답 envelope({ error: { message } })에서 사용자에게 보여줄 에러 메시지를 추출한다.
+ * 컴포넌트가 axios를 직접 import하지 않도록 services 레이어에서 제공한다.
+ *
+ * @param error catch로 받은 알 수 없는 에러
+ * @param fallback envelope 메시지가 없을 때 사용할 기본 메시지
+ * @returns 표시용 에러 메시지
+ */
+export function getApiErrorMessage(error: unknown, fallback: string): string {
+  if (axios.isAxiosError(error)) {
+    const data = error.response?.data as { error?: { message?: string } } | undefined;
+    if (data?.error?.message) return data.error.message;
+  }
+  return fallback;
+}
 
 export default api;

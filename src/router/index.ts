@@ -118,12 +118,16 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   const authStore = useAuthStore();
 
-  if (!authStore.authChecked) {
-    await authStore.restoreSession();
-  }
-
   if (to.name === ROUTE_NAMES.login && authStore.isLoggedIn) {
     return { name: ROUTE_NAMES.dashboard };
+  }
+
+  if (to.name === ROUTE_NAMES.login) {
+    return true;
+  }
+
+  if (to.meta.requiresAuth && !authStore.authChecked) {
+    await authStore.restoreSession();
   }
 
   if (to.meta.requiresAuth && !authStore.isLoggedIn) {

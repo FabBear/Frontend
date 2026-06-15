@@ -33,8 +33,3 @@ export interface AuthUser {
 export interface AuthLoginResult {
   user: AuthUser;
 }
-
-export interface MockAuthAccount extends AuthUser {
-  password: string;
-  mockAccessToken: string;
-}

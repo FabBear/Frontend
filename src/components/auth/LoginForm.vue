@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import { Building2, ChevronDown, LockKeyhole, UserRound } from '@lucide/vue';
 
@@ -13,7 +13,7 @@ interface Props {
   fabs: AuthFab[];
 }
 
-withDefaults(defineProps<Props>(), { loading: false });
+const props = withDefaults(defineProps<Props>(), { loading: false });
 
 const emit = defineEmits<{
   submit: [payload: LoginRequest];
@@ -25,17 +25,6 @@ const password = ref('');
 const fabTouched = ref(false);
 const usernameTouched = ref(false);
 const passwordTouched = ref(false);
-
-function fill(id: string, p: string, fabId?: string) {
-  loginId.value = id;
-  password.value = p;
-  selectedFabId.value = fabId ?? selectedFabId.value;
-  fabTouched.value = false;
-  usernameTouched.value = false;
-  passwordTouched.value = false;
-}
-
-defineExpose({ fill });
 
 const fabError = computed(() => {
   return fabTouched.value && !selectedFabId.value ? 'Fab을 선택하세요.' : '';
@@ -50,6 +39,17 @@ const passwordError = computed(() => {
 });
 
 const canSubmit = computed(() => Boolean(selectedFabId.value && loginId.value.trim() && password.value));
+
+watch(
+  () => props.fabs,
+  (fabs) => {
+    if (selectedFabId.value && !fabs.some((fab) => fab.fabId === selectedFabId.value)) {
+      selectedFabId.value = '';
+      fabTouched.value = false;
+    }
+  },
+  { immediate: true }
+);
 
 function handleSubmit() {
   fabTouched.value = true;

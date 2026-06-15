@@ -3,11 +3,7 @@ import { computed, ref } from 'vue';
 
 import api from '@/services/api';
 
-import { MOCK_AUTH_ACCOUNTS, MOCK_AUTH_FABS } from '@/constants/mockData/auth';
-
 import type { AuthFab, AuthLoginResult, AuthUser, LoginRequest } from '@/types/auth';
-
-const USE_DEMO_AUTH = import.meta.env.VITE_USE_BNC_MOCK_DATA === 'true';
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<AuthUser | null>(null);
@@ -25,41 +21,12 @@ export const useAuthStore = defineStore('auth', () => {
 
   // 로그인 화면 마운트 시 호출 — Fab 선택 드롭다운 데이터 로드
   async function fetchFabs(): Promise<AuthFab[]> {
-    if (USE_DEMO_AUTH) {
-      fabs.value = MOCK_AUTH_FABS;
-      return fabs.value;
-    }
-
     const { data } = await api.get<{ fabs: AuthFab[] }>('/v1/auth/fabs');
     fabs.value = data.fabs;
     return data.fabs;
   }
 
   async function login(payload: LoginRequest): Promise<AuthLoginResult> {
-    if (USE_DEMO_AUTH) {
-      const account = MOCK_AUTH_ACCOUNTS.find(
-        (item) => item.loginId === payload.loginId && item.password === payload.password && item.fabId === payload.fabId
-      );
-
-      if (!account) {
-        throw new Error('Invalid mock credentials');
-      }
-
-      user.value = withFabName({
-        userId: account.userId,
-        loginId: account.loginId,
-        userName: account.userName,
-        department: account.department,
-        fabId: account.fabId,
-        fabCode: account.fabCode,
-        fabName: account.fabName,
-        roles: account.roles,
-        lastLoginAt: account.lastLoginAt,
-      });
-      authChecked.value = true;
-      return { user: user.value };
-    }
-
     const { data } = await api.post<AuthUser>('/v1/auth/login', payload);
     user.value = withFabName(data);
     authChecked.value = true;
@@ -68,22 +35,6 @@ export const useAuthStore = defineStore('auth', () => {
 
   // 현재 세션의 사용자 정보를 서버에서 다시 조회 (세션 복구 시 사용)
   async function fetchMe(): Promise<AuthUser> {
-    if (USE_DEMO_AUTH) {
-      const account = MOCK_AUTH_ACCOUNTS[1] ?? MOCK_AUTH_ACCOUNTS[0];
-      user.value = withFabName({
-        userId: account.userId,
-        loginId: account.loginId,
-        userName: account.userName,
-        department: account.department,
-        fabId: account.fabId,
-        fabCode: account.fabCode,
-        fabName: account.fabName,
-        roles: account.roles,
-        lastLoginAt: account.lastLoginAt,
-      });
-      return user.value;
-    }
-
     const { data } = await api.get<AuthUser>('/v1/auth/me');
     user.value = withFabName(data);
     return user.value;

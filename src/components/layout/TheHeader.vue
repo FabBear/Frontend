@@ -60,7 +60,7 @@ const userSecondaryLabel = computed(() => {
       <BaseButton
         class="the-header__chat-button"
         :class="{ 'the-header__chat-button--active': chatOpen }"
-        variant="ghost"
+        variant="primary"
         size="sm"
         @click="emit('openChat')"
       >

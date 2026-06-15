@@ -1,14 +1,18 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { formatAlertAreaDisplay } from '@/constants/processArea';
-
 import type { BottleneckAlertItem } from '@/types/dashboard';
 import type { DashboardPageInfo } from '@/types/dashboardApi';
 
 import BottleneckCaseCard from '@/components/common/BottleneckCaseCard.vue';
 
-import { formatKoTime, formatRatioPercent } from '@/utils/format';
+import {
+  getBottleneckAlertMetrics,
+  getBottleneckAlertProgress,
+  getBottleneckAlertStatusBadge,
+  getBottleneckAlertStatusText,
+  getBottleneckAlertSubtitle,
+} from '@/utils/bottleneckAlertCard';
 
 type PageButton = number | 'ellipsis-start' | 'ellipsis-end';
 
@@ -38,9 +42,11 @@ const emit = defineEmits<{
 const alertCards = computed(() =>
   props.alerts.map((alert) => ({
     alert,
-    subtitle: formatAlertAreaDisplay(alert.areaName, alert.tgName),
-    timeLabel: formatKoTime(alert.detectedAt),
-    statusText: `병목 확률 ${formatRatioPercent(alert.bottleneckProb)}`,
+    subtitle: getBottleneckAlertSubtitle(alert),
+    metrics: getBottleneckAlertMetrics(alert),
+    statusBadge: getBottleneckAlertStatusBadge(alert),
+    statusText: getBottleneckAlertStatusText(alert),
+    progress: getBottleneckAlertProgress(alert),
   }))
 );
 </script>
@@ -48,7 +54,7 @@ const alertCards = computed(() =>
 <template>
   <aside class="bottleneck-alert-selector" aria-labelledby="alert-selector-title">
     <header class="bottleneck-alert-selector__header">
-      <h2 id="alert-selector-title">병목 알림</h2>
+      <h2 id="alert-selector-title">이전 병목 알림 케이스</h2>
       <span>{{ pageInfo.totalElements }}건</span>
     </header>
 
@@ -97,13 +103,15 @@ const alertCards = computed(() =>
         <BottleneckCaseCard
           v-for="card in alertCards"
           :key="card.alert.caseId"
-          variant="selector"
+          variant="compact"
           :title="card.alert.tgName"
           :subtitle="card.subtitle"
           :risk-level="card.alert.riskLevel"
-          :time-label="card.timeLabel"
-          :time-datetime="card.alert.detectedAt"
+          :metrics="card.metrics"
+          :status-badge="card.statusBadge"
           :status-text="card.statusText"
+          status-kind="step"
+          :progress="card.progress"
           :selected="card.alert.caseId === selectedCaseId"
           selectable
           role="listitem"

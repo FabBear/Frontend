@@ -25,7 +25,7 @@ const { isOpen: isChatOpen, open: openChat, close: closeChat } = useChatDrawer()
 const {
   notifications,
   unreadCount,
-  latestCriticalUnread,
+  bottleneckUnreadCount,
   isLoading: isNotificationLoading,
   errorMessage: notificationErrorMessage,
   streamError,
@@ -35,6 +35,13 @@ const {
 const pageTitle = computed(() => {
   return typeof route.meta.title === 'string' ? route.meta.title : 'Dashboard';
 });
+const latestToastUnread = computed(
+  () =>
+    notifications.value.find(
+      (notification) =>
+        notification.unread && (notification.level === 'critical' || notification.type === 'MODEL_RETRAIN')
+    ) ?? null
+);
 
 // 헤더에 "현재 데이터 기준 시각"(시뮬 커서)을 하나로 표시. 커서가 흐르므로 주기적으로 갱신.
 const presentationNow = ref<string | null>(null);
@@ -70,9 +77,14 @@ function handleToggleNotifications() {
   isNotificationOpen.value = !isNotificationOpen.value;
 }
 
-async function handleOpenCriticalNotification() {
-  if (latestCriticalUnread.value) {
-    await markRead(latestCriticalUnread.value.id);
+async function handleOpenToastNotification() {
+  const notification = latestToastUnread.value;
+  if (!notification) return;
+
+  await markRead(notification.id);
+  if (notification.type === 'MODEL_RETRAIN') {
+    void handleOpenNotificationMlflow(notification.id);
+    return;
   }
   isNotificationOpen.value = true;
 }
@@ -87,6 +99,16 @@ function handleOpenNotificationMonitoring(caseId: string) {
   isNotificationOpen.value = false;
 }
 
+// 드리프트(MODEL_RETRAIN) 알림 → 읽음 처리 후 관리자 MLflow 모니터링으로 이동
+async function handleOpenNotificationMlflow(notificationId?: string) {
+  if (notificationId) {
+    await markRead(notificationId);
+  }
+  const driftId = notificationId?.replace(/^drift-/, '');
+  router.push({ path: '/admin/mlflow', query: driftId ? { driftId } : undefined });
+  isNotificationOpen.value = false;
+}
+
 async function handleLogout() {
   await authStore.logout();
   router.push('/login');
@@ -95,7 +117,8 @@ async function handleLogout() {
 
 <template>
   <div class="app-layout app-shell">
-    <TheSidebar />
+    <!-- 사이드바 배지는 병목(서버) 안읽음만. 헤더 종은 드리프트 포함 전체(unreadCount) -->
+    <TheSidebar :bottleneck-unread-count="bottleneckUnreadCount" />
     <div class="app-layout__main">
       <TheHeader
         :title="pageTitle"
@@ -122,17 +145,21 @@ async function handleLogout() {
       @mark-read="markRead"
       @open-case="handleOpenNotificationCase"
       @open-monitoring="handleOpenNotificationMonitoring"
+      @open-mlflow="handleOpenNotificationMlflow"
     />
     <ChatDrawer :open="isChatOpen" :context-title="pageTitle" @close="closeChat" />
     <aside
-      v-if="latestCriticalUnread && !isNotificationOpen"
+      v-if="latestToastUnread && !isNotificationOpen"
       class="app-layout__critical-alert"
+      :class="{ 'app-layout__critical-alert--warning': latestToastUnread.type === 'MODEL_RETRAIN' }"
       role="alert"
       aria-live="assertive"
     >
-      <strong>{{ latestCriticalUnread.title }}</strong>
-      <p>{{ latestCriticalUnread.message }}</p>
-      <button type="button" @click="handleOpenCriticalNotification">알림 확인</button>
+      <strong>{{ latestToastUnread.title }}</strong>
+      <p>{{ latestToastUnread.message }}</p>
+      <button type="button" @click="handleOpenToastNotification">
+        {{ latestToastUnread.type === 'MODEL_RETRAIN' ? 'MLflow 확인' : '알림 확인' }}
+      </button>
     </aside>
   </div>
 </template>
@@ -142,16 +169,21 @@ async function handleLogout() {
   display: flex;
   width: 100%;
   min-width: 0;
+  height: 100svh; /* 앱 셸을 뷰포트 높이로 고정 → 사이드바/헤더 고정, 본문만 스크롤 */
 }
 
 .app-layout__main {
+  display: flex;
   min-width: 0;
+  min-height: 0;
   flex: 1;
+  flex-direction: column;
 }
 
 .app-layout__content {
   min-width: 0;
-  min-height: calc(100svh - var(--layout-header-height));
+  min-height: 0;
+  flex: 1; /* 헤더 아래 남은 공간을 채우고 이 영역만 스크롤 */
   overflow: auto;
   padding: var(--spacing-page);
 }
@@ -193,5 +225,18 @@ async function handleLogout() {
   cursor: pointer;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
+}
+
+.app-layout__critical-alert--warning {
+  border-color: var(--color-status-warning);
+  background: color-mix(in srgb, var(--color-status-warning) 8%, var(--color-bg-card));
+}
+
+.app-layout__critical-alert--warning strong {
+  color: var(--color-status-warning);
+}
+
+.app-layout__critical-alert--warning button {
+  background: var(--color-status-warning);
 }
 </style>

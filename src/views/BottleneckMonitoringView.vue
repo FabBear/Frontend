@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
-import { AlertTriangle, LayoutDashboard, RefreshCcw, SearchX } from '@lucide/vue';
+import { LayoutDashboard, RefreshCcw } from '@lucide/vue';
 
 import { useBottleneckAlertList } from '@/composables/useBottleneckAlertList';
 import { useBottleneckMonitoring } from '@/composables/useBottleneckMonitoring';
@@ -66,7 +66,9 @@ const selectedAlert = computed(() => {
 
   return bottleneckAlerts.value.find((alert) => alert.caseId === caseId) ?? null;
 });
-const selectedCaseId = computed(() => selectedAlert.value?.caseId ?? snapshot.value?.caseId ?? null);
+const selectedCaseId = computed(
+  () => getRouteCaseId() ?? selectedAlert.value?.caseId ?? snapshot.value?.caseId ?? null
+);
 const selectedBottleneckProb = computed(
   () => selectedAlert.value?.bottleneckProb ?? topBottleneck.value?.bottleneckProb ?? null
 );
@@ -101,7 +103,6 @@ const shouldShowEmptyState = computed(
   () => hasMonitoringLoaded.value && !isLoading.value && !errorMessage.value && !hasDisplayableMonitoringData.value
 );
 const emptyStateTone = computed(() => (shouldShowMonitoringErrorState.value ? 'error' : 'empty'));
-const emptyStateBadgeText = computed(() => (emptyStateTone.value === 'error' ? '연결 실패' : '데이터 없음'));
 const emptyStateTitle = computed(() => {
   if (shouldShowMonitoringErrorState.value) {
     return '병목 모니터링 데이터를 불러오지 못했습니다.';
@@ -209,9 +210,9 @@ watch([() => route.query.areaCode, () => route.query.caseId], ([, nextCaseId], [
   <div class="bottleneck-monitoring-view">
     <header class="bottleneck-monitoring-view__header">
       <div>
-        <h1 class="bottleneck-monitoring-view__title">병목 위험 모니터링</h1>
+        <h1 class="bottleneck-monitoring-view__title">병목 알림 케이스 모니터링</h1>
         <p class="bottleneck-monitoring-view__subtitle">
-          병목 알림이 발생한 시점의 snapshot 기준으로 공정/TG 위험도를 확인합니다.
+          이전에 감지된 병목 알림 케이스와 해당 시점의 공정/TG 위험도를 확인합니다.
         </p>
       </div>
     </header>
@@ -223,11 +224,6 @@ watch([() => route.query.areaCode, () => route.query.caseId], ([, nextCaseId], [
     >
       <div class="bottleneck-monitoring-view__empty-visual" aria-hidden="true">
         <img class="bottleneck-monitoring-view__empty-bear" :src="bearSearchUrl" alt="" />
-        <span class="bottleneck-monitoring-view__empty-badge">
-          <AlertTriangle v-if="emptyStateTone === 'error'" :size="15" aria-hidden="true" />
-          <SearchX v-else :size="15" aria-hidden="true" />
-          {{ emptyStateBadgeText }}
-        </span>
       </div>
       <div class="bottleneck-monitoring-view__empty-text">
         <h2>{{ emptyStateTitle }}</h2>

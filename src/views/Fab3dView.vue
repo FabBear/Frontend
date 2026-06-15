@@ -5,7 +5,12 @@ import { useRoute } from 'vue-router';
 import { ChevronDown, ChevronUp, MessageCircle, Sparkles } from '@lucide/vue';
 
 import { buildFabSnapshotContext } from '@/services/agentContextBuilders';
-import { type AgentRunListItem, fetchAgentTask, listFabBriefings } from '@/services/agentTaskService';
+import {
+  type AgentRunListItem,
+  deleteFabBriefing,
+  fetchAgentTask,
+  listFabBriefings,
+} from '@/services/agentTaskService';
 import { fetchFab3dMonitoringData, fetchTgRouteSteps, fetchToolActivity } from '@/services/fab3dService';
 
 import { useAgentTask } from '@/composables/useAgentTask';
@@ -56,6 +61,10 @@ const fabAgentTask = ref<AgentTaskResponse | null>(null);
 const isAgentCardCollapsed = ref(false);
 const briefingHistory = ref<AgentRunListItem[]>([]);
 const briefingHistoryLoading = ref(false);
+// 브리핑 요청 시점의 sim 시각을 동결(폴링되는 measuredAt 대신 카드에 표시).
+const briefingBasisAt = ref<string | null>(null);
+// 우측 패널 탭: 현장(선택객체/FAB 현황) vs AI 분석(브리핑 결과/지난 브리핑).
+const agentPanelTab = ref<'site' | 'ai'>('site');
 const toolStatuses: Fab3dToolDetail['status'][] = ['RUN', 'IDLE', 'SETUP', 'DOWN'];
 type UtilizationGrade = 'critical' | 'high' | 'medium' | 'low';
 
@@ -92,7 +101,6 @@ const summaryItems = computed<GradeDistributionItem[]>(() =>
 // 현황 브리핑(FAB_SNAPSHOT_BRIEFING)은 병목 진단이 아니라 전체 현황 요약 → 카드 섹션 라벨도 현황용으로.
 const isBriefingResult = computed(() => fabAgentTask.value?.taskType === 'FAB_SNAPSHOT_BRIEFING');
 const agentEvidenceLabel = computed(() => (isBriefingResult.value ? '현황 지표' : '판단 근거'));
-const agentPropagationLabel = computed(() => (isBriefingResult.value ? '구역별 현황' : '확산 가능 공정/TG'));
 const agentDirectionsLabel = computed(() => (isBriefingResult.value ? '현장 확인 포인트' : '대응 방향'));
 function watchSeverityColor(severity: string): string {
   if (severity === 'critical') return 'var(--color-risk-critical)';
@@ -459,6 +467,8 @@ function handleZoomToArea(areaCode: string) {
 }
 
 async function handleFabBriefing() {
+  briefingBasisAt.value = measuredAt.value; // 요청 시점 sim 시각 동결
+  agentPanelTab.value = 'ai';
   const task = await runAgentTask({
     taskType: 'FAB_SNAPSHOT_BRIEFING',
     sourcePage: 'FAB3D',
@@ -477,7 +487,6 @@ async function handleFabBriefing() {
   });
   if (task) {
     fabAgentTask.value = task;
-    // 결과는 옆 패널 카드에만 표시한다. 대화는 사용자가 '대화에서 더 물어보기'로 직접 연다.
     if (task.status === 'SUCCEEDED') isAgentCardCollapsed.value = false;
     void loadBriefingHistory();
   }
@@ -498,9 +507,21 @@ async function loadBriefingHistory() {
 async function openBriefingFromHistory(item: AgentRunListItem) {
   try {
     fabAgentTask.value = await fetchAgentTask(item.id, 'FAB_SNAPSHOT_BRIEFING');
+    briefingBasisAt.value = null; // 과거 브리핑은 sim 기준시각 미저장 → 카드에 기준시각 생략
     isAgentCardCollapsed.value = false;
+    agentPanelTab.value = 'ai';
   } catch {
     // 미리보기 로드 실패 시 기존 상태 유지
+  }
+}
+
+async function handleDeleteBriefing(item: AgentRunListItem) {
+  if (!window.confirm('이 브리핑 이력을 삭제할까요?\n삭제하면 되돌릴 수 없습니다.')) return;
+  try {
+    await deleteFabBriefing(item.id);
+    await loadBriefingHistory();
+  } catch {
+    // 삭제 실패 시 목록 유지
   }
 }
 
@@ -689,8 +710,28 @@ watch(requestedTgName, () => {
 
     <!-- Right panel -->
     <aside class="fab3d__panel">
+      <div class="fab3d__panel-tabs" role="tablist">
+        <button
+          type="button"
+          class="fab3d__panel-tab"
+          :class="{ 'fab3d__panel-tab--active': agentPanelTab === 'site' }"
+          @click="agentPanelTab = 'site'"
+        >
+          Fab 현황
+        </button>
+        <button
+          type="button"
+          class="fab3d__panel-tab"
+          :class="{ 'fab3d__panel-tab--active': agentPanelTab === 'ai' }"
+          @click="agentPanelTab = 'ai'"
+        >
+          지난 현황 브리핑
+        </button>
+      </div>
+
       <!-- Selected object -->
       <div
+        v-show="agentPanelTab === 'site'"
         class="fab3d__ps"
         :class="{ 'fab3d__ps--selected-tg': selectedTg }"
         :style="
@@ -701,7 +742,17 @@ watch(requestedTgName, () => {
               : undefined
         "
       >
-        <div class="fab3d__ps-title">선택된 객체</div>
+        <div class="fab3d__ps-title fab3d__ps-title--row">
+          <span>선택된 객체</span>
+          <button
+            v-if="selectedTg || selectedAsset || selectedTool"
+            type="button"
+            class="fab3d__deselect-btn"
+            @click="closeDetail"
+          >
+            선택 해제
+          </button>
+        </div>
         <template v-if="selectedAsset">
           <div class="fab3d__ps-name">{{ selectedAsset.assetName }}</div>
           <div class="fab3d__ps-area">{{ assetTypeLabel(selectedAsset.assetType) }} · {{ selectedAsset.location }}</div>
@@ -963,47 +1014,50 @@ watch(requestedTgName, () => {
         <p v-else class="fab3d__ps-hint">Tool Group, AMR, OHT, Stocker를 클릭하면<br />상세 정보가 표시됩니다</p>
       </div>
 
-      <div v-if="isAgentTaskRunning || fabAgentTask || agentTaskError" class="fab3d__ps fab3d__agent-card">
+      <!-- 현재/선택 브리핑 결과 -->
+      <div
+        v-if="agentPanelTab === 'ai' && (isAgentTaskRunning || fabAgentTask || agentTaskError)"
+        class="fab3d__ps fab3d__agent-card"
+      >
         <button
           class="fab3d__agent-card-head"
           type="button"
-          :title="isAgentCardCollapsed ? 'AI Agent 결과 펼치기' : 'AI Agent 결과 접기'"
           :aria-expanded="!isAgentCardCollapsed"
-          aria-controls="fab3d-agent-result-body"
           @click="isAgentCardCollapsed = !isAgentCardCollapsed"
         >
-          <div>
-            <div class="fab3d__ps-title">AI Agent 결과</div>
+          <div class="fab3d__agent-head-text">
+            <div class="fab3d__ps-title">현황 브리핑 결과</div>
             <strong>{{
-              fabAgentTask?.result?.artifacts?.[0]?.title ?? (isAgentTaskRunning ? '현황 분석 중' : '분석 상태')
+              fabAgentTask?.result?.artifacts?.[0]?.title ?? (isAgentTaskRunning ? '현황 분석 중' : '분석 결과')
             }}</strong>
-            <div v-if="measuredAt" class="fab3d__agent-time">기준 시각 · {{ formatEventTime(measuredAt) }}</div>
+            <div v-if="briefingBasisAt" class="fab3d__agent-time">
+              기준 시각 · {{ formatEventTime(briefingBasisAt) }}
+            </div>
           </div>
           <span class="fab3d__agent-toggle" aria-hidden="true">
-            <ChevronUp v-if="!isAgentCardCollapsed" :size="18" aria-hidden="true" />
-            <ChevronDown v-else :size="18" aria-hidden="true" />
+            <ChevronUp v-if="!isAgentCardCollapsed" :size="18" />
+            <ChevronDown v-else :size="18" />
           </span>
         </button>
 
-        <div v-show="!isAgentCardCollapsed" id="fab3d-agent-result-body" class="fab3d__agent-card-body">
+        <div v-show="!isAgentCardCollapsed" class="fab3d__agent-card-body">
           <ChatStatusIndicator v-if="isAgentTaskRunning" label="현황 분석 생성 중…" />
           <p v-else-if="agentTaskError" class="fab3d__agent-error">{{ agentTaskError }}</p>
           <template v-else-if="fabAgentTask?.result">
             <p class="fab3d__agent-summary">{{ fabAgentTask.result.summary }}</p>
-            <AgentTraceList :steps="fabAgentTask.progress ?? []" />
 
-            <div class="fab3d__agent-section">
-              <span>{{ agentEvidenceLabel }}</span>
-              <dl>
-                <div v-for="item in fabAgentTask.result.evidence.slice(0, 6)" :key="`${item.label}-${item.value}`">
-                  <dt>{{ item.label }}</dt>
-                  <dd>{{ item.value }}</dd>
-                </div>
-              </dl>
-            </div>
+            <section v-if="fabAgentTask.result.evidence?.length" class="fab3d__agent-section">
+              <h4 class="fab3d__agent-section-title">{{ agentEvidenceLabel }}</h4>
+              <ul class="fab3d__agent-evidence">
+                <li v-for="item in fabAgentTask.result.evidence.slice(0, 6)" :key="`${item.label}-${item.value}`">
+                  <span class="fab3d__ev-label">{{ item.label }}</span>
+                  <b class="fab3d__ev-value">{{ item.value }}</b>
+                </li>
+              </ul>
+            </section>
 
-            <div v-if="fabAgentTask.result.watchToolGroups?.length" class="fab3d__agent-section">
-              <span>살펴볼 TG</span>
+            <section v-if="fabAgentTask.result.watchToolGroups?.length" class="fab3d__agent-section">
+              <h4 class="fab3d__agent-section-title">살펴볼 TG</h4>
               <div class="fab3d__watch-list">
                 <button
                   v-for="w in fabAgentTask.result.watchToolGroups"
@@ -1018,35 +1072,20 @@ watch(requestedTgName, () => {
                   <span class="fab3d__watch-reason">{{ w.reason }}</span>
                 </button>
               </div>
-            </div>
+            </section>
 
-            <div class="fab3d__agent-section">
-              <span>{{ agentPropagationLabel }}</span>
-              <p>{{ fabAgentTask.result.propagation.summary }}</p>
-              <div class="fab3d__agent-chips">
-                <button
-                  v-for="tg in fabAgentTask.result.propagation.affectedToolGroups"
-                  :key="tg"
-                  type="button"
-                  @click="focusAgentToolGroup(tg)"
-                >
-                  {{ tg }}
-                </button>
-              </div>
-            </div>
-
-            <div class="fab3d__agent-section">
-              <span>{{ agentDirectionsLabel }}</span>
-              <ul>
-                <li v-for="direction in fabAgentTask.result.responseDirections.slice(0, 3)" :key="direction.title">
+            <section v-if="fabAgentTask.result.responseDirections?.length" class="fab3d__agent-section">
+              <h4 class="fab3d__agent-section-title">{{ agentDirectionsLabel }}</h4>
+              <ul class="fab3d__agent-directions">
+                <li v-for="direction in fabAgentTask.result.responseDirections.slice(0, 4)" :key="direction.title">
                   <strong>{{ direction.title }}</strong>
-                  {{ direction.description }}
+                  <span>{{ direction.description }}</span>
                 </li>
               </ul>
-            </div>
+            </section>
 
             <button
-              v-if="fabAgentTask?.status === 'SUCCEEDED'"
+              v-if="fabAgentTask.status === 'SUCCEEDED'"
               class="fab3d__agent-ask"
               type="button"
               @click="openWithAgentTask(fabAgentTask)"
@@ -1060,17 +1099,19 @@ watch(requestedTgName, () => {
       </div>
 
       <!-- 지난 현황 브리핑 이력 -->
-      <div v-if="briefingHistoryLoading || briefingHistory.length > 0" class="fab3d__ps">
+      <div v-if="agentPanelTab === 'ai'" class="fab3d__ps">
         <AgentRunHistoryList
           title="지난 현황 브리핑"
           :items="briefingHistory"
           :loading="briefingHistoryLoading"
+          deletable
           @select="openBriefingFromHistory"
+          @delete="handleDeleteBriefing"
         />
       </div>
 
       <!-- FAB 현황 -->
-      <div v-if="!selectedTg && !selectedAsset" class="fab3d__ps">
+      <div v-if="agentPanelTab === 'site' && !selectedTg && !selectedAsset" class="fab3d__ps">
         <div class="fab3d__ps-title">FAB 현황 · TG {{ summary.total }}개</div>
         <div v-for="item in summaryItems" :key="item.key" class="fab3d__sum-row">
           <span><i class="fab3d__risk-dot" :style="{ background: item.color }" />{{ item.label }}</span>
@@ -1079,7 +1120,7 @@ watch(requestedTgName, () => {
       </div>
 
       <!-- Area 별 현황 -->
-      <div v-if="!selectedTg && !selectedAsset" class="fab3d__ps fab3d__ps--grow">
+      <div v-if="agentPanelTab === 'site' && !selectedTg && !selectedAsset" class="fab3d__ps fab3d__ps--grow">
         <div class="fab3d__ps-title">구역별 현황</div>
         <button
           v-for="area in areas"
@@ -1154,7 +1195,8 @@ watch(requestedTgName, () => {
 
 .fab3d {
   display: flex;
-  height: calc(100vh - var(--layout-header-height, 56px));
+  height: 100%; /* 컨테이너(.app-layout__content) 높이에 정확히 맞춤 → 바깥 스크롤(두 번 움직임) 제거 */
+  min-height: 0;
   overflow: hidden;
   background: var(--f-bg);
   transition: background 0.2s;
@@ -1325,6 +1367,56 @@ watch(requestedTgName, () => {
   transition:
     background 0.2s,
     border-color 0.2s;
+}
+
+.fab3d__panel-tabs {
+  display: flex;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  border-bottom: 1px solid var(--color-border-default);
+  background: var(--color-bg-surface);
+}
+.fab3d__panel-tab {
+  flex: 1;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-muted);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+.fab3d__panel-tab:hover {
+  color: var(--color-text);
+}
+.fab3d__panel-tab--active {
+  border-bottom-color: var(--color-action-primary);
+  color: var(--color-action-primary);
+}
+
+.fab3d__ps-title--row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.fab3d__deselect-btn {
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: transparent;
+  padding: 2px 8px;
+  color: var(--color-muted);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: none;
+  letter-spacing: normal;
+}
+.fab3d__deselect-btn:hover {
+  border-color: var(--color-action-primary-border);
+  color: var(--color-action-primary);
 }
 
 .fab3d__ps {
@@ -1616,6 +1708,61 @@ watch(requestedTgName, () => {
 .fab3d__agent-section li strong {
   display: block;
   color: var(--color-fg);
+}
+
+.fab3d__agent-head-text {
+  min-width: 0;
+}
+.fab3d__agent-section-title {
+  margin: 0;
+  color: var(--color-fg-strong);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+}
+.fab3d__agent-section ul.fab3d__agent-evidence,
+.fab3d__agent-section ul.fab3d__agent-directions {
+  padding-left: 0;
+  list-style: none;
+}
+.fab3d__agent-evidence li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-page);
+  padding: 6px var(--space-2);
+}
+.fab3d__ev-label {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fab3d__ev-value {
+  flex-shrink: 0;
+  color: var(--color-fg-strong);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+}
+.fab3d__agent-directions li {
+  display: grid;
+  gap: 2px;
+  padding: 0 0 0 10px;
+  border-left: 2px solid var(--color-border-default);
+}
+.fab3d__agent-directions li strong {
+  display: block;
+  color: var(--color-fg);
+  font-size: var(--font-size-sm);
+}
+.fab3d__agent-directions li span {
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .fab3d__agent-chips {

@@ -102,6 +102,8 @@ const showObservability = computed(
       </div>
       <div class="chat-message__bubble">
         <p v-if="isUser">{{ message.content }}</p>
+        <!-- renderedContent는 renderMarkdown()에서 DOMPurify로 sanitize 완료된 HTML (XSS 안전) -->
+        <!-- eslint-disable-next-line vue/no-v-html -->
         <div v-else-if="message.content" class="chat-message__markdown" v-html="renderedContent" />
         <ChatCard v-if="!isUser && message.ui" :card="message.ui" />
         <div v-if="message.agentResult" class="chat-message__agent-result">
@@ -468,6 +470,21 @@ const showObservability = computed(
   color: var(--color-fg-muted);
   font-size: var(--font-size-xs);
   line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+/* 긴 내용이 카드를 넘쳐 깨지지 않도록 — agent 결과 내 텍스트 줄바꿈 강제 + grid 셀 축소 허용 */
+.chat-message__evidence div {
+  min-width: 0;
+}
+.chat-message__agent-result strong,
+.chat-message__agent-result span,
+.chat-message__agent-result dd,
+.chat-message__agent-result dt,
+.chat-message__agent-result p,
+.chat-message__agent-result li {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .chat-message__chips {

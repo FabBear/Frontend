@@ -92,6 +92,7 @@ interface BackendChatMessages {
     confidence?: 'HIGH' | 'MEDIUM' | 'LOW' | null;
     warnings?: string[];
     toolsUsed?: string[];
+    followUps?: string[];
     createdAt: string;
   }>;
   pageInfo: {
@@ -170,6 +171,7 @@ export async function fetchChatSessionMessages(sessionId: string): Promise<ChatS
     confidence: message.confidence ?? null,
     warnings: message.warnings ?? [],
     toolsUsed: message.toolsUsed ?? [],
+    followUps: message.followUps ?? [],
     createdAt: message.createdAt,
   }));
 }

@@ -31,7 +31,7 @@ import type {
 } from '@/types/chatbot';
 import type { FinalBottleneckReport } from '@/types/report';
 
-const MAX_QUICK_PROMPTS = 3;
+const MAX_QUICK_PROMPTS = 4;
 
 export interface ReportContext extends ChatReportContextInput {
   quickPrompts: ChatQuickPrompt[];
@@ -60,9 +60,18 @@ async function rehydrateAgentResult(
   loadedMessages: ChatMessage[]
 ): Promise<{ message: ChatMessage; context: AgentContext } | null> {
   let taskId: string | undefined;
+  let anchorMessage: ChatMessage | undefined;
   for (const message of loadedMessages) {
     taskId = message.references?.docIds?.find((id) => UUID_RE.test(id));
-    if (taskId) break;
+    if (taskId) {
+      anchorMessage =
+        message.role === 'ASSISTANT'
+          ? message
+          : loadedMessages.find(
+              (candidate) => candidate.role === 'ASSISTANT' && candidate.references?.docIds?.includes(taskId as string)
+            );
+      break;
+    }
   }
   if (!taskId) return null;
   try {
@@ -79,13 +88,14 @@ async function rehydrateAgentResult(
       followUpPrompts: result.followUpPrompts ?? [],
     };
     const message: ChatMessage = {
-      messageId: `agent-result-${taskId}`,
+      messageId: anchorMessage?.messageId ?? `agent-result-${taskId}`,
       sessionId,
       role: 'ASSISTANT',
-      content: result.summary,
-      references: { caseIds: [], docIds: [] },
+      content: anchorMessage?.content || result.summary,
+      references: anchorMessage?.references ?? { caseIds: [], docIds: [taskId] },
       agentResult: result,
-      createdAt: nowIso(),
+      followUps: result.followUpPrompts ?? [],
+      createdAt: anchorMessage?.createdAt ?? nowIso(),
     };
     return { message, context };
   } catch {
@@ -96,24 +106,24 @@ async function rehydrateAgentResult(
 function buildReportQuickPrompts(context: Omit<ReportContext, 'quickPrompts'>): ChatQuickPrompt[] {
   return [
     {
-      id: 'rq-urgent',
-      label: '시급 조치',
-      message: `${context.processName} 공정 병목 상황에서 지금 당장 가장 시급하게 확인할 조치는 무엇인가요?`,
+      id: 'rq-approved',
+      label: '승인 대응안이 선택된 이유를 설명해줘',
+      message: `${context.processName} 리포트에서 승인 대응안이 선택된 이유를 설명해줘.`,
+    },
+    {
+      id: 'rq-no-action',
+      label: '무대응 시 가장 위험한 KPI를 알려줘',
+      message: `${context.processName} 리포트 기준으로 무대응 시 가장 위험한 KPI를 알려줘.`,
     },
     {
       id: 'rq-cause',
-      label: '원인 설명',
-      message: `${context.processName} 공정이 병목이 된 주요 원인을 분석해줘.`,
+      label: '주요 원인과 근거를 요약해줘',
+      message: `${context.processName} 리포트의 주요 원인과 근거를 요약해줘.`,
     },
     {
-      id: 'rq-forecast',
-      label: '확산 전망',
-      message: `현재 추세대로면 ${context.processName} 병목이 어디까지 확산될 수 있나요?`,
-    },
-    {
-      id: 'rq-compare',
-      label: '대응 비교',
-      message: `승인된 대응안 외에 다른 대응안들과 비교해서 왜 이 안이 선택됐나요?`,
+      id: 'rq-rag',
+      label: '유사 사례 기반 근거만 정리해줘',
+      message: `${context.processName} 리포트에서 유사 사례 기반 근거만 정리해줘.`,
     },
   ];
 }
@@ -164,32 +174,18 @@ const reportContext = ref<ReportContext | null>(null);
 const agentContext = ref<AgentContext | null>(null);
 const quickPromptState = ref<ChatQuickPrompt[]>(MOCK_CHAT_QUICK_PROMPTS);
 const isInitialized = ref(false);
-// AI가 같은 응답에서 생성한 맥락형 후속 질문(현재 활성 세션 기준).
-const latestFollowUps = ref<{ sessionId: string; prompts: string[] } | null>(null);
 
 const activeSession = computed(() => sessions.value.find((s) => s.sessionId === activeSessionId.value) ?? null);
 const messages = computed(() => activeSession.value?.messages ?? []);
 const hasConversationHistory = computed(() => Boolean(activeSession.value?.messages.length));
-const quickPromptTitle = computed(() =>
-  hasConversationHistory.value || reportContext.value || agentContext.value ? '추천 후속 질문' : '시작 질문'
-);
+const quickPromptTitle = computed(() => {
+  if (reportContext.value) return '이 리포트에서 이어서 질문';
+  return hasConversationHistory.value || agentContext.value ? '추천 후속 질문' : '시작 질문';
+});
 const quickPrompts = computed<ChatQuickPrompt[]>(() => {
+  if (activeSession.value?.messages.length) return [];
   if (reportContext.value?.quickPrompts) return limitQuickPrompts(reportContext.value.quickPrompts);
   if (agentContext.value) return limitQuickPrompts(buildAgentQuickPrompts(agentContext.value));
-  // 대화 중에는 AI가 방금 답변과 함께 준 맥락형 후속 질문만 사용(현재 세션 한정).
-  // 없으면(또는 새로고침 직후) 추천칩을 비운다(고정 폴백 사용 안 함 — 옵션 B).
-  if (activeSession.value?.messages.length) {
-    if (latestFollowUps.value && latestFollowUps.value.sessionId === activeSessionId.value) {
-      return limitQuickPrompts(
-        latestFollowUps.value.prompts.map((prompt, index) => ({
-          id: `ai-follow-${index}`,
-          label: prompt,
-          message: prompt,
-        }))
-      );
-    }
-    return [];
-  }
   // 대화 시작 전에는 시작 질문 노출.
   return limitQuickPrompts(quickPromptState.value);
 });
@@ -379,7 +375,7 @@ export function useChat() {
         return {
           ...session,
           agentContext: restored?.context ?? session.agentContext ?? null,
-          messages: mergeMessages(seeds, loadedMessages),
+          messages: mergeMessages(loadedMessages, seeds),
         };
       });
 
@@ -479,7 +475,7 @@ export function useChat() {
     });
   }
 
-  function initWithAgentTask(task: AgentTaskResponse) {
+  async function initWithAgentTask(task: AgentTaskResponse) {
     const title = task.result?.artifacts?.[0]?.title ?? 'AI Agent 결과';
     const context: AgentContext = {
       taskId: task.taskId,
@@ -493,17 +489,83 @@ export function useChat() {
     selectOrCreateAgentTaskSession(task, context);
     agentContext.value = context;
     reportContext.value = null;
-    if (task.result) {
-      const hasSeedMessage = activeSession.value?.messages.some(
-        (message) => message.messageId === `agent-result-${task.taskId}`
+    if (!task.result) return;
+
+    const hasSeedMessage = activeSession.value?.messages.some(
+      (message) =>
+        message.messageId === `agent-result-${task.taskId}` ||
+        message.references?.docIds?.includes(task.taskId) ||
+        message.agentResult === task.result
+    );
+    if (hasSeedMessage) return;
+    await persistAgentTaskSession(task, context);
+  }
+
+  async function persistAgentTaskSession(task: AgentTaskResponse, context: AgentContext) {
+    const localSessionId = activeSessionId.value!;
+    const prompt = `${context.title}에 대해 질문을 시작합니다.`;
+    appendMessage({
+      sessionId: localSessionId,
+      role: 'USER',
+      content: prompt,
+      references: {
+        caseIds: context.relatedCaseId ? [context.relatedCaseId] : [],
+        docIds: [task.taskId],
+      },
+    });
+
+    try {
+      const response = await sendChatMessage({
+        sessionId: isClientSessionId(localSessionId) ? null : localSessionId,
+        message: prompt,
+        contextTaskId: task.taskId,
+        contextCaseId: context.relatedCaseId,
+        contextTgId: context.relatedTgId,
+        sourcePage: context.sourcePage,
+        precomputed: {
+          answer: task.result?.summary ?? '',
+          spokenSummary: null,
+          sources: [],
+          followUps: task.result?.followUpPrompts ?? [],
+          ui: null,
+          title: context.title,
+          warnings: [],
+          toolsUsed: [],
+        },
+      });
+      replaceLocalSessionId(localSessionId, response.sessionId);
+      restoreContextAfterSessionIdReplace(response.sessionId, context);
+      sessions.value = sessions.value.map((session) =>
+        session.sessionId === response.sessionId
+          ? { ...session, sessionTitle: response.sessionTitle || context.title }
+          : session
       );
-      if (hasSeedMessage) return;
       appendMessage({
-        sessionId: activeSessionId.value!,
+        sessionId: response.sessionId,
+        messageId: response.messageId,
+        role: 'ASSISTANT',
+        content: response.content,
+        references: response.references,
+        sources: response.sources,
+        spokenSummary: response.spokenSummary,
+        ui: response.ui,
+        warnings: response.warnings ?? [],
+        toolsUsed: response.toolsUsed ?? [],
+        agentResult: task.result,
+        followUps: response.followUps ?? task.result?.followUpPrompts ?? [],
+      });
+    } catch {
+      appendMessage({
+        sessionId: localSessionId,
         messageId: `agent-result-${task.taskId}`,
         role: 'ASSISTANT',
-        content: task.result.summary,
+        content: task.result?.summary ?? 'AI Agent 결과를 불러왔습니다.',
+        references: {
+          caseIds: context.relatedCaseId ? [context.relatedCaseId] : [],
+          docIds: [task.taskId],
+        },
         agentResult: task.result,
+        followUps: task.result?.followUpPrompts ?? [],
       });
     }
   }
@@ -650,8 +712,8 @@ export function useChat() {
         confidence: response.confidence ?? null,
         warnings: response.warnings ?? [],
         toolsUsed: response.toolsUsed ?? [],
+        followUps: response.followUps ?? [],
       });
-      latestFollowUps.value = { sessionId: response.sessionId, prompts: response.followUps ?? [] };
     } catch {
       appendMessage({
         sessionId,
@@ -743,9 +805,9 @@ export function useChat() {
         confidence: meta.confidence ?? null,
         warnings: meta.warnings,
         toolsUsed: meta.toolsUsed,
+        followUps: meta.followUps ?? [],
         pending: false,
       });
-      latestFollowUps.value = { sessionId: saved.sessionId, prompts: meta.followUps ?? [] };
       return true;
     } catch {
       removeMessage(localSessionId, streamingId);
@@ -797,6 +859,7 @@ export function useChat() {
   function appendMessage(
     input: Pick<ChatMessage, 'sessionId' | 'role' | 'content'> & {
       messageId?: string;
+      references?: ChatMessage['references'];
       attachments?: ChatAttachment[];
       agentResult?: ChatMessage['agentResult'];
       sources?: ChatMessage['sources'];
@@ -805,6 +868,7 @@ export function useChat() {
       confidence?: ChatMessage['confidence'];
       warnings?: ChatMessage['warnings'];
       toolsUsed?: ChatMessage['toolsUsed'];
+      followUps?: ChatMessage['followUps'];
       pending?: boolean;
     }
   ) {
@@ -823,13 +887,14 @@ export function useChat() {
             sessionId: input.sessionId,
             role: input.role,
             content: input.content,
-            references: { caseIds: [], docIds: [] },
+            references: input.references ?? { caseIds: [], docIds: [] },
             sources: input.sources,
             spokenSummary: input.spokenSummary,
             ui: input.ui,
             confidence: input.confidence,
             warnings: input.warnings,
             toolsUsed: input.toolsUsed,
+            followUps: input.followUps,
             pending: input.pending,
             attachments: input.attachments,
             agentResult: input.agentResult,

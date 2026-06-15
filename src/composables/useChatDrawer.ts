@@ -1,6 +1,6 @@
 import { ref } from 'vue';
 
-import type { AgentTaskResponse } from '@/types/agentTask';
+import type { AgentTaskResponse, AgentTaskSourcePage } from '@/types/agentTask';
 import type { ChatReportContextInput } from '@/types/chatbot';
 import type { FinalBottleneckReport } from '@/types/report';
 
@@ -23,6 +23,7 @@ export function useChatDrawer() {
     pendingReport.value = report;
     pendingReportContext.value = null;
     pendingAgentTask.value = null;
+    pendingCasePrompt.value = null;
     isOpen.value = true;
   }
 
@@ -38,6 +39,15 @@ export function useChatDrawer() {
     pendingAgentTask.value = task;
     pendingReport.value = null;
     pendingReportContext.value = null;
+    pendingCasePrompt.value = null;
+    isOpen.value = true;
+  }
+
+  function openWithCasePrompt(payload: CasePromptPayload) {
+    pendingCasePrompt.value = payload;
+    pendingReport.value = null;
+    pendingReportContext.value = null;
+    pendingAgentTask.value = null;
     isOpen.value = true;
   }
 

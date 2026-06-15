@@ -37,7 +37,7 @@ type ReportArchiveTab = 'case' | 'monthly' | 'period';
 type PeriodReportIntentFilter = 'MONTHLY' | 'SUMMARY';
 
 const PAGE_GROUP_SIZE = 10;
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const DEFAULT_PAGE_INFO: ReportPageInfo = {
   page: 0,

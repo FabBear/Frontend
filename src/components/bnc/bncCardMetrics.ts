@@ -16,11 +16,15 @@ export function isFlatDelta(delta: string | null | undefined): boolean {
   return parseDelta(delta) === 0;
 }
 
+// 값이 클수록 개선인 지표(처리량·가용 Tool 비율·납기 준수 등) → 증가가 개선
+const HIGHER_IS_BETTER_TOKENS = ['throughput', 'available', '처리', '가용', '납기'];
+
 export function isImprovement(label: string, delta: string): boolean | null {
   if (!delta || delta === '-') return null;
   const numericDelta = parseDelta(delta);
   if (numericDelta === null || numericDelta === 0) return null;
-  if (label.toLowerCase().includes('throughput') || label.includes('처리')) return numericDelta > 0;
+  const lowerLabel = label.toLowerCase();
+  if (HIGHER_IS_BETTER_TOKENS.some((token) => lowerLabel.includes(token))) return numericDelta > 0;
   return numericDelta < 0;
 }
 

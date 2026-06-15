@@ -73,7 +73,7 @@ function parsePromptBody(body: string): PromptBlock[] {
     return block;
   };
 
-  body.split('\n').forEach((line) => {
+  body.split(/\r?\n/).forEach((line) => {
     const trimmed = line.trim();
     const titleMatch = trimmed.match(/^#\s+(.+)$/);
     const sectionMatch = trimmed.match(/^##\s+(.+)$/);
@@ -107,6 +107,7 @@ function parsePromptBody(body: string): PromptBlock[] {
     }
 
     if (!trimmed && !current) return;
+    maskedBlock = null;
     if (!current) current = pushBlock('프롬프트 본문');
     current.body += `${current.body ? '\n' : ''}${line}`;
   });

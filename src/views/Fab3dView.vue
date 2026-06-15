@@ -713,6 +713,8 @@ watch(requestedTgName, () => {
       <div class="fab3d__panel-tabs" role="tablist">
         <button
           type="button"
+          role="tab"
+          :aria-selected="agentPanelTab === 'site'"
           class="fab3d__panel-tab"
           :class="{ 'fab3d__panel-tab--active': agentPanelTab === 'site' }"
           @click="agentPanelTab = 'site'"
@@ -721,6 +723,8 @@ watch(requestedTgName, () => {
         </button>
         <button
           type="button"
+          role="tab"
+          :aria-selected="agentPanelTab === 'ai'"
           class="fab3d__panel-tab"
           :class="{ 'fab3d__panel-tab--active': agentPanelTab === 'ai' }"
           @click="agentPanelTab = 'ai'"
@@ -1023,6 +1027,7 @@ watch(requestedTgName, () => {
           class="fab3d__agent-card-head"
           type="button"
           :aria-expanded="!isAgentCardCollapsed"
+          aria-controls="fab3d-agent-result-body"
           @click="isAgentCardCollapsed = !isAgentCardCollapsed"
         >
           <div class="fab3d__agent-head-text">
@@ -1040,7 +1045,7 @@ watch(requestedTgName, () => {
           </span>
         </button>
 
-        <div v-show="!isAgentCardCollapsed" class="fab3d__agent-card-body">
+        <div v-show="!isAgentCardCollapsed" id="fab3d-agent-result-body" class="fab3d__agent-card-body">
           <ChatStatusIndicator v-if="isAgentTaskRunning" label="현황 분석 생성 중…" />
           <p v-else-if="agentTaskError" class="fab3d__agent-error">{{ agentTaskError }}</p>
           <template v-else-if="fabAgentTask?.result">

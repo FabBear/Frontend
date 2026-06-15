@@ -33,6 +33,9 @@ const holdReasonText = ref('');
 const isLoading = ref(false);
 const isActionPending = ref(false);
 const errorMessage = ref<string | null>(null);
+// 모달 안에서 일어난 액션(운영 전환·재학습 결정) 실패는 모달 내부에 노출한다.
+// 페이지 상단 errorMessage는 모달에 가려 보이지 않기 때문.
+const modalErrorMessage = ref<string | null>(null);
 
 const filteredModels = computed(() => {
   const kw = keyword.value.trim().toLowerCase();
@@ -113,10 +116,12 @@ function retrainStatusVariant(alert: AdminDriftAlert) {
 
 function requestPromote(model: AdminMlModelVersion) {
   if (model.status !== 'STAGING') return;
+  modalErrorMessage.value = null;
   pendingPromote.value = model;
 }
 
 function openReport(alert: AdminDriftAlert) {
+  modalErrorMessage.value = null;
   reportAlert.value = alert;
   reportDecisionMode.value = 'APPROVE';
   approvalReasonCode.value = approvalReasonOptions[0].value;
@@ -144,14 +149,14 @@ async function confirmPromote() {
   const model = pendingPromote.value;
   if (!model) return;
   isActionPending.value = true;
-  errorMessage.value = null;
+  modalErrorMessage.value = null;
   try {
     await promoteMlflowModel(model.id);
     pendingPromote.value = null;
     await loadMlflowData();
   } catch (error) {
     console.error('[AdminMlflowView] promote failed:', error);
-    errorMessage.value = '운영 전환에 실패했습니다. MLflow 서버와 모델 alias 상태를 확인하세요.';
+    modalErrorMessage.value = '운영 전환에 실패했습니다. MLflow 서버와 모델 alias 상태를 확인하세요.';
   } finally {
     isActionPending.value = false;
   }
@@ -161,7 +166,7 @@ async function submitReportDecision() {
   const alert = reportAlert.value;
   if (!alert || !canSubmitReportDecision.value) return;
   isActionPending.value = true;
-  errorMessage.value = null;
+  modalErrorMessage.value = null;
   try {
     const updated =
       reportDecisionMode.value === 'APPROVE'
@@ -180,7 +185,7 @@ async function submitReportDecision() {
     reportAlert.value = updated;
   } catch (error) {
     console.error('[AdminMlflowView] retrain decision failed:', error);
-    errorMessage.value = '재학습 결정 상태를 기록하지 못했습니다.';
+    modalErrorMessage.value = '재학습 결정 상태를 기록하지 못했습니다.';
   } finally {
     isActionPending.value = false;
   }
@@ -273,7 +278,11 @@ function routeDriftId() {
 
 function openRouteDriftReport() {
   const driftId = routeDriftId();
-  if (!driftId) return;
+  if (!driftId) {
+    // 뒤로 가기 등으로 driftId가 사라지면 열려 있던 상세 모달도 닫는다(URL↔모달 동기화).
+    reportAlert.value = null;
+    return;
+  }
   const target = driftAlerts.value.find((a) => a.id === driftId);
   if (target) openReport(target);
 }
@@ -488,6 +497,7 @@ watch(
         </div>
       </dl>
       <p class="admin-mlflow-view__promote-reco">{{ promoteRecommendation }}</p>
+      <p v-if="modalErrorMessage" class="admin-mlflow-view__modal-error">{{ modalErrorMessage }}</p>
       <footer class="admin-mlflow-view__promote-footer">
         <BaseButton size="sm" :disabled="isActionPending" @click="confirmPromote">전환 확인</BaseButton>
         <BaseButton size="sm" variant="ghost" @click="pendingPromote = null">취소</BaseButton>
@@ -545,7 +555,10 @@ watch(
             </tr>
           </thead>
           <tbody>
-            <tr v-for="contributor in reportAlert.detail.top_contributors" :key="contributorName(contributor)">
+            <tr
+              v-for="(contributor, index) in reportAlert.detail.top_contributors"
+              :key="`${contributorName(contributor)}-${index}`"
+            >
               <td>{{ contributorName(contributor) }}</td>
               <td>{{ contributor.fn }}</td>
               <td>{{ contributor.fp }}</td>
@@ -619,6 +632,7 @@ watch(
             rows="3"
           />
         </label>
+        <p v-if="modalErrorMessage" class="admin-mlflow-view__modal-error">{{ modalErrorMessage }}</p>
         <footer class="admin-mlflow-view__decision-footer">
           <BaseButton size="sm" :disabled="!canSubmitReportDecision" @click="submitReportDecision">
             {{ reportDecisionMode === 'APPROVE' ? '승인 기록' : '보류 기록' }}
@@ -690,6 +704,16 @@ watch(
 .admin-mlflow-view__empty {
   padding: var(--space-4);
   text-align: center;
+}
+
+.admin-mlflow-view__modal-error {
+  margin: 0;
+  border: var(--border-width-default) solid color-mix(in srgb, var(--color-risk-high) 36%, var(--color-border-default));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-risk-high) 6%, var(--color-bg-card));
+  color: var(--color-risk-high);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
 }
 
 .admin-mlflow-view__summary {

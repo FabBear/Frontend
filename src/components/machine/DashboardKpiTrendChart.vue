@@ -20,12 +20,12 @@ const props = defineProps<{
 
 const chartOption = computed(() => {
   const trend = props.trend;
+  if (!trend) return null;
+
   const axisColor = resolveCssVar('var(--color-fg-muted)');
   const gridColor = resolveCssVar('var(--color-border-subtle)');
-  const lineColor = resolveCssVar(`var(${trend?.colorToken ?? '--color-action-primary'})`);
+  const lineColor = resolveCssVar(`var(${trend.colorToken ?? '--color-action-primary'})`);
   const fontSize = resolveCssFontSize('--font-size-base');
-
-  if (!trend) return null;
 
   return {
     grid: { top: 18, right: 24, bottom: 26, left: 8, outerBoundsMode: 'same', outerBoundsContain: 'axisLabel' },

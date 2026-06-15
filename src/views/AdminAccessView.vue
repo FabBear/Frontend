@@ -151,6 +151,15 @@ function openDeleteModal(user: AdminAccessUser) {
 
 async function saveUser(user: AdminAccessUser) {
   actionError.value = null;
+  if (originalLoginId.value !== null) {
+    const originalUser = users.value.find((candidate) => candidate.userId === user.userId);
+    const willRemainActiveAdmin = user.role === 'ADMIN' && user.status === 'ACTIVE' && user.isActive;
+    if (originalUser && isLastActiveAdmin(originalUser) && !willRemainActiveAdmin) {
+      actionError.value =
+        '관리자(ADMIN) 계정은 최소 1개 이상 활성 상태로 유지해야 합니다. 다른 관리자를 먼저 지정하세요.';
+      return;
+    }
+  }
   try {
     if (originalLoginId.value === null) {
       await createAdminAccessUser({

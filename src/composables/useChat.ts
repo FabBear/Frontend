@@ -549,6 +549,7 @@ export function useChat() {
         sources: response.sources,
         spokenSummary: response.spokenSummary,
         ui: response.ui,
+        confidence: response.confidence ?? null,
         warnings: response.warnings ?? [],
         toolsUsed: response.toolsUsed ?? [],
         agentResult: task.result,

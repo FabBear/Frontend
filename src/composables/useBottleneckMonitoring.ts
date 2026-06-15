@@ -192,8 +192,10 @@ export function useBottleneckMonitoring() {
       }
 
       // 2) 스냅샷 시각 기준 공정맵/랭킹 (snapshotId만 필요 → 병렬)
-      let processMapData = await fetchBottleneckProcessMap(snapshotData.snapshotId);
-      let rankingsRaw = await fetchBottleneckRankings(snapshotData.snapshotId);
+      let [processMapData, rankingsRaw] = await Promise.all([
+        fetchBottleneckProcessMap(snapshotData.snapshotId),
+        fetchBottleneckRankings(snapshotData.snapshotId),
+      ]);
       let rankings = mapBottleneckRankings(rankingsRaw, processMapData.areas);
 
       // 3) 스냅샷 capturedAt 시각에 적재된 tg_metrics가 없어 결과가 비면(메트릭 적재 시각과

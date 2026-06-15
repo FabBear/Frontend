@@ -29,21 +29,6 @@ const validationStatus = computed(() => ({
   state: missingRequiredCount.value > 0 ? ('warning' as const) : ('success' as const),
 }));
 
-const FIELD_CONSTRAINTS: Record<
-  string,
-  {
-    dataTypes: AdminMesFieldMapping['dataType'][];
-    scopes: AdminMesFieldMapping['metricScope'][];
-  }
-> = {
-  fab_code: { dataTypes: ['STRING'], scopes: ['FAB'] },
-  tool_id: { dataTypes: ['STRING'], scopes: ['TOOL'] },
-  status: { dataTypes: ['ENUM', 'STRING'], scopes: ['TOOL'] },
-  utilization_rate: { dataTypes: ['NUMBER'], scopes: ['TOOL_GROUP', 'TOOL'] },
-  waiting_lot: { dataTypes: ['NUMBER'], scopes: ['TOOL_GROUP'] },
-  queue_lot_count: { dataTypes: ['NUMBER'], scopes: ['TOOL_GROUP', 'TOOL'] },
-};
-
 const columns: BaseTableColumn[] = [
   { key: 'customerMetricName', label: '고객사 지표명' },
   { key: 'externalField', label: '고객사 MES 필드' },
@@ -114,18 +99,6 @@ async function loadMappings() {
 
 async function saveEdit() {
   if (!draft.value) return;
-  const original = mappings.value.find((m) => m.id === draft.value?.id);
-  const constraints = FIELD_CONSTRAINTS[draft.value.internalField];
-
-  if (constraints && !constraints.dataTypes.includes(draft.value.dataType)) {
-    draft.value.dataType = constraints.dataTypes[0];
-  }
-  if (constraints && !constraints.scopes.includes(draft.value.metricScope)) {
-    draft.value.metricScope = constraints.scopes[0];
-  }
-  if (original?.isRequired) {
-    draft.value.isActive = true;
-  }
 
   isSaving.value = true;
   errorMessage.value = null;

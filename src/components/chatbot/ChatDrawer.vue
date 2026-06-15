@@ -23,7 +23,8 @@ defineEmits<{
   close: [];
 }>();
 
-const { consumePendingReport, consumePendingReportContext, consumePendingAgentTask } = useChatDrawer();
+const { consumePendingReport, consumePendingReportContext, consumePendingAgentTask, consumePendingCasePrompt } =
+  useChatDrawer();
 const {
   sessions,
   activeSessionId,
@@ -32,7 +33,6 @@ const {
   quickPromptTitle,
   isResponding,
   reportContext,
-  agentContext,
   loadInitialChatData,
   selectSession,
   createSession,
@@ -137,7 +137,7 @@ watch(
       const casePrompt = consumePendingCasePrompt();
       if (report) initWithReport(report);
       if (reportContext) initWithReportContext(reportContext);
-      if (agentTask) initWithAgentTask(agentTask);
+      if (agentTask) await initWithAgentTask(agentTask);
       if (casePrompt) void initWithCasePrompt(casePrompt);
     }
   }
@@ -543,9 +543,10 @@ function resetBodyCursor() {
 
         <div v-if="reportContext" class="chat-drawer__report-ctx">
           <div class="chat-drawer__report-ctx-left">
-            <span class="chat-drawer__report-ctx-tag">리포트 Q&A 맥락</span>
-            <strong class="chat-drawer__report-ctx-name">{{ reportContext.processName }}</strong>
+            <span class="chat-drawer__report-ctx-tag">리포트 Q&A</span>
             <span class="chat-drawer__report-ctx-meta">
+              <strong>{{ reportContext.processName }}</strong>
+              <span class="chat-drawer__report-ctx-sep">·</span>
               Risk {{ reportContext.riskScore }}
               <span class="chat-drawer__report-ctx-sep">·</span>
               {{ reportContext.severity }}
@@ -564,31 +565,6 @@ function resetBodyCursor() {
           </button>
         </div>
 
-        <div v-if="agentContext" class="chat-drawer__report-ctx chat-drawer__report-ctx--agent">
-          <div class="chat-drawer__report-ctx-left">
-            <span class="chat-drawer__report-ctx-tag">후속 맥락</span>
-            <strong class="chat-drawer__report-ctx-name">{{ agentContext.title }}</strong>
-            <span class="chat-drawer__report-ctx-meta">
-              {{ agentContext.sourcePage }}
-              <span v-if="agentContext.relatedTgId" class="chat-drawer__report-ctx-sep">·</span>
-              <span v-if="agentContext.relatedTgId">TG 연결</span>
-              <span v-if="agentContext.relatedCaseId" class="chat-drawer__report-ctx-sep">·</span>
-              <span v-if="agentContext.relatedCaseId">Case 연결</span>
-              <span class="chat-drawer__report-ctx-sep">·</span>
-              <span>현황 질문은 새 조회</span>
-            </span>
-          </div>
-          <button
-            class="chat-drawer__report-ctx-clear"
-            type="button"
-            title="맥락 해제"
-            aria-label="맥락 해제"
-            @click="clearAgentContext"
-          >
-            <X :size="13" />
-          </button>
-        </div>
-
         <div class="chat-drawer__sessions">
           <ChatSessionList
             :sessions="sessions"
@@ -599,22 +575,15 @@ function resetBodyCursor() {
         </div>
 
         <section class="chat-drawer__chat">
-          <div v-if="quickPrompts.length" class="chat-drawer__prompts">
-            <span class="chat-drawer__prompts-title">{{ quickPromptTitle }}</span>
-            <div class="chat-drawer__prompts-list">
-              <button
-                v-for="prompt in quickPrompts"
-                :key="prompt.id"
-                type="button"
-                :disabled="isResponding"
-                @click="sendMessage(prompt.message)"
-              >
-                {{ prompt.label }}
-              </button>
-            </div>
-          </div>
           <div class="chat-drawer__messages">
-            <ChatMessageList :messages="messages" :responding="isResponding" />
+            <ChatMessageList
+              :messages="messages"
+              :responding="isResponding"
+              :quick-prompts="quickPrompts"
+              :quick-prompt-title="quickPromptTitle"
+              :report-context="reportContext"
+              @prompt="sendMessage"
+            />
           </div>
         </section>
         <div class="chat-drawer__footer">
@@ -921,49 +890,42 @@ function resetBodyCursor() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
-  padding: 10px var(--space-4);
-  background: color-mix(in srgb, var(--color-action-primary) 5%, var(--color-bg-surface));
-  border-bottom: 1px solid color-mix(in srgb, var(--color-action-primary) 20%, transparent);
-}
-
-.chat-drawer__report-ctx--agent {
-  background: color-mix(in srgb, var(--color-gold) 7%, var(--color-bg-surface));
-  border-bottom-color: color-mix(in srgb, var(--color-gold) 26%, transparent);
+  gap: var(--space-2);
+  min-height: 38px;
+  padding: 6px var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: color-mix(in srgb, var(--color-action-primary-soft) 18%, var(--color-bg-surface));
 }
 
 .chat-drawer__report-ctx-left {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
+  align-items: center;
+  gap: var(--space-2);
   min-width: 0;
 }
 
 .chat-drawer__report-ctx-tag {
   flex-shrink: 0;
-  border: 1px solid color-mix(in srgb, var(--color-action-primary) 40%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-action-primary) 28%, transparent);
   border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--color-action-primary) 12%, transparent);
-  padding: 1px 8px;
+  background: var(--color-bg-card);
+  padding: 2px 8px;
   color: var(--color-action-primary);
   font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-bold);
 }
 
-.chat-drawer__report-ctx-name {
+.chat-drawer__report-ctx-meta {
   overflow: hidden;
-  max-width: 100%;
-  color: var(--color-fg-strong);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-bold);
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.chat-drawer__report-ctx-meta {
-  color: var(--color-fg-muted);
-  font-size: var(--font-size-xs);
+.chat-drawer__report-ctx-meta strong {
+  color: var(--color-fg-strong);
+  font-weight: var(--font-weight-semibold);
 }
 
 .chat-drawer__report-ctx-sep {
@@ -974,11 +936,11 @@ function resetBodyCursor() {
 .chat-drawer__report-ctx-clear {
   display: inline-grid;
   flex-shrink: 0;
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   place-items: center;
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
   background: transparent;
   color: var(--color-fg-muted);
   cursor: pointer;
@@ -988,8 +950,7 @@ function resetBodyCursor() {
   background: var(--color-state-hover);
 }
 
-.chat-drawer__icon-button,
-.chat-drawer__prompts button {
+.chat-drawer__icon-button {
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-md);
   background: var(--color-bg-card);
@@ -1004,8 +965,7 @@ function resetBodyCursor() {
   place-items: center;
 }
 
-.chat-drawer__icon-button:hover,
-.chat-drawer__prompts button:hover:not(:disabled) {
+.chat-drawer__icon-button:hover {
   border-color: var(--color-action-primary-border);
   color: var(--color-action-primary);
 }
@@ -1031,7 +991,7 @@ function resetBodyCursor() {
 .chat-drawer__chat {
   display: grid;
   flex: 1 1 0;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   min-height: 0;
   overflow: hidden;
 }
@@ -1067,44 +1027,6 @@ function resetBodyCursor() {
   background: color-mix(in srgb, var(--color-action-primary-soft) 28%, var(--color-bg-surface));
 }
 
-.chat-drawer__prompts {
-  display: grid;
-  gap: var(--space-2);
-  padding: 10px var(--space-4);
-  border-bottom: 1px solid var(--color-border-subtle);
-  background: color-mix(in srgb, var(--color-bg-page) 42%, var(--color-bg-surface));
-}
-
-.chat-drawer__prompts-title {
-  color: var(--color-fg-muted);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-}
-
-.chat-drawer__prompts-list {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-2);
-}
-
-.chat-drawer__prompts button {
-  min-width: 0;
-  min-height: 42px;
-  padding: 8px 10px;
-  color: var(--color-action-primary);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  line-height: 1.35;
-  text-align: left;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
-.chat-drawer__prompts button:disabled {
-  cursor: not-allowed;
-  opacity: var(--opacity-disabled);
-}
-
 @media (max-width: 760px) {
   .chat-drawer {
     top: var(--layout-header-height) !important;
@@ -1124,10 +1046,6 @@ function resetBodyCursor() {
 
   .chat-drawer__resize {
     display: none;
-  }
-
-  .chat-drawer__prompts-list {
-    grid-template-columns: 1fr;
   }
 }
 

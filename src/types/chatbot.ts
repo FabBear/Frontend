@@ -40,6 +40,7 @@ export interface ChatMessage {
   confidence?: 'HIGH' | 'MEDIUM' | 'LOW' | null;
   warnings?: string[];
   toolsUsed?: string[];
+  followUps?: string[];
   /** SSE 스트리밍 중(미완성) — 자동읽기 등은 완성 후에만 동작. */
   pending?: boolean;
   attachments?: ChatAttachment[];

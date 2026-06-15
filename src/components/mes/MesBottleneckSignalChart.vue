@@ -52,7 +52,7 @@ const chartOption = computed(() => {
   const chartFontSize = resolveCssFontSize('--font-size-sm');
 
   return {
-    grid: { top: 20, right: 18, bottom: 30, left: 10, containLabel: true },
+    grid: { top: 20, right: 18, bottom: 30, left: 10, outerBoundsMode: 'same', outerBoundsContain: 'axisLabel' },
     tooltip: {
       trigger: 'item',
       textStyle: { fontSize: chartFontSize },

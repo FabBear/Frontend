@@ -60,7 +60,14 @@ function buildTrendOption(metricDef: MachineMetricDefinition) {
     isRatio && globalAvg !== null ? +(globalAvg * 100).toFixed(1) : globalAvg !== null ? +globalAvg.toFixed(2) : null;
 
   return {
-    grid: { top: 12, right: 12, bottom: props.series.length > 3 ? 56 : 36, left: 8, containLabel: true },
+    grid: {
+      top: 12,
+      right: 12,
+      bottom: props.series.length > 3 ? 56 : 36,
+      left: 8,
+      outerBoundsMode: 'same',
+      outerBoundsContain: 'axisLabel',
+    },
     tooltip: { trigger: 'axis', textStyle: { fontSize } },
     legend: {
       show: props.series.length > 1,
@@ -138,7 +145,7 @@ function buildSnapshotOption(metricDef: MachineMetricDefinition) {
     .sort((a, b) => b.value - a.value);
 
   return {
-    grid: { top: 8, right: 72, bottom: 8, left: 8, containLabel: true },
+    grid: { top: 8, right: 72, bottom: 8, left: 8, outerBoundsMode: 'same', outerBoundsContain: 'axisLabel' },
     tooltip: { trigger: 'axis', textStyle: { fontSize } },
     xAxis: {
       type: 'value',

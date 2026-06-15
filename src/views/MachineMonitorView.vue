@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { computed, onMounted, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { useMachineMonitoring } from '@/composables/useMachineMonitoring';
 
 import type { DashboardTrendKey } from '@/types/dashboardApi';
+import type { MachineAnalysisScope } from '@/types/machine';
 
 import FabBearProgressLoader from '@/components/base/FabBearProgressLoader.vue';
 import MachineAnalysisTab from '@/components/machine/MachineAnalysisTab.vue';
@@ -22,6 +23,8 @@ const {
   selectedCompareToolIds,
   periodPreset,
   periodRange,
+  isTrendsLoading,
+  trendsErrorMessage,
   MAX_COMPARE,
   activeMetricDefinitions,
   toolGroupTargets,
@@ -47,9 +50,12 @@ const {
 } = useMachineMonitoring();
 
 const route = useRoute();
+const router = useRouter();
 const DASHBOARD_KPI_KEYS: DashboardTrendKey[] = ['rtf', 'throughput24h', 'avgQtimeMin', 'wip'];
+const activeDashboardKpiKey = ref<DashboardTrendKey | null>(null);
+const activeAnalysisScope = ref<MachineAnalysisScope>('toolGroup');
 
-const dashboardKpiKey = computed<DashboardTrendKey | null>(() => {
+const routeDashboardKpiKey = computed<DashboardTrendKey | null>(() => {
   if (route.query.focus !== 'dashboardKpi') return null;
   const key = route.query.kpi;
   return typeof key === 'string' && DASHBOARD_KPI_KEYS.includes(key as DashboardTrendKey)
@@ -58,27 +64,72 @@ const dashboardKpiKey = computed<DashboardTrendKey | null>(() => {
 });
 
 function syncRouteTab() {
-  if (route.query.tab === 'analysis' || dashboardKpiKey.value) {
+  const nextKpiKey = routeDashboardKpiKey.value;
+  if (route.query.tab === 'analysis' || nextKpiKey) {
     setActiveTab('analysis');
   }
+  if (nextKpiKey) {
+    activeDashboardKpiKey.value = nextKpiKey;
+    activeAnalysisScope.value = 'fab';
+  } else if (route.query.focus !== 'dashboardKpi') {
+    activeDashboardKpiKey.value = null;
+  }
+}
+
+function applyActiveDashboardKpiDrill() {
+  if (activeDashboardKpiKey.value) applyDashboardKpiDrill(activeDashboardKpiKey.value);
+}
+
+function applyFabKpiDefaultPeriod(key: DashboardTrendKey | null) {
+  if (!data.value || key !== 'throughput24h' || periodPreset.value === '7D') return;
+  setAnalysisPeriodPreset('7D');
+}
+
+function handleSelectDashboardKpi(key: DashboardTrendKey) {
+  activeDashboardKpiKey.value = key;
+  activeAnalysisScope.value = 'fab';
+  applyFabKpiDefaultPeriod(key);
+  applyDashboardKpiDrill(key);
+  void router.replace({
+    query: {
+      ...route.query,
+      tab: 'analysis',
+      focus: 'dashboardKpi',
+      kpi: key,
+    },
+  });
+}
+
+function handleAnalysisScopeChange(scope: MachineAnalysisScope) {
+  activeAnalysisScope.value = scope;
+
+  if (scope === 'fab') {
+    if (!activeDashboardKpiKey.value) activeDashboardKpiKey.value = 'rtf';
+    applyFabKpiDefaultPeriod(activeDashboardKpiKey.value);
+    applyActiveDashboardKpiDrill();
+    return;
+  }
+
+  setAnalysisTargetType(scope);
+  if (scope === 'toolGroup') applyActiveDashboardKpiDrill();
 }
 
 onMounted(async () => {
   syncRouteTab();
   await loadMachineMonitoringData();
+  applyFabKpiDefaultPeriod(activeDashboardKpiKey.value);
   // 데이터(toolGroups) 로드 후에야 기여 TG 랭킹이 가능 → 여기서 드릴 적용
-  if (dashboardKpiKey.value) applyDashboardKpiDrill(dashboardKpiKey.value);
+  applyActiveDashboardKpiDrill();
 });
 
 watch(
   () => [route.query.tab, route.query.focus, route.query.kpi],
-  () => syncRouteTab()
+  () => {
+    syncRouteTab();
+    applyFabKpiDefaultPeriod(activeDashboardKpiKey.value);
+    applyActiveDashboardKpiDrill();
+  }
 );
-
-// 페이지에 머문 채 다른 KPI로 재진입(데이터는 이미 로드됨) → 즉시 드릴 재적용
-watch(dashboardKpiKey, (key) => {
-  if (key) applyDashboardKpiDrill(key);
-});
 </script>
 
 <template>
@@ -119,6 +170,7 @@ watch(dashboardKpiKey, (key) => {
 
       <MachineAnalysisTab
         v-else
+        :analysis-scope="activeAnalysisScope"
         :target-type="analysisTargetType"
         :period-preset="periodPreset"
         :period-range="periodRange"
@@ -131,14 +183,18 @@ watch(dashboardKpiKey, (key) => {
         :selected-tool-ids="selectedCompareToolIds"
         :analysis-series="analysisSeries"
         :trend-labels="trendLabels"
+        :trends-loading="isTrendsLoading"
+        :trends-error-message="trendsErrorMessage"
         :analysis-insight="analysisInsight"
         :presets="analysisPresets"
         :selected-preset-key="selectedAnalysisPresetKey"
         :max-compare="MAX_COMPARE"
-        :dashboard-kpi-key="dashboardKpiKey"
+        :dashboard-kpi-key="activeAnalysisScope === 'fab' ? (activeDashboardKpiKey ?? 'rtf') : activeDashboardKpiKey"
+        @update:analysis-scope="handleAnalysisScopeChange"
         @update:target-type="setAnalysisTargetType"
         @update:period-preset="setAnalysisPeriodPreset"
         @update:period-range="setAnalysisPeriodRange"
+        @select-dashboard-kpi="handleSelectDashboardKpi"
         @toggle-metric="toggleMetric"
         @toggle-tool-group="toggleCompareToolGroup"
         @toggle-tool="toggleCompareTool"

@@ -4,6 +4,7 @@ import { computed, ref } from 'vue';
 import type { DashboardTrendKey } from '@/types/dashboardApi';
 import type {
   MachineAnalysisPreset,
+  MachineAnalysisScope,
   MachineAnalysisSeries,
   MachineAnalysisTargetType,
   MachineComparisonTarget,
@@ -19,6 +20,7 @@ import MachineOperationRangeCard from '@/components/machine/MachineOperationRang
 import MetricPalette from '@/components/machine/MetricPalette.vue';
 
 interface Props {
+  analysisScope: MachineAnalysisScope;
   targetType: MachineAnalysisTargetType;
   periodPreset: MachinePeriodPreset;
   periodRange: MachinePeriodRange | null;
@@ -31,6 +33,8 @@ interface Props {
   selectedToolIds: string[];
   analysisSeries: MachineAnalysisSeries[];
   trendLabels: string[];
+  trendsLoading: boolean;
+  trendsErrorMessage: string | null;
   analysisInsight: string | null;
   presets: MachineAnalysisPreset[];
   selectedPresetKey: string | null;
@@ -41,9 +45,11 @@ interface Props {
 const props = defineProps<Props>();
 
 const emit = defineEmits<{
+  'update:analysisScope': [value: MachineAnalysisScope];
   'update:targetType': [value: MachineAnalysisTargetType];
   'update:periodPreset': [value: MachinePeriodPreset];
   'update:periodRange': [value: MachinePeriodRange];
+  selectDashboardKpi: [key: DashboardTrendKey];
   toggleMetric: [metricKey: MachineMetricKey];
   toggleToolGroup: [tgId: string];
   toggleTool: [toolId: string];
@@ -51,6 +57,12 @@ const emit = defineEmits<{
   applyPreset: [key: string];
   resetPreset: [];
 }>();
+
+const scopeOptions: { value: MachineAnalysisScope; label: string }[] = [
+  { value: 'fab', label: 'Fab' },
+  { value: 'toolGroup', label: 'Tool Group' },
+  { value: 'tool', label: 'Tool' },
+];
 
 // ── 목록 검색 ────────────────────────────────────────────────────────
 const listSearch = ref('');
@@ -60,6 +72,10 @@ const allTargets = computed(() => (props.targetType === 'toolGroup' ? props.tool
 const selectedIds = computed(() =>
   props.targetType === 'toolGroup' ? props.selectedToolGroupIds : props.selectedToolIds
 );
+
+const searchPlaceholder = computed(() => (props.targetType === 'toolGroup' ? 'TG 검색...' : 'Tool 검색...'));
+
+const visiblePresets = computed(() => props.presets.filter((preset) => preset.targetType === props.targetType));
 
 const isAtMax = computed(() => selectedIds.value.length >= props.maxCompare);
 
@@ -85,8 +101,6 @@ function findTarget(id: string): MachineComparisonTarget | undefined {
 
 <template>
   <div class="analysis-tab">
-    <DashboardKpiAnalysisPanel v-if="dashboardKpiKey" :kpi-key="dashboardKpiKey" />
-
     <MachineOperationRangeCard
       :measured-at="measuredAt"
       :period-preset="periodPreset"
@@ -95,132 +109,151 @@ function findTarget(id: string): MachineComparisonTarget | undefined {
       @update:period-range="emit('update:periodRange', $event)"
     />
 
-    <!-- 빠른 보기 프리셋 (현장 엔지니어용 자주 보는 분석 묶음) -->
-    <div v-if="presets.length" class="analysis-tab__presets">
-      <span class="analysis-tab__presets-label">빠른 보기</span>
-      <button
-        v-for="preset in presets"
-        :key="preset.key"
-        type="button"
-        class="analysis-tab__preset"
-        :class="{ 'analysis-tab__preset--active': preset.key === selectedPresetKey }"
-        :title="preset.description"
-        @click="emit('applyPreset', preset.key)"
-      >
-        {{ preset.label }}
-      </button>
-      <button type="button" class="analysis-tab__preset analysis-tab__preset--reset" @click="emit('resetPreset')">
-        기본값
-      </button>
-    </div>
-
-    <!-- 비교 단위 토글 -->
-    <div class="analysis-tab__header">
-      <div class="analysis-tab__segmented" role="group" aria-label="비교 단위">
+    <div class="analysis-tab__scope-head">
+      <div>
+        <span>기여 대상</span>
+        <h2>선택 KPI 기준 비교</h2>
+      </div>
+      <div class="analysis-tab__segmented" role="group" aria-label="기여 대상">
         <button
+          v-for="option in scopeOptions"
+          :key="option.value"
           type="button"
           class="analysis-tab__seg-btn"
-          :class="{ 'analysis-tab__seg-btn--active': targetType === 'toolGroup' }"
-          @click="emit('update:targetType', 'toolGroup')"
+          :class="{ 'analysis-tab__seg-btn--active': analysisScope === option.value }"
+          @click="emit('update:analysisScope', option.value)"
         >
-          Tool Group
-        </button>
-        <button
-          type="button"
-          class="analysis-tab__seg-btn"
-          :class="{ 'analysis-tab__seg-btn--active': targetType === 'tool' }"
-          @click="emit('update:targetType', 'tool')"
-        >
-          Tool
+          {{ option.label }}
         </button>
       </div>
     </div>
 
-    <p v-if="analysisInsight" class="analysis-tab__insight">
-      {{ analysisInsight }}
-    </p>
+    <DashboardKpiAnalysisPanel
+      v-if="analysisScope === 'fab' && dashboardKpiKey"
+      :kpi-key="dashboardKpiKey"
+      :period-range="periodRange"
+      @select-kpi="emit('selectDashboardKpi', $event)"
+    />
 
-    <!-- 2열 워크스페이스 -->
-    <div class="analysis-tab__workspace">
-      <!-- 왼쪽: 선택 목록 -->
-      <aside class="analysis-tab__list-panel">
-        <div class="analysis-tab__list-search-wrap">
-          <input v-model="listSearch" type="search" class="analysis-tab__list-search" placeholder="검색..." />
-          <span class="analysis-tab__list-count" :class="{ 'analysis-tab__list-count--max': isAtMax }">
-            {{ selectedIds.length }} / {{ maxCompare }}
-          </span>
-          <button
-            type="button"
-            class="analysis-tab__list-clear"
-            :disabled="selectedIds.length === 0"
-            @click="emit('clearTargets')"
-          >
-            초기화
-          </button>
-        </div>
+    <template v-else>
+      <!-- 빠른 보기 프리셋 (현장 엔지니어용 자주 보는 분석 묶음) -->
+      <div v-if="visiblePresets.length" class="analysis-tab__presets">
+        <span class="analysis-tab__presets-label">빠른 보기</span>
+        <button
+          v-for="preset in visiblePresets"
+          :key="preset.key"
+          type="button"
+          class="analysis-tab__preset"
+          :class="{ 'analysis-tab__preset--active': preset.key === selectedPresetKey }"
+          :title="preset.description"
+          @click="emit('applyPreset', preset.key)"
+        >
+          {{ preset.label }}
+        </button>
+        <button type="button" class="analysis-tab__preset analysis-tab__preset--reset" @click="emit('resetPreset')">
+          기본값
+        </button>
+      </div>
 
-        <ul class="analysis-tab__list" role="listbox">
-          <li
-            v-for="item in filteredTargets"
-            :key="item.id"
-            class="analysis-tab__list-item"
-            :class="{
-              'analysis-tab__list-item--selected': isSelected(item.id),
-              'analysis-tab__list-item--disabled': isAtMax && !isSelected(item.id),
-            }"
-            role="option"
-            :aria-selected="isSelected(item.id)"
-            :aria-disabled="isAtMax && !isSelected(item.id)"
-            @click="toggle(item.id)"
-          >
-            <span class="analysis-tab__list-info">
-              <b>{{ item.code }}</b>
-              <small>{{ item.groupLabel }}</small>
+      <p v-if="analysisInsight" class="analysis-tab__insight">
+        {{ analysisInsight }}
+      </p>
+
+      <!-- 2열 워크스페이스 -->
+      <div class="analysis-tab__workspace">
+        <!-- 왼쪽: 선택 목록 -->
+        <aside class="analysis-tab__list-panel">
+          <div class="analysis-tab__list-search-wrap">
+            <input
+              v-model="listSearch"
+              type="search"
+              class="analysis-tab__list-search"
+              :placeholder="searchPlaceholder"
+            />
+            <span class="analysis-tab__list-count" :class="{ 'analysis-tab__list-count--max': isAtMax }">
+              {{ selectedIds.length }} / {{ maxCompare }}
             </span>
-            <span v-if="isSelected(item.id)" class="analysis-tab__list-check">✓</span>
-          </li>
-          <li v-if="filteredTargets.length === 0" class="analysis-tab__list-empty">검색 결과 없음</li>
-        </ul>
-      </aside>
-
-      <!-- 오른쪽: 선택 현황 + 차트 -->
-      <div class="analysis-tab__canvas">
-        <!-- 선택된 대상 칩 -->
-        <div class="analysis-tab__selected">
-          <span v-if="selectedIds.length === 0" class="analysis-tab__selected-hint">
-            ← 왼쪽에서 비교할 대상을 선택하세요
-          </span>
-          <div v-else class="analysis-tab__chips">
-            <span v-for="id in selectedIds" :key="id" class="analysis-tab__chip">
-              {{ findTarget(id)?.code ?? id }}
-              <button
-                type="button"
-                class="analysis-tab__chip-remove"
-                :aria-label="`${findTarget(id)?.code} 제거`"
-                @click.stop="toggle(id)"
-              >
-                ✕
-              </button>
-            </span>
+            <button
+              type="button"
+              class="analysis-tab__list-clear"
+              :disabled="selectedIds.length === 0"
+              @click="emit('clearTargets')"
+            >
+              초기화
+            </button>
           </div>
+
+          <ul class="analysis-tab__list" role="listbox">
+            <li
+              v-for="item in filteredTargets"
+              :key="item.id"
+              class="analysis-tab__list-item"
+              :class="{
+                'analysis-tab__list-item--selected': isSelected(item.id),
+                'analysis-tab__list-item--disabled': isAtMax && !isSelected(item.id),
+              }"
+              role="option"
+              :aria-selected="isSelected(item.id)"
+              :aria-disabled="isAtMax && !isSelected(item.id)"
+              @click="toggle(item.id)"
+            >
+              <span class="analysis-tab__list-info">
+                <b>{{ item.code }}</b>
+                <small>{{ item.groupLabel }}</small>
+              </span>
+              <span v-if="isSelected(item.id)" class="analysis-tab__list-check">✓</span>
+            </li>
+            <li v-if="filteredTargets.length === 0" class="analysis-tab__list-empty">검색 결과 없음</li>
+          </ul>
+        </aside>
+
+        <!-- 오른쪽: 선택 현황 + 차트 -->
+        <div class="analysis-tab__canvas">
+          <!-- 선택된 대상 칩 -->
+          <div class="analysis-tab__selected">
+            <span v-if="selectedIds.length === 0" class="analysis-tab__selected-hint">
+              왼쪽에서 비교할 대상을 선택하세요
+            </span>
+            <div v-else class="analysis-tab__chips">
+              <span v-for="id in selectedIds" :key="id" class="analysis-tab__chip">
+                {{ findTarget(id)?.code ?? id }}
+                <button
+                  type="button"
+                  class="analysis-tab__chip-remove"
+                  :aria-label="`${findTarget(id)?.code} 제거`"
+                  @click.stop="toggle(id)"
+                >
+                  ✕
+                </button>
+              </span>
+            </div>
+          </div>
+
+          <!-- 지표 선택 -->
+          <MetricPalette
+            :metrics="metrics"
+            :selected-metric-keys="selectedMetricKeys"
+            @toggle="emit('toggleMetric', $event)"
+          />
+
+          <!-- 차트 -->
+          <p v-if="trendsLoading" class="analysis-tab__chart-state">비교 차트 데이터를 불러오는 중입니다.</p>
+          <p v-else-if="trendsErrorMessage" class="analysis-tab__chart-state analysis-tab__chart-state--error">
+            {{ trendsErrorMessage }}
+          </p>
+          <p v-else-if="selectedIds.length > 0 && analysisSeries.length === 0" class="analysis-tab__chart-state">
+            선택 기간에 조회된 추이 데이터가 없습니다.
+          </p>
+          <MachineComparisonChart
+            v-else
+            :series="analysisSeries"
+            :metrics="metrics"
+            :selected-metric-keys="selectedMetricKeys"
+            :trend-labels="trendLabels"
+          />
         </div>
-
-        <!-- 지표 선택 -->
-        <MetricPalette
-          :metrics="metrics"
-          :selected-metric-keys="selectedMetricKeys"
-          @toggle="emit('toggleMetric', $event)"
-        />
-
-        <!-- 차트 -->
-        <MachineComparisonChart
-          :series="analysisSeries"
-          :metrics="metrics"
-          :selected-metric-keys="selectedMetricKeys"
-          :trend-labels="trendLabels"
-        />
       </div>
-    </div>
+    </template>
   </div>
 </template>
 
@@ -230,13 +263,6 @@ function findTarget(id: string): MachineComparisonTarget | undefined {
   gap: var(--space-3);
   min-width: 0;
   font-size: var(--font-size-base);
-}
-
-/* 헤더 */
-.analysis-tab__header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
 }
 
 .analysis-tab__segmented {
@@ -322,6 +348,26 @@ function findTarget(id: string): MachineComparisonTarget | undefined {
   color: var(--color-fg-strong);
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-semibold);
+}
+
+.analysis-tab__scope-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.analysis-tab__scope-head span {
+  color: var(--color-action-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+}
+
+.analysis-tab__scope-head h2 {
+  margin: 2px 0 0;
+  color: var(--color-fg-strong);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
 }
 
 /* 2열 워크스페이스 */
@@ -504,6 +550,26 @@ function findTarget(id: string): MachineComparisonTarget | undefined {
   font-size: var(--font-size-base);
 }
 
+.analysis-tab__chart-state {
+  display: grid;
+  min-height: 260px;
+  place-items: center;
+  margin: 0;
+  border: var(--border-width-default) dashed var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle);
+  padding: var(--space-4);
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  text-align: center;
+}
+
+.analysis-tab__chart-state--error {
+  border-color: var(--color-status-danger);
+  color: var(--color-status-danger);
+}
+
 /* 선택 칩 */
 .analysis-tab__chips {
   display: flex;
@@ -552,7 +618,7 @@ function findTarget(id: string): MachineComparisonTarget | undefined {
 }
 
 @media (max-width: 640px) {
-  .analysis-tab__header {
+  .analysis-tab__scope-head {
     align-items: stretch;
     flex-direction: column;
   }

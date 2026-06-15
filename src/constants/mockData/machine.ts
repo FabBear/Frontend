@@ -41,7 +41,6 @@ function average(values: number[]): number | null {
 export const MACHINE_TG_METRIC_DEFINITIONS: (MachineMetricDefinition & { key: MachineTgMetricKey })[] = [
   { key: 'utilizationRate', label: '가동률', group: 'production', unit: '%', valueFormat: 'ratio', positiveGood: true },
   { key: 'wipCount', label: 'WIP (Lot)', group: 'queue', unit: 'lot', valueFormat: 'number', positiveGood: false },
-  { key: 'avgQtimeMin', label: '평균 Q-time', group: 'queue', unit: 'lot', valueFormat: 'number', positiveGood: false },
   {
     key: 'availableToolRatio',
     label: '가용 장비율',
@@ -50,7 +49,6 @@ export const MACHINE_TG_METRIC_DEFINITIONS: (MachineMetricDefinition & { key: Ma
     valueFormat: 'ratio',
     positiveGood: true,
   },
-  { key: 'bottleneckProb', label: '병목 확률', group: 'state', unit: '%', valueFormat: 'ratio', positiveGood: false },
 ];
 
 // Tool 분석용 지표 정의
@@ -59,7 +57,6 @@ export const MACHINE_TOOL_METRIC_DEFINITIONS: (MachineMetricDefinition & { key: 
   { key: 'oeeEstimate', label: 'OEE', group: 'production', unit: '%', valueFormat: 'ratio', positiveGood: true },
   { key: 'queueLotCount', label: 'Queue Lot', group: 'queue', unit: 'lot', valueFormat: 'number', positiveGood: false },
   { key: 'downRatio', label: 'Down 비율', group: 'state', unit: '%', valueFormat: 'ratio', positiveGood: false },
-  { key: 'avgQtimeMin', label: '평균 Q-time', group: 'queue', unit: 'lot', valueFormat: 'number', positiveGood: false },
 ];
 
 // 하위 호환용 전체 목록 (기존 코드가 참조하는 곳)

@@ -7,6 +7,7 @@ import {
   createCustomMachinePeriodRange,
   createMachinePeriodRange,
   formatMachinePeriodLabel,
+  getMachinePeriodEndDate,
   parseDateTimeLocal,
   toDateTimeLocalValue,
 } from '@/utils/machinePeriod';
@@ -37,6 +38,14 @@ const draftTo = ref('');
 const appliedFrom = ref('');
 const appliedTo = ref('');
 const rangeErrorMessage = ref<string | null>(null);
+
+const dataEndDate = computed(() => getMachinePeriodEndDate(props.measuredAt));
+const maxDateTimeValue = computed(() => toDateTimeLocalValue(dataEndDate.value));
+const fromInputMax = computed(() => {
+  const to = parseDateTimeLocal(draftTo.value);
+  if (!to || to.getTime() > dataEndDate.value.getTime()) return maxDateTimeValue.value;
+  return draftTo.value;
+});
 
 const selectedRangeLabel = computed(() => {
   if (selectedRange.value === 'CUSTOM') return '직접 설정';
@@ -97,6 +106,11 @@ function applyCustomRange() {
     return;
   }
 
+  if (from.getTime() > dataEndDate.value.getTime() || to.getTime() > dataEndDate.value.getTime()) {
+    rangeErrorMessage.value = '데이터 기준 시각 이후는 선택할 수 없습니다.';
+    return;
+  }
+
   selectedRange.value = 'CUSTOM';
   appliedFrom.value = draftFrom.value;
   appliedTo.value = draftTo.value;
@@ -127,11 +141,11 @@ function applyCustomRange() {
       <div class="operation-range-card__custom-range" aria-label="직접 기간 선택">
         <label>
           <span>시작일</span>
-          <input v-model="draftFrom" type="datetime-local" />
+          <input v-model="draftFrom" type="datetime-local" :max="fromInputMax" />
         </label>
         <label>
           <span>종료일</span>
-          <input v-model="draftTo" type="datetime-local" />
+          <input v-model="draftTo" type="datetime-local" :min="draftFrom" :max="maxDateTimeValue" />
         </label>
         <button type="button" class="operation-range-card__apply-btn" @click="applyCustomRange">조회</button>
         <button type="button" class="operation-range-card__reset-btn" @click="applyQuickRange('24H')">초기화</button>

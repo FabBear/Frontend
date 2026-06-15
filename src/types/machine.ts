@@ -26,6 +26,7 @@ export type MachineEventSeverity = 'INFO' | 'WARNING' | 'CRITICAL';
 export type MachineScopeMode = 'process' | 'role';
 export type MachinePageTab = 'overview' | 'analysis';
 export type MachineAnalysisTargetType = 'toolGroup' | 'tool';
+export type MachineAnalysisScope = 'fab' | MachineAnalysisTargetType;
 export type MachineAnalysisPresetSeverity = 'warning' | 'info';
 
 export interface MachineSummary {

@@ -82,6 +82,7 @@ export function useMachineMonitoring() {
   // ── 분석 탭: 트렌드 API 응답 ──────────────────────────────────────────
   const trendsData = shallowRef<MachineEquipmentTrendsPayload | null>(null);
   const isTrendsLoading = ref(false);
+  const trendsErrorMessage = ref<string | null>(null);
 
   // ── 기초 computed ──────────────────────────────────────────────────────
   const toolGroups = computed(() => data.value?.toolGroups ?? []);
@@ -161,9 +162,6 @@ export function useMachineMonitoring() {
     const tgByWip = [...toolGroups.value]
       .sort((a, b) => b.queueLotCount - a.queueLotCount)
       .map((tg) => ({ id: tg.tgId }));
-    const tgByBottleneck = [...toolGroups.value]
-      .sort((a, b) => b.bottleneckProb - a.bottleneckProb)
-      .map((tg) => ({ id: tg.tgId }));
     const toolByQueue = [...equipments.value]
       .sort((a, b) => b.queueLotCount - a.queueLotCount)
       .map((eq) => ({ id: eq.toolId }));
@@ -180,16 +178,7 @@ export function useMachineMonitoring() {
         description: '대기 Lot이 많은 Tool Group을 비교합니다.',
         targetType: 'toolGroup',
         targetIds: takeIds(tgByWip, limit),
-        metricKeys: ['wipCount', 'utilizationRate', 'bottleneckProb'],
-        severity: 'warning',
-      },
-      {
-        key: 'tg-bottleneck-top',
-        label: '병목 우려 TG',
-        description: '병목 확률이 높은 Tool Group을 먼저 봅니다.',
-        targetType: 'toolGroup',
-        targetIds: takeIds(tgByBottleneck, limit),
-        metricKeys: ['bottleneckProb', 'wipCount', 'utilizationRate'],
+        metricKeys: ['wipCount', 'utilizationRate'],
         severity: 'warning',
       },
       {
@@ -265,16 +254,19 @@ export function useMachineMonitoring() {
 
     if (ids.length === 0) {
       trendsData.value = null;
+      trendsErrorMessage.value = null;
       return;
     }
 
     isTrendsLoading.value = true;
+    trendsErrorMessage.value = null;
     try {
       const effectiveRange =
         periodRange.value ?? createMachinePeriodRange(data.value?.summary.measuredAt, periodPreset.value);
       trendsData.value = await fetchEquipmentTrends(analysisTargetType.value, ids, effectiveRange);
     } catch {
       trendsData.value = null;
+      trendsErrorMessage.value = '선택한 기간의 TG/Tool 추이 데이터를 불러오지 못했습니다.';
     } finally {
       isTrendsLoading.value = false;
     }
@@ -412,12 +404,12 @@ export function useMachineMonitoring() {
     DashboardTrendKey,
     { rankBy: (a: MachineToolGroupItem, b: MachineToolGroupItem) => number; metricKeys: MachineMetricKey[] }
   > = {
-    wip: { rankBy: (a, b) => b.queueLotCount - a.queueLotCount, metricKeys: ['wipCount', 'bottleneckProb'] },
-    avgQtimeMin: { rankBy: (a, b) => b.queueLotCount - a.queueLotCount, metricKeys: ['avgQtimeMin', 'wipCount'] },
-    rtf: { rankBy: (a, b) => b.bottleneckProb - a.bottleneckProb, metricKeys: ['bottleneckProb', 'utilizationRate'] },
+    wip: { rankBy: (a, b) => b.queueLotCount - a.queueLotCount, metricKeys: ['wipCount', 'utilizationRate'] },
+    avgQtimeMin: { rankBy: (a, b) => b.queueLotCount - a.queueLotCount, metricKeys: ['wipCount', 'utilizationRate'] },
+    rtf: { rankBy: (a, b) => b.bottleneckProb - a.bottleneckProb, metricKeys: ['utilizationRate', 'wipCount'] },
     throughput24h: {
       rankBy: (a, b) => b.bottleneckProb - a.bottleneckProb,
-      metricKeys: ['utilizationRate', 'bottleneckProb'],
+      metricKeys: ['utilizationRate', 'wipCount'],
     },
   };
 
@@ -471,6 +463,7 @@ export function useMachineMonitoring() {
     periodPreset,
     periodRange,
     isTrendsLoading,
+    trendsErrorMessage,
     activeMetricDefinitions,
     toolGroupTargets,
     toolTargets,

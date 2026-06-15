@@ -126,6 +126,13 @@ const draftTo = ref(toDateTimeLocalValue(initialEndDate));
 const appliedFrom = ref(draftFrom.value);
 const appliedTo = ref(draftTo.value);
 const rangeErrorMessage = ref<string | null>(null);
+const dataEndDate = computed(() => getReferenceEndDate());
+const maxDateTimeValue = computed(() => toDateTimeLocalValue(dataEndDate.value));
+const fromInputMax = computed(() => {
+  const to = parseDateTimeLocal(draftTo.value);
+  if (!to || to.getTime() > dataEndDate.value.getTime()) return maxDateTimeValue.value;
+  return draftTo.value;
+});
 
 // ── 서버 기간 통계 (/equipment/overview) ─────────────────────────────
 const overviewData = ref<EquipmentOverviewPayload | null>(null);
@@ -195,6 +202,11 @@ function applyCustomRange() {
 
   if (from.getTime() >= to.getTime()) {
     rangeErrorMessage.value = '종료일은 시작일 이후여야 합니다.';
+    return;
+  }
+
+  if (from.getTime() > dataEndDate.value.getTime() || to.getTime() > dataEndDate.value.getTime()) {
+    rangeErrorMessage.value = '데이터 기준 시각 이후는 선택할 수 없습니다.';
     return;
   }
 
@@ -352,11 +364,11 @@ function formatProcessLabel(areaCode: string, areaNameKo: string): string {
           <div class="overview-tab__custom-range" aria-label="직접 기간 선택">
             <label>
               <span>시작일</span>
-              <input v-model="draftFrom" type="datetime-local" />
+              <input v-model="draftFrom" type="datetime-local" :max="fromInputMax" />
             </label>
             <label>
               <span>종료일</span>
-              <input v-model="draftTo" type="datetime-local" />
+              <input v-model="draftTo" type="datetime-local" :min="draftFrom" :max="maxDateTimeValue" />
             </label>
             <button type="button" class="overview-tab__apply-btn" @click="applyCustomRange">조회</button>
             <button type="button" class="overview-tab__reset-btn" @click="applyQuickRange('24H')">초기화</button>

@@ -52,10 +52,6 @@ const emit = defineEmits<{
             <small>WIP</small>
             <b>{{ formatNumber(row.queueLotCount) }}</b>
           </span>
-          <span>
-            <small>병목</small>
-            <b>{{ formatRatioPercent(row.bottleneckProb) }}</b>
-          </span>
         </span>
       </button>
     </div>

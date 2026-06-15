@@ -260,11 +260,12 @@ export async function fetchEquipmentTrends(
   const { data } = await api.get<MachineEquipmentTrendsPayload>('/v1/monitoring/equipment/trends', {
     params: {
       type,
-      ids: ids.join(','),
+      ids,
       range: periodRange.preset,
       from: periodRange.from,
       to: periodRange.to,
     },
+    paramsSerializer: { indexes: null },
   });
   return data;
 }

@@ -1,4 +1,4 @@
-export type AdminUserRole = 'ADMIN' | 'ENGINEER' | 'VIEWER';
+export type AdminUserRole = 'ADMIN' | 'ENGINEER';
 
 export type AdminResourceKey = 'thresholds' | 'access' | 'mlflow' | 'mesInterface' | 'prompts' | 'ingestion' | 'logs';
 
@@ -65,9 +65,31 @@ export interface AdminMlModelVersion {
 }
 
 export interface DriftReportContributor {
-  toolgroup: string;
+  toolgroup?: string;
+  tg_name?: string;
   fn: number;
   fp: number;
+}
+
+export interface DriftRetrainDecision {
+  status?: 'APPROVED' | 'ON_HOLD' | string;
+  trigger_status?: 'REQUESTED' | 'DEFERRED' | string;
+  trigger_mode?: string;
+  pipeline_status?: 'PENDING_ML_PIPELINE' | 'ON_HOLD' | string;
+  decided_at?: string;
+  decided_by_user_id?: string;
+  decided_by_login_id?: string;
+  decided_by_name?: string;
+  approved_at?: string;
+  approved_by_user_id?: string;
+  approved_by_login_id?: string;
+  approved_by_name?: string;
+  reason_code?: string | null;
+  reason_text?: string | null;
+  reasonCode?: string | null;
+  reasonText?: string | null;
+  reason?: string | null;
+  next_step?: string;
 }
 
 export interface DriftReportDetail {
@@ -79,6 +101,8 @@ export interface DriftReportDetail {
   top_contributors: DriftReportContributor[];
   active_version?: string;
   recommendation?: string;
+  retrain_decision?: DriftRetrainDecision;
+  retrain_approval?: DriftRetrainDecision;
 }
 
 export interface AdminDriftAlert {
@@ -96,6 +120,7 @@ export interface AdminDriftAlert {
 }
 
 export interface AdminAccessUser {
+  userId: string;
   id: string;
   name: string;
   role: AdminUserRole;
@@ -104,6 +129,8 @@ export interface AdminAccessUser {
   lastLogin: string;
   status: 'PENDING' | 'ACTIVE' | 'INACTIVE' | 'LOCKED';
   isActive: boolean;
+  password?: string;
+  passwordConfirm?: string;
 }
 
 export interface AdminMesFieldMapping {
@@ -122,22 +149,36 @@ export interface AdminMesFieldMapping {
 
 export interface AdminPromptTemplate {
   id: string;
+  category?: string;
   label: string;
+  description?: string;
   activeVersion: string;
   updatedBy: string;
   updatedAt: string;
   changeReason: string;
   body: string;
   variables: Array<{ token: string; description: string }>;
+  variablesSchema?: AdminPromptVariablesSchema | null;
 }
 
 export interface AdminPromptVersion {
   id: string;
   templateId: string;
+  versionNo?: number;
   version: string;
   body: string;
   updatedAt: string;
   updatedBy: string;
   changeReason: string;
   status: 'ACTIVE' | 'PREVIOUS';
+  variablesSchema?: AdminPromptVariablesSchema | null;
+}
+
+export interface AdminPromptVariablesSchema {
+  exposure?: string;
+  sourcePath?: string;
+  runtimeUsage?: string;
+  visibleSections?: string[];
+  hiddenSections?: string[];
+  variables?: Array<{ token: string; description: string }>;
 }

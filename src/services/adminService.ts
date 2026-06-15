@@ -5,6 +5,9 @@ import type {
   AdminDriftAlert,
   AdminMesFieldMapping,
   AdminMlModelVersion,
+  AdminPromptTemplate,
+  AdminPromptVariablesSchema,
+  AdminPromptVersion,
   AdminThresholdConfig,
   AdminThresholdHistory,
 } from '@/types/admin';
@@ -82,6 +85,7 @@ export function mapThresholdHistory(
 }
 
 interface BackendAccessUser {
+  userId: string;
   loginId: string;
   userName: string;
   roleCode: string;
@@ -93,10 +97,33 @@ interface BackendAccessUser {
   lastLoginAt: string | null;
 }
 
-/** 권한 관리 — 현 Fab 사용자/역할 현황(조회 전용). GET /api/v1/admin/access/users */
+/** 권한 관리 — 현 Fab 사용자/역할 현황. GET /api/v1/admin/access/users */
 export async function fetchAdminAccessUsers(): Promise<AdminAccessUser[]> {
   const { data } = await api.get<BackendAccessUser[]>('/v1/admin/access/users');
-  return data.map((u) => ({
+  return data.map(mapAccessUser);
+}
+
+export interface CreateAdminAccessUserPayload {
+  loginId: string;
+  userName: string;
+  department: string;
+  roleCode: AdminAccessUser['role'];
+  password: string;
+  status: AdminAccessUser['status'];
+  isActive: boolean;
+}
+
+export interface UpdateAdminAccessUserPayload {
+  userName: string;
+  department: string;
+  roleCode: AdminAccessUser['role'];
+  status: AdminAccessUser['status'];
+  isActive: boolean;
+}
+
+function mapAccessUser(u: BackendAccessUser): AdminAccessUser {
+  return {
+    userId: u.userId,
     id: u.loginId,
     name: u.userName,
     role: u.roleCode as AdminAccessUser['role'],
@@ -105,7 +132,97 @@ export async function fetchAdminAccessUsers(): Promise<AdminAccessUser[]> {
     lastLogin: u.lastLoginAt ? u.lastLoginAt.replace('T', ' ').slice(0, 16) : '-',
     status: u.status,
     isActive: u.isActive,
-  }));
+  };
+}
+
+export async function createAdminAccessUser(payload: CreateAdminAccessUserPayload): Promise<AdminAccessUser> {
+  const { data } = await api.post<BackendAccessUser>('/v1/admin/access/users', payload);
+  return mapAccessUser(data);
+}
+
+export async function updateAdminAccessUser(
+  userId: string,
+  payload: UpdateAdminAccessUserPayload
+): Promise<AdminAccessUser> {
+  const { data } = await api.patch<BackendAccessUser>(`/v1/admin/access/users/${userId}`, payload);
+  return mapAccessUser(data);
+}
+
+export async function deleteAdminAccessUser(userId: string): Promise<void> {
+  await api.delete(`/v1/admin/access/users/${userId}`);
+}
+
+interface BackendPromptVersion {
+  versionId: string;
+  versionNo: number;
+  versionLabel: string;
+  body: string;
+  variablesSchema: AdminPromptVariablesSchema | null;
+  isActive: boolean;
+  changeReason: string | null;
+  createdAt: string;
+  createdBy: string | null;
+}
+
+interface BackendPromptTemplate {
+  templateId: string;
+  category: string;
+  label: string;
+  description: string | null;
+  activeVersion: string;
+  versions: BackendPromptVersion[];
+}
+
+function formatDateTime(value: string | null | undefined): string {
+  if (!value) return '-';
+  return value.replace('T', ' ').slice(0, 16);
+}
+
+function mapPromptVersion(templateId: string, version: BackendPromptVersion): AdminPromptVersion {
+  return {
+    id: version.versionId,
+    templateId,
+    versionNo: version.versionNo,
+    version: version.versionLabel,
+    body: version.body,
+    updatedAt: formatDateTime(version.createdAt),
+    updatedBy: version.createdBy ?? '-',
+    changeReason: version.changeReason ?? '-',
+    status: version.isActive ? 'ACTIVE' : 'PREVIOUS',
+    variablesSchema: version.variablesSchema,
+  };
+}
+
+function mapPromptTemplate(template: BackendPromptTemplate): AdminPromptTemplate {
+  const versions = template.versions.map((version) => mapPromptVersion(template.templateId, version));
+  const active = versions.find((version) => version.status === 'ACTIVE') ?? versions[0];
+  const variables = active?.variablesSchema?.variables ?? [];
+  return {
+    id: template.templateId,
+    category: template.category,
+    label: template.label,
+    description: template.description ?? '',
+    activeVersion: template.activeVersion,
+    updatedBy: active?.updatedBy ?? '-',
+    updatedAt: active?.updatedAt ?? '-',
+    changeReason: active?.changeReason ?? '-',
+    body: active?.body ?? '',
+    variables,
+    variablesSchema: active?.variablesSchema ?? null,
+  };
+}
+
+export async function fetchAdminPrompts(): Promise<{
+  templates: AdminPromptTemplate[];
+  versions: AdminPromptVersion[];
+}> {
+  const { data } = await api.get<BackendPromptTemplate[]>('/v1/admin/prompts');
+  return {
+    templates: data.map(mapPromptTemplate),
+    versions: data.flatMap((template) =>
+      template.versions.map((version) => mapPromptVersion(template.templateId, version))
+    ),
+  };
 }
 
 interface BackendMesFieldMapping {
@@ -217,7 +334,29 @@ export async function promoteMlflowModel(modelVersionId: string): Promise<AdminM
   return data;
 }
 
-export async function requestMlflowRetrain(driftId: string): Promise<AdminDriftAlert> {
-  const { data } = await api.patch<AdminDriftAlert>(`/v1/admin/mlflow/drift-alerts/${driftId}/retrain-request`);
+export interface MlflowRetrainDecisionPayload {
+  reasonCode?: string;
+  reasonText?: string;
+}
+
+export async function requestMlflowRetrain(
+  driftId: string,
+  payload?: MlflowRetrainDecisionPayload
+): Promise<AdminDriftAlert> {
+  const { data } = await api.patch<AdminDriftAlert>(
+    `/v1/admin/mlflow/drift-alerts/${driftId}/retrain-request`,
+    payload ?? {}
+  );
+  return data;
+}
+
+export async function holdMlflowRetrain(
+  driftId: string,
+  payload?: MlflowRetrainDecisionPayload
+): Promise<AdminDriftAlert> {
+  const { data } = await api.patch<AdminDriftAlert>(
+    `/v1/admin/mlflow/drift-alerts/${driftId}/retrain-hold`,
+    payload ?? {}
+  );
   return data;
 }

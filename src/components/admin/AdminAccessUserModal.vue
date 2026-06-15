@@ -11,7 +11,6 @@ import BaseToggle from '@/components/base/BaseToggle.vue';
 const ROLE_OPTIONS: Array<{ value: AdminUserRole; label: string }> = [
   { value: 'ADMIN', label: '관리자' },
   { value: 'ENGINEER', label: '공정 엔지니어' },
-  { value: 'VIEWER', label: '조회자' },
 ];
 
 const props = defineProps<{
@@ -49,6 +48,7 @@ const selectedDepartment = computed({
     }
   },
 });
+const isCreateMode = computed(() => !props.originalId);
 
 watch(
   () => props.user,
@@ -107,6 +107,11 @@ function validateUser(user: AdminAccessUser) {
   if (!user.department) nextErrors.department = '부서를 입력하세요.';
   if (!user.fabAccess) nextErrors.fabAccess = '소속 공장을 입력하세요.';
   if (!user.role) nextErrors.role = '역할을 선택하세요.';
+  if (isCreateMode.value) {
+    if (!user.password) nextErrors.password = '초기 비밀번호를 입력하세요.';
+    if (user.password && user.password.length < 6) nextErrors.password = '비밀번호는 6자 이상 입력하세요.';
+    if (user.password !== user.passwordConfirm) nextErrors.passwordConfirm = '비밀번호가 일치하지 않습니다.';
+  }
   return nextErrors;
 }
 
@@ -179,13 +184,24 @@ function confirmSave() {
           <em>로그인/연결된 MES 기준 공장입니다.</em>
           <small v-if="errors.fabAccess">{{ errors.fabAccess }}</small>
         </label>
+        <label v-if="isCreateMode">
+          <span>초기 비밀번호</span>
+          <input v-model="draft.password" class="input" type="password" autocomplete="new-password" />
+          <em>생성 후 해당 비밀번호로 로그인할 수 있습니다.</em>
+          <small v-if="errors.password">{{ errors.password }}</small>
+        </label>
+        <label v-if="isCreateMode">
+          <span>비밀번호 확인</span>
+          <input v-model="draft.passwordConfirm" class="input" type="password" autocomplete="new-password" />
+          <small v-if="errors.passwordConfirm">{{ errors.passwordConfirm }}</small>
+        </label>
       </div>
       <label>
         <span>역할</span>
         <select v-model="draft.role" class="input">
           <option v-for="option in ROLE_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
         </select>
-        <em>VIEWER 조회 전용 · ENGINEER 분석/운영 · ADMIN 전체 권한</em>
+        <em>ENGINEER 분석/운영 · ADMIN 전체 권한</em>
         <small v-if="errors.role">{{ errors.role }}</small>
       </label>
       <section class="admin-access-user-modal__state-panel" aria-label="계정 접근 상태">
@@ -217,6 +233,10 @@ function confirmSave() {
         <div>
           <dt>로그인 ID</dt>
           <dd>{{ pendingUser.id }}</dd>
+        </div>
+        <div v-if="isCreateMode">
+          <dt>초기 비밀번호</dt>
+          <dd>입력됨</dd>
         </div>
         <div>
           <dt>역할</dt>

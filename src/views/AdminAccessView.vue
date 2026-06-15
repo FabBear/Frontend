@@ -1,19 +1,37 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 
-import { fetchAdminAccessUsers } from '@/services/adminService';
+import { useAuthStore } from '@/stores/auth';
+
+import {
+  createAdminAccessUser,
+  deleteAdminAccessUser,
+  fetchAdminAccessUsers,
+  updateAdminAccessUser,
+} from '@/services/adminService';
+import { getApiErrorMessage } from '@/services/api';
 
 import type { AdminAccessUser, AdminUserRole } from '@/types/admin';
 
 import AdminAccessTable from '@/components/admin/AdminAccessTable.vue';
+import AdminAccessUserModal from '@/components/admin/AdminAccessUserModal.vue';
+import AdminDeleteUserModal from '@/components/admin/AdminDeleteUserModal.vue';
+import BaseButton from '@/components/base/BaseButton.vue';
 import BaseInput from '@/components/base/BaseInput.vue';
 
+const authStore = useAuthStore();
 const users = ref<AdminAccessUser[]>([]);
 const isLoading = ref(false);
 const loadError = ref<string | null>(null);
+const actionError = ref<string | null>(null);
 const keyword = ref('');
 const statusFilters = ref<AdminAccessUser['status'][]>([]);
 const roleFilter = ref<AdminUserRole | 'ALL'>('ALL');
+const editingUser = ref<AdminAccessUser | null>(null);
+const originalLoginId = ref<string | null>(null);
+const isUserModalOpen = ref(false);
+const deletingUser = ref<AdminAccessUser | null>(null);
+const isDeleteModalOpen = ref(false);
 
 const filteredUsers = computed(() => {
   const value = keyword.value.trim().toLowerCase();
@@ -35,11 +53,10 @@ const actionNeededCount = computed(
 const roleLabelMap: Record<AdminUserRole, string> = {
   ADMIN: '관리자',
   ENGINEER: '공정 엔지니어',
-  VIEWER: '조회자',
 };
 const roleOptions = computed<Array<{ value: AdminUserRole | 'ALL'; label: string }>>(() => [
   { value: 'ALL', label: '전체' },
-  ...(['ADMIN', 'ENGINEER', 'VIEWER'] as AdminUserRole[]).map((role) => ({ value: role, label: roleLabelMap[role] })),
+  ...(['ADMIN', 'ENGINEER'] as AdminUserRole[]).map((role) => ({ value: role, label: roleLabelMap[role] })),
 ]);
 const statusOptions: Array<{ value: AdminAccessUser['status']; label: string }> = [
   { value: 'ACTIVE', label: '활성' },
@@ -53,6 +70,27 @@ const statusFilterLabel = computed(() => {
     .filter((option) => statusFilters.value.includes(option.value))
     .map((option) => option.label)
     .join(', ');
+});
+const currentFabName = computed(() => authStore.user?.fabName ?? authStore.user?.fabCode ?? '현재 FAB');
+const existingIds = computed(() => users.value.map((user) => user.id));
+const departmentSuggestions = computed(() => {
+  const departments = users.value.map((user) => user.department).filter(Boolean);
+  return Array.from(new Set(departments));
+});
+const activeAdminCount = computed(
+  () => users.value.filter((user) => user.role === 'ADMIN' && user.status === 'ACTIVE' && user.isActive).length
+);
+const isDeleteBlocked = computed(() => {
+  if (!deletingUser.value) return false;
+  return isSelfUser(deletingUser.value) || isLastActiveAdmin(deletingUser.value);
+});
+const deleteBlockMessage = computed(() => {
+  if (!deletingUser.value) return '';
+  if (isSelfUser(deletingUser.value)) return '본인 계정은 삭제할 수 없습니다.';
+  if (isLastActiveAdmin(deletingUser.value)) {
+    return '관리자(ADMIN) 계정은 최소 1개 이상 유지해야 합니다. 다른 관리자를 먼저 지정하세요.';
+  }
+  return '';
 });
 function toggleStatusFilter(status: AdminAccessUser['status']) {
   statusFilters.value = statusFilters.value.includes(status)
@@ -75,6 +113,91 @@ async function loadUsers() {
   }
 }
 
+function createBlankUser(): AdminAccessUser {
+  return {
+    userId: '',
+    id: '',
+    name: '',
+    role: 'ENGINEER',
+    department: authStore.user?.department ?? '',
+    fabAccess: currentFabName.value,
+    lastLogin: '-',
+    status: 'ACTIVE',
+    isActive: true,
+    password: '',
+    passwordConfirm: '',
+  };
+}
+
+function openCreateModal() {
+  actionError.value = null;
+  editingUser.value = createBlankUser();
+  originalLoginId.value = null;
+  isUserModalOpen.value = true;
+}
+
+function openEditModal(user: AdminAccessUser) {
+  actionError.value = null;
+  editingUser.value = { ...user };
+  originalLoginId.value = user.id;
+  isUserModalOpen.value = true;
+}
+
+function openDeleteModal(user: AdminAccessUser) {
+  actionError.value = null;
+  deletingUser.value = user;
+  isDeleteModalOpen.value = true;
+}
+
+async function saveUser(user: AdminAccessUser) {
+  actionError.value = null;
+  try {
+    if (originalLoginId.value === null) {
+      await createAdminAccessUser({
+        loginId: user.id,
+        userName: user.name,
+        department: user.department,
+        roleCode: user.role,
+        password: user.password ?? '',
+        status: user.status,
+        isActive: user.isActive,
+      });
+    } else {
+      await updateAdminAccessUser(user.userId, {
+        userName: user.name,
+        department: user.department,
+        roleCode: user.role,
+        status: user.status,
+        isActive: user.isActive,
+      });
+    }
+    await loadUsers();
+  } catch (error) {
+    actionError.value = getApiErrorMessage(error, '사용자 정보를 저장하지 못했습니다.');
+  }
+}
+
+async function confirmDeleteUser() {
+  if (!deletingUser.value || isDeleteBlocked.value) return;
+  actionError.value = null;
+  try {
+    await deleteAdminAccessUser(deletingUser.value.userId);
+    isDeleteModalOpen.value = false;
+    deletingUser.value = null;
+    await loadUsers();
+  } catch (error) {
+    actionError.value = getApiErrorMessage(error, '사용자를 삭제하지 못했습니다.');
+  }
+}
+
+function isSelfUser(user: AdminAccessUser) {
+  return Boolean(authStore.user?.userId && user.userId === authStore.user.userId);
+}
+
+function isLastActiveAdmin(user: AdminAccessUser) {
+  return user.role === 'ADMIN' && user.status === 'ACTIVE' && user.isActive && activeAdminCount.value <= 1;
+}
+
 onMounted(loadUsers);
 </script>
 <template>
@@ -82,8 +205,9 @@ onMounted(loadUsers);
     <header class="admin-access-view__header">
       <div>
         <h1>권한 관리</h1>
-        <p>사용자 계정과 현장 역할·계정 상태를 조회합니다. (조회 전용)</p>
+        <p>사용자 계정과 현장 역할·계정 상태를 관리합니다.</p>
       </div>
+      <BaseButton class="admin-access-view__create-button" size="sm" @click="openCreateModal">사용자 추가</BaseButton>
     </header>
     <section class="admin-access-view__overview">
       <div class="surface-card">
@@ -147,8 +271,29 @@ onMounted(loadUsers);
         {{ loadError }}
         <button type="button" class="admin-access-view__retry" @click="loadUsers">다시 시도</button>
       </p>
-      <AdminAccessTable v-else :users="filteredUsers" readonly />
+      <p v-if="actionError" class="admin-access-view__state admin-access-view__state--error">{{ actionError }}</p>
+      <AdminAccessTable
+        v-if="!isLoading && !loadError"
+        :users="filteredUsers"
+        @edit="openEditModal"
+        @delete="openDeleteModal"
+      />
     </section>
+    <AdminAccessUserModal
+      v-model="isUserModalOpen"
+      :user="editingUser"
+      :existing-ids="existingIds"
+      :original-id="originalLoginId"
+      :department-suggestions="departmentSuggestions"
+      @save="saveUser"
+    />
+    <AdminDeleteUserModal
+      v-model="isDeleteModalOpen"
+      :user="deletingUser"
+      :is-last-admin="isDeleteBlocked"
+      :blocked-message="deleteBlockMessage"
+      @confirm="confirmDeleteUser"
+    />
   </div>
 </template>
 <style scoped>

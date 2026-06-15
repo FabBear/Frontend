@@ -4,14 +4,7 @@ import { RouterLink } from 'vue-router';
 
 import { useAuthStore } from '@/stores/auth';
 
-import {
-  type AdminMesCollectJob,
-  type AdminMesHealth,
-  fetchMesCollectJobs,
-  fetchMesFieldMappings,
-  fetchMesHealth,
-  updateMesFieldMapping,
-} from '@/services/adminService';
+import { fetchMesFieldMappings, updateMesFieldMapping } from '@/services/adminService';
 
 import type { AdminMesFieldMapping } from '@/types/admin';
 
@@ -21,8 +14,6 @@ import BaseInput from '@/components/base/BaseInput.vue';
 import BaseModal from '@/components/base/BaseModal.vue';
 import BaseTable from '@/components/base/BaseTable.vue';
 import type { BaseTableColumn, BaseTableRow } from '@/components/base/BaseTable.vue';
-
-import { formatKoMonthDayTime } from '@/utils/format';
 
 const authStore = useAuthStore();
 
@@ -64,36 +55,21 @@ const columns: BaseTableColumn[] = [
   { key: 'isActive', label: '상태' },
   { key: 'action', label: '' },
 ];
-const mesHealth = ref<AdminMesHealth | null>(null);
-const collectJobs = ref<AdminMesCollectJob[]>([]);
-const jobColumns: BaseTableColumn[] = [
-  { key: 'scheduledAt', label: '예정시각' },
-  { key: 'status', label: '상태' },
-  { key: 'collectedCount', label: '수집건수' },
-  { key: 'errorCount', label: '오류' },
-  { key: 'retryCount', label: '재시도' },
-];
-const jobRows = computed(() =>
-  collectJobs.value.map((j) => ({ ...j, scheduledAt: j.scheduledAt ? formatKoMonthDayTime(j.scheduledAt) : '-' }))
-);
-const recentSuccessPct = computed(() => (mesHealth.value ? Math.round(mesHealth.value.recentSuccessRate * 100) : 0));
 
 const currentFabName = computed(() => authStore.user?.fabName ?? authStore.user?.fabId ?? 'Demo FAB');
 const currentFabId = computed(() => authStore.user?.fabId ?? '');
-const requiredCount = computed(() => mappings.value.filter((mapping) => mapping.isRequired).length);
-const activeCount = computed(() => mappings.value.filter((mapping) => mapping.isActive).length);
-// 고객사 MES 필드명과 내부 표준 필드명이 실제로 다른(=이름 정규화가 일어나는) 매핑 수.
+const requiredCount = computed(() => mappings.value.filter((m) => m.isRequired).length);
+const activeCount = computed(() => mappings.value.filter((m) => m.isActive).length);
+// 고객사 외부 필드명과 내부 표준 필드명이 실제로 다른(=이름 정규화가 일어나는) 매핑 수.
 const renamedCount = computed(() => mappings.value.filter((m) => m.externalField !== m.internalField).length);
-const missingRequiredCount = computed(
-  () => mappings.value.filter((mapping) => mapping.isRequired && !mapping.isActive).length
-);
+const missingRequiredCount = computed(() => mappings.value.filter((m) => m.isRequired && !m.isActive).length);
 const editingMapping = computed(() => mappings.value.find((m) => m.id === editingId.value) ?? null);
 
 const filteredMappings = computed(() => {
   const value = keyword.value.trim().toLowerCase();
   if (!value) return mappings.value;
-  return mappings.value.filter((mapping) =>
-    `${mapping.customerMetricName} ${mapping.externalField} ${mapping.internalField} ${mapping.transformRule} ${mapping.metricScope}`
+  return mappings.value.filter((m) =>
+    `${m.customerMetricName} ${m.externalField} ${m.internalField} ${m.transformRule} ${m.metricScope}`
       .toLowerCase()
       .includes(value)
   );
@@ -124,10 +100,8 @@ async function loadMappings() {
     errorMessage.value = '현재 Fab 정보를 확인하지 못했습니다.';
     return;
   }
-
   isLoading.value = true;
   errorMessage.value = null;
-
   try {
     mappings.value = await fetchMesFieldMappings(currentFabId.value);
   } catch {
@@ -140,31 +114,28 @@ async function loadMappings() {
 
 async function saveEdit() {
   if (!draft.value) return;
-  const original = mappings.value.find((mapping) => mapping.id === draft.value?.id);
+  const original = mappings.value.find((m) => m.id === draft.value?.id);
   const constraints = FIELD_CONSTRAINTS[draft.value.internalField];
 
   if (constraints && !constraints.dataTypes.includes(draft.value.dataType)) {
     draft.value.dataType = constraints.dataTypes[0];
   }
-
   if (constraints && !constraints.scopes.includes(draft.value.metricScope)) {
     draft.value.metricScope = constraints.scopes[0];
   }
-
   if (original?.isRequired) {
     draft.value.isActive = true;
   }
 
   isSaving.value = true;
   errorMessage.value = null;
-
   try {
     const saved = await updateMesFieldMapping(draft.value.id, {
       externalField: draft.value.externalField,
       internalField: draft.value.internalField,
       transformRule: draft.value.transformRule,
     });
-    mappings.value = mappings.value.map((mapping) => (mapping.id === saved.id ? saved : mapping));
+    mappings.value = mappings.value.map((m) => (m.id === saved.id ? saved : m));
     cancelEdit();
   } catch {
     errorMessage.value = 'MES 필드 매핑을 저장하지 못했습니다.';
@@ -182,35 +153,18 @@ function scopeLabel(scope: AdminMesFieldMapping['metricScope']) {
   return labels[scope];
 }
 
-// 고객사 외부 필드명과 내부 표준 필드명이 동일하면(예: rtf=rtf) 변환이 불필요한 매핑이다.
+// 고객사 외부 필드명과 내부 표준 필드명이 동일하면 변환이 불필요한 매핑이다.
 function isIdentityMapping(mapping: AdminMesFieldMapping): boolean {
   return mapping.externalField === mapping.internalField;
 }
 
-// 변환 규칙 표시: 명시 규칙이 있으면 그대로, 없으면 동일/정규화 여부로 파생 문구.
 function transformDisplay(mapping: AdminMesFieldMapping): string {
   if (mapping.transformRule && mapping.transformRule.trim()) return mapping.transformRule;
   return isIdentityMapping(mapping) ? '동일 · 변환 불필요' : '표준 필드로 정규화';
 }
 
-async function loadOps() {
-  if (!currentFabId.value) return;
-  try {
-    const [health, jobs] = await Promise.all([
-      fetchMesHealth(currentFabId.value),
-      fetchMesCollectJobs(currentFabId.value, 20),
-    ]);
-    mesHealth.value = health;
-    collectJobs.value = jobs;
-  } catch {
-    mesHealth.value = null;
-    collectJobs.value = [];
-  }
-}
-
 onMounted(() => {
   void loadMappings();
-  void loadOps();
 });
 </script>
 
@@ -242,31 +196,6 @@ onMounted(() => {
         <strong>{{ renamedCount }}</strong>
         <small>고객사 명칭 → 표준 명칭</small>
       </div>
-    </section>
-
-    <section v-if="mesHealth" class="admin-mes-view__overview">
-      <div class="surface-card">
-        <span>최근 수집 상태</span>
-        <strong>{{ mesHealth.lastStatus }}</strong>
-      </div>
-      <div class="surface-card">
-        <span>최근 성공률</span>
-        <strong>{{ recentSuccessPct }}%</strong>
-      </div>
-      <div class="surface-card">
-        <span>수집 작업(성공/실패)</span>
-        <strong>{{ mesHealth.successCount }} / {{ mesHealth.failedCount }}</strong>
-      </div>
-      <div class="surface-card">
-        <span>마지막 수집 건수</span>
-        <strong>{{ mesHealth.lastCollectedCount ?? '-' }}</strong>
-      </div>
-    </section>
-
-    <section v-if="collectJobs.length" class="admin-mes-view__card surface-card">
-      <h2>최근 수집 작업</h2>
-      <p class="admin-mes-view__hint">스케줄러가 기록한 MES 수집 작업 이력입니다.</p>
-      <BaseTable :columns="jobColumns" :rows="jobRows" />
     </section>
 
     <section class="admin-mes-view__bridge surface-card">
@@ -347,14 +276,6 @@ onMounted(() => {
       </BaseTable>
     </section>
 
-    <section class="admin-mes-view__card surface-card">
-      <div class="admin-mes-view__section-head">
-        <h2>변경 이력</h2>
-        <BaseBadge variant="warning">준비중</BaseBadge>
-      </div>
-      <p class="admin-mes-view__state">매핑 변경 이력 보관은 준비 중입니다. (현재 매핑 수정은 즉시 반영됩니다.)</p>
-    </section>
-
     <section class="admin-mes-view__links">
       <article class="surface-card">
         <h2>판정 기준 설정</h2>
@@ -424,6 +345,7 @@ onMounted(() => {
   gap: var(--space-4);
 }
 
+/* Header */
 .admin-mes-view__header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
@@ -431,6 +353,20 @@ onMounted(() => {
   align-items: end;
 }
 
+.admin-mes-view__header h1 {
+  margin: 0;
+  color: var(--color-fg-strong);
+  font-size: var(--text-page-title-size);
+  line-height: var(--text-page-title-line-height);
+}
+
+.admin-mes-view__header p {
+  margin: 0;
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-sm);
+}
+
+/* Overview cards */
 .admin-mes-view__overview {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -443,11 +379,18 @@ onMounted(() => {
   padding: var(--space-3);
 }
 
+.admin-mes-view__overview span,
+.admin-mes-view__overview small {
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-sm);
+}
+
 .admin-mes-view__overview strong {
   color: var(--color-fg-strong);
   font-size: var(--font-size-xl);
 }
 
+/* Bridge */
 .admin-mes-view__bridge {
   display: flex;
   align-items: center;
@@ -465,6 +408,15 @@ onMounted(() => {
 .admin-mes-view__bridge-node {
   display: grid;
   gap: 2px;
+}
+
+.admin-mes-view__bridge-node strong {
+  color: var(--color-fg-strong);
+}
+
+.admin-mes-view__bridge-node span {
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-sm);
 }
 
 .admin-mes-view__bridge-node--std strong {
@@ -500,11 +452,18 @@ onMounted(() => {
   white-space: nowrap;
 }
 
+/* Card sections */
 .admin-mes-view__card {
   display: grid;
   gap: var(--space-3);
   align-content: start;
   padding: var(--space-4);
+}
+
+.admin-mes-view__card h2 {
+  margin: 0;
+  color: var(--color-fg-strong);
+  font-size: var(--font-size-lg);
 }
 
 .admin-mes-view__state {
@@ -517,6 +476,12 @@ onMounted(() => {
   color: var(--color-status-danger);
 }
 
+/* Field code display */
+code {
+  color: var(--color-fg-strong);
+  font-size: var(--font-size-sm);
+}
+
 .admin-mes-view__readonly-field {
   display: inline-flex;
   align-items: center;
@@ -526,12 +491,6 @@ onMounted(() => {
   background: var(--color-bg-page);
   padding: 0 var(--space-2);
   white-space: nowrap;
-}
-
-.admin-mes-view__section-head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
 }
 
 /* 동일명(변환 불필요) 외부 필드는 흐리게 — 이름이 다른(정규화되는) 행을 상대적으로 부각 */
@@ -553,24 +512,7 @@ onMounted(() => {
   font-weight: var(--font-weight-semibold);
 }
 
-.admin-mes-modal__readonly {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: 36px;
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-subtle);
-  padding: 0 var(--space-3);
-  color: var(--color-fg-strong);
-  font-size: var(--font-size-sm);
-}
-
-.admin-mes-modal__readonly small {
-  color: var(--color-fg-muted);
-  font-size: var(--font-size-xs);
-}
-
+/* Links */
 .admin-mes-view__links {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -581,6 +523,12 @@ onMounted(() => {
   display: grid;
   gap: var(--space-2);
   padding: var(--space-3);
+}
+
+.admin-mes-view__links h2 {
+  margin: 0;
+  color: var(--color-fg-strong);
+  font-size: var(--font-size-lg);
 }
 
 .admin-mes-view__link {
@@ -640,22 +588,20 @@ onMounted(() => {
   gap: var(--space-3);
 }
 
-.admin-mes-modal__toggle {
+.admin-mes-modal__readonly {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  min-height: 36px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle);
+  padding: 0 var(--space-3);
+  color: var(--color-fg-strong);
   font-size: var(--font-size-sm);
-  color: var(--color-fg);
-  cursor: pointer;
-  user-select: none;
 }
 
-.admin-mes-modal__toggle--disabled {
-  color: var(--color-fg-muted);
-  cursor: not-allowed;
-}
-
-.admin-mes-modal__toggle small {
+.admin-mes-modal__readonly small {
   color: var(--color-fg-muted);
   font-size: var(--font-size-xs);
 }
@@ -668,37 +614,7 @@ onMounted(() => {
   border-top: 1px solid var(--color-border-subtle);
 }
 
-h1,
-h2,
-p {
-  margin: 0;
-}
-
-h1 {
-  color: var(--color-fg-strong);
-  font-size: var(--text-page-title-size);
-  line-height: var(--text-page-title-line-height);
-}
-
-h2 {
-  color: var(--color-fg-strong);
-  font-size: var(--font-size-lg);
-}
-
-p,
-span {
-  color: var(--color-fg-muted);
-}
-
-strong,
-code {
-  color: var(--color-fg-strong);
-}
-
-code {
-  font-size: var(--font-size-sm);
-}
-
+/* Responsive */
 @media (max-width: 1100px) {
   .admin-mes-view__overview {
     grid-template-columns: repeat(2, minmax(0, 1fr));

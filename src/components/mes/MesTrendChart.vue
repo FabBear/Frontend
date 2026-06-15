@@ -103,7 +103,8 @@ const chartOption = computed(() => {
       right: 18,
       bottom: props.showLegend ? 34 : 22,
       left: isHorizontal ? 24 : 10,
-      containLabel: true,
+      outerBoundsMode: 'same',
+      outerBoundsContain: 'axisLabel',
     },
     legend: {
       show: props.showLegend,

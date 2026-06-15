@@ -38,7 +38,7 @@ type RenderApi = {
   value: (dimension: number) => number;
   coord: (value: [number, number]) => number[];
   size: (value: [number, number]) => number[];
-  style: () => Record<string, string>;
+  visual: (visualType: 'color') => string;
 };
 
 const SIDES: MesToolGroupSide[] = ['FE', '기타', 'BE'];
@@ -161,7 +161,9 @@ function renderGroupedStackedBar(_params: unknown, api: RenderApi) {
       width: barWidth,
       height: Math.max(1, yStart - yEnd),
     },
-    style: api.style(),
+    style: {
+      fill: api.visual('color'),
+    },
   };
 }
 
@@ -171,7 +173,7 @@ const chartOption = computed(() => {
   const chartFontSize = resolveCssFontSize('--font-size-sm');
 
   return {
-    grid: { top: 30, right: 12, bottom: 54, left: 10, containLabel: true },
+    grid: { top: 30, right: 12, bottom: 54, left: 10, outerBoundsMode: 'same', outerBoundsContain: 'axisLabel' },
     tooltip: {
       trigger: 'item',
       axisPointer: { type: 'shadow' },

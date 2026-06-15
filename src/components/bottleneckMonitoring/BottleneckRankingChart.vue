@@ -35,7 +35,7 @@ const chartOption = computed(() => {
   });
 
   return {
-    grid: { top: 8, right: 48, bottom: 8, left: 8, containLabel: true },
+    grid: { top: 8, right: 48, bottom: 8, left: 8, outerBoundsMode: 'same', outerBoundsContain: 'axisLabel' },
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'none' },

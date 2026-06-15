@@ -16,6 +16,7 @@ export interface NotificationItem {
   refCaseId: string | null;
   createdAt: string;
   unread: boolean;
+  detailItems?: Array<{ label: string; value: string }>;
 }
 
 export interface NotificationListData {

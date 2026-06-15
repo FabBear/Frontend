@@ -28,6 +28,7 @@ const emit = defineEmits<{
   markRead: [notificationId: string];
   openCase: [caseId: string];
   openMonitoring: [caseId: string];
+  openMlflow: [notificationId: string];
 }>();
 
 const levelIconMap: Record<NotificationLevel, Component> = {
@@ -79,6 +80,12 @@ const levelLabelMap: Record<NotificationLevel, string> = {
         </div>
         <strong>{{ notification.title }}</strong>
         <p>{{ notification.message }}</p>
+        <dl v-if="notification.detailItems?.length" class="notification-panel__details">
+          <div v-for="item in notification.detailItems" :key="`${notification.id}-${item.label}`">
+            <dt>{{ item.label }}</dt>
+            <dd>{{ item.value }}</dd>
+          </div>
+        </dl>
         <div class="notification-panel__actions">
           <button
             v-if="notification.refCaseId"
@@ -95,6 +102,14 @@ const levelLabelMap: Record<NotificationLevel, string> = {
             @click="emit('openCase', notification.refCaseId)"
           >
             케이스 보기
+          </button>
+          <button
+            v-if="notification.type === 'MODEL_RETRAIN'"
+            class="notification-panel__action"
+            type="button"
+            @click="emit('openMlflow', notification.id)"
+          >
+            확인
           </button>
           <button
             v-if="notification.unread"
@@ -195,6 +210,39 @@ const levelLabelMap: Record<NotificationLevel, string> = {
 .notification-panel__time {
   color: var(--color-fg-muted);
   font-size: var(--font-size-sm);
+}
+
+.notification-panel__details {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-status-warning) 7%, var(--color-bg-page));
+  padding: var(--space-2);
+}
+
+.notification-panel__details div {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: start;
+}
+
+.notification-panel__details dt,
+.notification-panel__details dd {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
+}
+
+.notification-panel__details dt {
+  color: var(--color-fg-muted);
+  font-weight: var(--font-weight-semibold);
+}
+
+.notification-panel__details dd {
+  color: var(--color-fg-strong);
+  font-weight: var(--font-weight-semibold);
 }
 
 .notification-panel__actions {

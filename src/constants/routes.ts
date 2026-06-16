@@ -4,6 +4,7 @@ export const ROUTE_NAMES = {
   bottleneckMonitoring: 'bottlenecks',
   mesMonitoring: 'mesMonitoring',
   machineMonitoring: 'machineMonitoring',
+  lotReleasePlan: 'lotReleasePlan',
   fab3d: 'fab3d',
   bottleneckCenter: 'bottleneckCenter',
   reportArchive: 'reportArchive',

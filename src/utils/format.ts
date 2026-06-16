@@ -27,6 +27,12 @@ export function formatRatioPercent(value: number | null): string {
   return `${(value * 100).toFixed(1)}%`;
 }
 
+// 병목 위험 점수: 0-1 입력 → 0-100 정수 점수(% 아님). composite(검출) or 0.5*확률(그 외).
+export function formatRiskScore(value: number | null): string {
+  if (value === null) return '-';
+  return `${Math.round(value * 100)}`;
+}
+
 // ECharts 등 숫자가 필요한 곳에서 사용 (문자열 퍼센트 대신)
 export function toRatioPercentNumber(value: number): number {
   return Number((value * 100).toFixed(1));

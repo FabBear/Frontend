@@ -2,66 +2,11 @@ import axios from 'axios';
 
 import api from '@/services/api';
 
-import type { ChatAttachment, ChatQuickPrompt, ChatSendRequest, ChatSession } from '@/types/chatbot';
+import { MOCK_CHAT_QUICK_PROMPTS, MOCK_CHAT_RESPONSES, MOCK_CHAT_SESSIONS } from '@/constants/mockData/chatbot';
+import { DEMO_CASE_ID, DEMO_DETECTED_AT } from '@/constants/mockData/demoAlert';
+import { shouldUseDemoMockData } from '@/constants/mockMode';
 
-export interface ChatUploadRequest {
-  sessionId: string;
-  attachments: ChatAttachment[];
-}
-
-export interface RagEmbeddingModelCandidate {
-  modelId: string;
-  role: 'MVP' | 'FALLBACK' | 'QUALITY';
-  reason: string;
-}
-
-export interface RagStoragePlan {
-  fileStorage: 'DOCKER_VOLUME';
-  metadataStorage: 'DATABASE';
-  vectorStore: 'CHROMA' | 'FAISS' | 'PGVECTOR';
-  harborUsage: 'CONTAINER_ARTIFACTS_ONLY';
-}
-
-export const FREE_EMBEDDING_MODEL_CANDIDATES: RagEmbeddingModelCandidate[] = [
-  {
-    modelId: 'intfloat/multilingual-e5-small',
-    role: 'MVP',
-    reason: '한국어/다국어 대응이 가능하고 비교적 가벼워 로컬 embedding service MVP에 적합합니다.',
-  },
-  {
-    modelId: 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2',
-    role: 'FALLBACK',
-    reason: '품질보다 가벼운 실행과 빠른 fallback이 중요할 때 사용할 수 있습니다.',
-  },
-  {
-    modelId: 'BAAI/bge-m3',
-    role: 'QUALITY',
-    reason: '다국어 검색 품질 후보지만 MVP 환경에서는 리소스 사용량을 먼저 확인해야 합니다.',
-  },
-];
-
-export const LOCAL_RAG_STORAGE_PLAN: RagStoragePlan = {
-  fileStorage: 'DOCKER_VOLUME',
-  metadataStorage: 'DATABASE',
-  vectorStore: 'CHROMA',
-  harborUsage: 'CONTAINER_ARTIFACTS_ONLY',
-};
-
-export async function prepareChatAttachmentsForUpload(request: ChatUploadRequest): Promise<ChatAttachment[]> {
-  // MVP 연결점: 실제 구현 시 POST /api/v1/chatbot/sessions/{sessionId}/attachments 로 교체한다.
-  // 파일 원본은 S3/Harbor가 아니라 backend Docker volume에 저장하고 DB에 metadata를 기록한다.
-  return request.attachments.map((attachment) => ({ ...attachment, status: 'DONE' }));
-}
-
-export async function requestLocalRagIndexing(
-  attachments: ChatAttachment[]
-): Promise<{ indexed: boolean; modelId: string }> {
-  // 유료 embedding API 호출 금지. 로컬 embedding service가 준비되기 전까지는 mock 완료 상태만 반환한다.
-  return {
-    indexed: attachments.length > 0,
-    modelId: FREE_EMBEDDING_MODEL_CANDIDATES[0].modelId,
-  };
-}
+import type { ChatQuickPrompt, ChatSendRequest, ChatSession, ChatUiCard } from '@/types/chatbot';
 
 interface BackendChatSessionList {
   items: Array<{
@@ -137,6 +82,9 @@ export interface VoiceTranscribeResult {
 }
 
 export async function fetchChatSessions(): Promise<ChatSession[]> {
+  if (shouldUseDemoMockData())
+    return MOCK_CHAT_SESSIONS.map((session) => ({ ...session, messages: [...session.messages] }));
+
   const { data } = await api.get<BackendChatSessionList>('/v1/chatbot/sessions', {
     params: { page: 0, size: 20 },
   });
@@ -148,6 +96,17 @@ export async function fetchChatSessions(): Promise<ChatSession[]> {
 }
 
 export async function fetchChatSessionMessages(sessionId: string): Promise<ChatSession['messages']> {
+  if (shouldUseDemoMockData()) {
+    return (MOCK_CHAT_SESSIONS.find((session) => session.sessionId === sessionId)?.messages ?? []).map((message) => ({
+      ...message,
+      references: {
+        ...message.references,
+        caseIds: [...message.references.caseIds],
+        docIds: [...message.references.docIds],
+      },
+    }));
+  }
+
   const pageSize = 100;
   let page = 0;
   const items: BackendChatMessages['items'] = [];
@@ -177,6 +136,8 @@ export async function fetchChatSessionMessages(sessionId: string): Promise<ChatS
 }
 
 export async function sendChatMessage(request: ChatSendRequest): Promise<BackendChatMessage> {
+  if (shouldUseDemoMockData()) return createMockChatMessage(request);
+
   const { data } = await api.post<BackendChatMessage>('/v1/chatbot/messages', request);
   return data;
 }
@@ -207,6 +168,15 @@ function fmtPct(v?: number | null): string {
 
 /** Spring buildLiveFabContext와 동일 형식의 실시간 현황 텍스트(AI status 카드 파서가 이 형식에 의존). */
 export async function buildLiveFabContext(): Promise<string | null> {
+  if (shouldUseDemoMockData()) {
+    return [
+      '[현재 FAB 현황 · 기준 2026-06-14 23:12]',
+      '전체: DE_FE_1 Critical 병목, 병목 위험 점수 80.3',
+      '확산 경로: DE_FE_1 → Diffusion_FE_125',
+      '추천 대응: standard DISPATCH_RULE_OVERRIDE 승인안',
+    ].join('\n');
+  }
+
   try {
     const { data } = await api.get<RawMesCurrent>('/v1/monitoring/mes/current');
     const fab = data.fab;
@@ -267,6 +237,27 @@ export async function streamChatMessage(
   },
   callbacks: ChatStreamCallbacks
 ): Promise<ChatStreamMeta> {
+  if (shouldUseDemoMockData()) {
+    callbacks.onStage?.('DE_FE_1 산출물 확인 중');
+    const answer = createMockChatAnswer(payload.message);
+    const ui = createMockChatUi(payload.message);
+    const toolsUsed = createMockToolsUsed(payload.message);
+    callbacks.onToken(answer);
+    const meta: ChatStreamMeta = {
+      answer,
+      sources: [{ title: 'DE_FE_1 병목 대응 보고서', category: 'REPORT', sourcePath: DEMO_CASE_ID }],
+      followUps: ['승인안만 더 짧게 요약해줘', 'Diffusion_FE_125 영향만 따로 보여줘'],
+      spokenSummary: 'DE_FE_1 병목은 설비 포화와 WIP 누적이 핵심이며 standard 대응안이 안정적입니다.',
+      ui,
+      confidence: 'HIGH',
+      warnings: [],
+      toolsUsed,
+      title: 'DE_FE_1 병목 요약',
+    };
+    callbacks.onMeta(meta);
+    return meta;
+  }
+
   const res = await fetch('/ai/api/chat/message'.replace('/message', '/stream'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -327,11 +318,15 @@ export async function streamChatMessage(
 }
 
 export async function deleteChatSession(sessionId: string): Promise<void> {
+  if (shouldUseDemoMockData()) return;
+
   await api.delete(`/v1/chatbot/sessions/${sessionId}`);
 }
 
 /** 녹음 오디오를 온프렘 STT로 전사(우리 TG 어휘 보정). 오디오는 백엔드 경유, 외부로 안 나감. */
 export async function transcribeAudio(blob: Blob): Promise<VoiceTranscribeResult> {
+  if (shouldUseDemoMockData()) return { text: 'DE_FE_1 병목 원인을 요약해줘', confidence: 0.98 };
+
   const form = new FormData();
   form.append('audio', blob, createAudioFilename(blob));
   try {
@@ -371,6 +366,8 @@ function resolveVoiceErrorMessage(error: unknown): string {
 }
 
 export async function fetchSuggestedQuestions(): Promise<ChatQuickPrompt[]> {
+  if (shouldUseDemoMockData()) return MOCK_CHAT_QUICK_PROMPTS;
+
   const { data } = await api.get<BackendSuggestedQuestions>('/v1/chatbot/suggested-questions');
   return data.categories.flatMap((category, categoryIndex) =>
     category.questions.map((question, index) => ({
@@ -379,4 +376,149 @@ export async function fetchSuggestedQuestions(): Promise<ChatQuickPrompt[]> {
       message: question,
     }))
   );
+}
+
+function createMockChatAnswer(message: string, request?: ChatSendRequest): string {
+  const normalized = message.toLowerCase();
+  const hasReportContext = Boolean(request?.contextCaseId || request?.contextReportId);
+  if (
+    hasReportContext ||
+    normalized.includes('report') ||
+    normalized.includes('리포트') ||
+    normalized.includes('보고')
+  ) {
+    return [
+      '이 문서는 DE_FE_1 Critical 병목 대응 리포트입니다. 기준 케이스는 case-de-fe-1-3780이고, 보고서 생성 시각은 2026-06-14 23:12:46입니다.',
+      '핵심 판단은 병목 위험 점수 80.3, 주원인 설비_포화(max_util), 확산 경로 DE_FE_1 → Diffusion_FE_125입니다.',
+      '승인된 대응안은 standard DISPATCH_RULE_OVERRIDE이며 Release Interval Δ22.0% 조정과 Product_3/Product_4 우선순위 상향을 포함합니다.',
+    ].join('\n\n');
+  }
+  if (normalized.includes('대응') || normalized.includes('승인') || normalized.includes('안')) {
+    return 'standard 안이 선택된 이유는 개선 폭과 운영 리스크의 균형이 가장 좋기 때문입니다. DE_FE_1 Q-time은 58.0분, WIP는 8 Lot 수준으로 낮아지고, aggressive 안에서 나타나는 Diffusion_FE_125 가용성 저하와 WIP 편중 위험을 피합니다.';
+  }
+  if (normalized.includes('원인') || normalized.includes('why')) {
+    return '원인은 설비_포화가 1순위입니다. max_util_delta_120, max_util, utilization_avg가 병목 방향으로 크게 기여했고, WIP 누적이 보조 원인으로 확인됐습니다. 업스트림 DE_FE_86 유입 부담도 DE_FE_1의 처리 여유를 압박합니다.';
+  }
+  if (normalized.includes('확산') || normalized.includes('diffusion')) {
+    return '확산 경로는 DE_FE_1 → Diffusion_FE_125입니다. 무대응 120분 후 DE_FE_1은 WIP 12 Lot, Q-time 96.39분까지 악화될 수 있고, Diffusion_FE_125도 WIP 편중과 대기 누적을 같이 봐야 합니다.';
+  }
+  if (normalized.includes('tool') || normalized.includes('설비') || normalized.includes('장비')) {
+    return 'DE_FE_1 내부 설비는 가동률이 한계권에 있어 개별 Tool 상태를 같이 봐야 합니다. 현재 mock 응답은 get_tool_status와 get_top_toolgroups 도구 기준으로 DE_FE_1, Diffusion_FE_125, DE_FE_86을 우선 확인하도록 구성했습니다.';
+  }
+  if (normalized.includes('3d') || normalized.includes('fab')) {
+    return '3D FAB에서는 caseId=case-de-fe-1-3780과 tg=DE_FE_1 기준으로 감지 당시 스냅샷을 열어야 합니다. 확인 순서는 DE_FE_1, Diffusion_FE_125, 업스트림 DE_FE_86입니다.';
+  }
+  return MOCK_CHAT_RESPONSES[0];
+}
+
+function createMockToolsUsed(message: string): string[] {
+  const normalized = message.toLowerCase();
+  if (normalized.includes('원인') || normalized.includes('why'))
+    return ['get_case_detail', 'get_kpi_trend', 'compare_periods'];
+  if (normalized.includes('확산') || normalized.includes('diffusion')) return ['get_case_detail', 'get_top_toolgroups'];
+  if (normalized.includes('tool') || normalized.includes('설비') || normalized.includes('장비')) {
+    return ['get_tool_status', 'get_top_toolgroups'];
+  }
+  if (normalized.includes('현황') || normalized.includes('현재')) return ['get_fab_status', 'get_lot_status'];
+  return ['get_case_detail', 'search_bottleneck_cases'];
+}
+
+function createMockChatUi(message: string): ChatUiCard | null {
+  const normalized = message.toLowerCase();
+  if (normalized.includes('원인') || normalized.includes('추세') || normalized.includes('why')) {
+    return {
+      type: 'trend',
+      props: {
+        title: 'DE_FE_1 주요 KPI 추세',
+        labels: ['T-300', 'T-240', 'T-180', 'T-120', 'T-60', 'T-0'],
+        series: [
+          { name: 'Q-time', data: [0, 0, 22.24, 63.77, 76.22, 62.96] },
+          { name: 'WIP', data: [4, 4, 10, 13, 13, 10] },
+          { name: '가동률', data: [33.9, 50, 88.8, 100, 97.6, 99.4] },
+        ],
+      },
+    };
+  }
+
+  if (
+    normalized.includes('확산') ||
+    normalized.includes('대응') ||
+    normalized.includes('승인') ||
+    normalized.includes('리포트')
+  ) {
+    return {
+      type: 'lot',
+      props: {
+        title: 'DE_FE_1 승인안 적용 후 핵심 TG 전망',
+        labelHeader: 'Tool Group',
+        columns: [
+          { key: 'qtime', label: 'Q-time', unit: '분' },
+          { key: 'wip', label: 'WIP', unit: ' Lot' },
+          { key: 'wait', label: 'Wait', unit: '%' },
+          { key: 'util', label: '가동률', unit: '%' },
+        ],
+        rows: [
+          { label: 'ETCH/DE_FE_1', qtime: 58, wip: 8, wait: 18, util: 88 },
+          { label: 'OXIDATION/Diffusion_FE_125', qtime: 30, wip: 8, wait: 65, util: 82 },
+        ],
+      },
+    };
+  }
+
+  if (normalized.includes('현황') || normalized.includes('현재')) {
+    return {
+      type: 'status',
+      props: {
+        title: '현재 FAB 현황 · DE_FE_1 케이스 기준',
+        overall: { util: 83.1, wip: 10405, run: 300, idle: 1172, setup: 0, down: 63, avail: 93.5 },
+        areas: [
+          { name: 'ETCH', wip: 138, util: 21.9, avail: 98.2 },
+          { name: 'DEPOSITION', wip: 207, util: 11.4, avail: 93.4 },
+          { name: 'INSPECTION_PACKAGING', wip: 9884, util: 50, avail: 86.2 },
+        ],
+      },
+    };
+  }
+
+  return {
+    type: 'cases',
+    props: {
+      title: '최근 병목 케이스',
+      rows: [
+        {
+          when: '06.14 23:12',
+          where: 'ETCH/DE_FE_1',
+          grade: 'CRITICAL',
+          prob: 99.6,
+          status: 'HITL 승인',
+        },
+      ],
+    },
+  };
+}
+
+function createMockChatMessage(request: ChatSendRequest): BackendChatMessage {
+  const answer = createMockChatAnswer(request.message, request);
+  const sessionId = request.sessionId ?? 'chat-de-fe-1-live';
+  const ui = createMockChatUi(request.message);
+  const toolsUsed = createMockToolsUsed(request.message);
+  return {
+    sessionId,
+    sessionTitle: 'DE_FE_1 병목 대응 문의',
+    messageId: `msg-demo-${Date.now()}`,
+    role: 'ASSISTANT',
+    content: answer,
+    references: {
+      caseIds: [request.contextCaseId ?? DEMO_CASE_ID].filter(Boolean) as string[],
+      docIds: request.contextReportId ? [request.contextReportId] : ['report-de-fe-1'],
+    },
+    sources: [{ title: 'DE_FE_1 병목 대응 보고서', sourcePath: DEMO_CASE_ID, category: 'REPORT' }],
+    followUps: ['대응안 비교표 기준으로 더 줄여줘', '3D FAB에서 봐야 할 TG를 알려줘', '후속 모니터링 KPI를 알려줘'],
+    spokenSummary: 'DE_FE_1 병목은 설비 포화와 WIP 누적이 핵심이며 standard 대응안이 승인되었습니다.',
+    ui,
+    confidence: 'HIGH',
+    warnings: [],
+    toolsUsed,
+    createdAt: DEMO_DETECTED_AT,
+  };
 }

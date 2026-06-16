@@ -69,7 +69,7 @@ const approvalNote = defineModel<string>('approvalNote', { required: true });
         <div>
           <h3>HITL 검토 및 승인</h3>
           <p v-if="isCurrentOptionSelected" class="bnc-solutions__hitl-hint">
-            현재 유지는 비교 기준입니다. 승인할 A/B 대응안을 선택하세요.
+            현재 유지는 비교 기준입니다. 승인할 후보 대응안을 선택하세요.
           </p>
           <p v-else-if="selectedPlanTitle">
             선택된 대응안: <strong>{{ selectedPlanTitle }}</strong>

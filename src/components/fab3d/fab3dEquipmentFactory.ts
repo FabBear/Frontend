@@ -139,9 +139,9 @@ function addLEDs(g: THREE.Group, x0: number, y: number, z: number, n: number, sp
   }
 }
 
-/** utilization → severity (risk 미제공 시 fallback) */
+/** utilization → severity fallback (riskGrade 미제공 시) */
 function sevFromU(u: number): number {
-  return u >= 0.9 ? 2 : u >= 0.7 ? 1 : 0;
+  return u >= 0.9 ? 3 : u >= 0.85 ? 2 : u >= 0.7 ? 1 : 0;
 }
 
 /**
@@ -150,45 +150,49 @@ function sevFromU(u: number): number {
  * sev: 0=정상(초록) 1=경고(노랑) 2=위험(빨강) — tg.risk 기반.
  * ⚠ PointLight를 쓰지 않는다(장비 수만큼 광원이 생겨 프레임 급락). 자체발광 재질로 표현.
  */
-const TOWER_SEG_COLORS = [0xff2a1a, 0xffb020, 0x22dd55]; // idx0=red(top) 1=amber 2=green
+// 4색: idx0=red(CRITICAL) 1=orange(HIGH) 2=yellow(MEDIUM) 3=green(LOW)
+const TOWER_SEG_COLORS = [0xff2a1a, 0xff7700, 0xffd700, 0x22dd55];
 
-/** sev(0정상/1경고/2위험)에 따라 신호탑 점등 세그먼트만 불투명도로 토글. 재질/지오메트리 재생성 없음. */
+/** sev(0=LOW/1=MEDIUM/2=HIGH/3=CRITICAL)에 따라 신호탑 점등 세그먼트 토글. */
 export function setTowerSeverity(segs: THREE.Mesh[], sev: number) {
-  const active = sev >= 2 ? 0 : sev === 1 ? 1 : 2;
+  const active = sev >= 3 ? 0 : sev === 2 ? 1 : sev === 1 ? 2 : 3;
   segs.forEach((s, idx) => {
-    (s.material as THREE.MeshBasicMaterial).opacity = idx === active ? 1 : 0.16;
+    (s.material as THREE.MeshBasicMaterial).opacity = idx === active ? 1 : 0.14;
   });
 }
 
 function addSignalTower(g: THREE.Group, x: number, y: number, z: number, sev: number) {
+  const SEG_H = 0.2;
+  const N = TOWER_SEG_COLORS.length; // 4
+  const poleH = 0.5 + N * SEG_H;
+
   const pole = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.035, 0.045, 0.42, 8),
+    new THREE.CylinderGeometry(0.055, 0.07, poleH, 8),
     new THREE.MeshPhongMaterial({ color: 0x2a3440, shininess: 60 })
   );
-  pole.position.set(x, y + 0.21, z);
+  pole.position.set(x, y + poleH / 2, z);
   g.add(pole);
 
-  const baseY = y + 0.42;
-  const SEG_H = 0.17;
-  // 3색 세그먼트를 항상 생성(자체발광 MeshBasic). 점등은 불투명도로만 토글 → 실시간 갱신이 가벼움.
+  const baseY = y + 0.5;
+  // 4색 세그먼트 (idx0=red 최상단). 점등은 불투명도로만 토글.
   const segs: THREE.Mesh[] = [];
   TOWER_SEG_COLORS.forEach((color, idx) => {
     const seg = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.105, 0.105, SEG_H, 16),
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.16 })
+      new THREE.CylinderGeometry(0.155, 0.155, SEG_H, 16),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.14 })
     );
-    seg.position.set(x, baseY + SEG_H / 2 + (2 - idx) * SEG_H, z); // idx0(red) 최상단
+    seg.position.set(x, baseY + SEG_H / 2 + (N - 1 - idx) * SEG_H, z);
     g.add(seg);
     segs.push(seg);
   });
   setTowerSeverity(segs, sev);
-  g.userData.towerSegs = segs; // 씬에서 실시간 상태 갱신용으로 참조
+  g.userData.towerSegs = segs;
 
   const cap = new THREE.Mesh(
-    new THREE.SphereGeometry(0.105, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2),
+    new THREE.SphereGeometry(0.155, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2),
     new THREE.MeshPhongMaterial({ color: 0x1a2430, shininess: 70 })
   );
-  cap.position.set(x, baseY + 3 * SEG_H + 0.05, z);
+  cap.position.set(x, baseY + N * SEG_H + 0.06, z);
   g.add(cap);
 }
 
@@ -1268,11 +1272,16 @@ function buildBody(type: string, u: number): THREE.Group {
 }
 
 /**
- * @param sev 신호탑 상태 0=정상 1=경고 2=위험 (tg.risk 기반). 미지정 시 utilization으로 추정.
+ * @param sev 신호탑 + 본체 색 기준 0=정상 1=경고 2=위험 (tg.risk 기반).
+ * 본체 색상도 sev 기반으로 통일: sev=2→0.95(빨강), sev=1→0.87(주황), sev=0→0.5(정상).
+ * 가동률(u)은 우측 패널 KPI 표시에만 사용 — 3D 색상 기준 아님.
  */
 export function mkEquipment(type: string, u: number, sev?: number): THREE.Group {
+  const resolvedSev = sev ?? sevFromU(u);
+  // body = 실가동률(u) 기준 → 5분마다 실시간 변함
+  // tower = cascade 병목 등급(sev) 기준 → 감지 주기마다 업데이트
   const g = buildBody(type, u);
   const [tx, ty, tz] = TOWER_POS[type] ?? TOWER_POS.cvd;
-  addSignalTower(g, tx, ty, tz, sev ?? sevFromU(u));
+  addSignalTower(g, tx, ty, tz, resolvedSev);
   return g;
 }

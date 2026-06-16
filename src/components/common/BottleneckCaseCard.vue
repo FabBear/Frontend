@@ -283,7 +283,6 @@ function handleSelect() {
 
 .bottleneck-case-card__metric--risk dd {
   color: var(--case-risk-color);
-  font-size: var(--font-size-lg);
 }
 
 .bottleneck-case-card__metric--risk {
@@ -344,9 +343,17 @@ function handleSelect() {
   gap: var(--space-2);
 }
 
-.bottleneck-case-card__actions :deep(*) {
+.bottleneck-case-card__actions :deep(.base-button) {
   flex: 1 1 100px;
   min-height: 28px;
+  justify-content: center;
+  text-align: center;
+}
+
+.bottleneck-case-card__actions :deep(.base-button__content) {
+  width: 100%;
+  justify-content: center;
+  text-align: center;
 }
 
 .bottleneck-case-card__actions :deep(svg) {

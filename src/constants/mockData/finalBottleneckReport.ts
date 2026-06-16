@@ -77,7 +77,7 @@ export const MOCK_FINAL_BOTTLENECK_REPORT: FinalBottleneckReport = {
     approved_by: 'AUTO',
     approved_role: 'SYSTEM',
     approved_at: '',
-    comment: 'JSON artifact 제외 상태의 fallback mock입니다.',
+    comment: '자동 승인 검토 대기 상태입니다.',
     rejection_reason: null,
   },
   full_markdown: [

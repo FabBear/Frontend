@@ -22,7 +22,7 @@ defineProps<{
   <section class="report-v1__panel">
     <div class="report-v1__panel-head">
       <h3>대응안 비교</h3>
-      <span>ReportV1 기준 비교</span>
+      <span>AI 점수 기준 · 승인안 강조</span>
     </div>
     <div class="report-v1__candidate-grid">
       <article

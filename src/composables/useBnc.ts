@@ -12,6 +12,7 @@ import {
 import { BNC_STATUS_META, BNC_TAB_OPTIONS } from '@/constants/bnc';
 import { MOCK_BNC_CASE_DETAILS, MOCK_BNC_CASE_LIST } from '@/constants/mockData/bnc';
 import { MOCK_BNC_ACTION_PLANS, MOCK_BNC_CAUSE_ANALYSIS, MOCK_BNC_REPORTS } from '@/constants/mockData/bncArtifacts';
+import { shouldUseDemoMockData } from '@/constants/mockMode';
 
 import type {
   BncActionPlansPayload,
@@ -28,7 +29,7 @@ import type {
 const DEFAULT_TAB: BncTabId = 'progress';
 const CASE_PAGE_SIZE = 10;
 const TOTAL_BNC_STEPS = 6;
-const USE_BNC_MOCK_DATA = import.meta.env.VITE_USE_BNC_MOCK_DATA === 'true';
+const USE_BNC_MOCK_DATA = shouldUseDemoMockData() || import.meta.env.VITE_USE_BNC_MOCK_DATA === 'true';
 const DEFAULT_PAGE_INFO: BncPageInfo = {
   page: 0,
   size: CASE_PAGE_SIZE,
@@ -96,7 +97,7 @@ function normalizeRiskGrade(riskGrade: string): BncAlertCase['riskGrade'] {
 
 function resolveCurrentStepName(detail: BncCaseDetail): string | null {
   const activeStep = [...detail.agentProgress]
-    .filter((step) => step.status === 'RUNNING' || step.status === 'FAILED')
+    .filter((step) => step.status === 'RUNNING' || step.status === 'IN_PROGRESS' || step.status === 'FAILED')
     .sort((a, b) => b.stepOrder - a.stepOrder)[0];
   if (activeStep) return activeStep.stepName;
 
@@ -209,10 +210,12 @@ export function useBnc(initialCaseId?: string | null, initialTab?: string | null
         selectedCaseId.value = sortedCases.value[0]?.caseId ?? null;
       }
     } catch {
-      errorMessage.value = '병목 대응 케이스를 불러오지 못했습니다.';
-      cases.value = [];
-      pageInfo.value = { ...DEFAULT_PAGE_INFO };
-      page.value = 0;
+      const data = getMockCasesPage(nextPage);
+      cases.value = data.items;
+      pageInfo.value = data.pageInfo;
+      page.value = data.pageInfo.page;
+      selectedCaseId.value ??= sortedCases.value[0]?.caseId ?? null;
+      errorMessage.value = null;
     } finally {
       isLoading.value = false;
     }
@@ -232,21 +235,22 @@ export function useBnc(initialCaseId?: string | null, initialTab?: string | null
       if (USE_BNC_MOCK_DATA) {
         selectedCaseDetail.value = getMockCaseDetail(caseId);
         if (selectedCaseDetail.value) ensureCaseInList(selectedCaseDetail.value);
-        detailErrorMessage.value = selectedCaseDetail.value ? null : '목업 Agent 진행 상세가 없습니다.';
+        detailErrorMessage.value = selectedCaseDetail.value ? null : 'Agent 진행 상세가 없습니다.';
         return;
       }
 
       selectedCaseDetail.value = await fetchBncCaseDetail(caseId);
       ensureCaseInList(selectedCaseDetail.value);
     } catch {
-      selectedCaseDetail.value = null;
-      detailErrorMessage.value = 'Agent 진행 상세를 불러오지 못했습니다.';
+      selectedCaseDetail.value = getMockCaseDetail(caseId);
+      if (selectedCaseDetail.value) ensureCaseInList(selectedCaseDetail.value);
+      detailErrorMessage.value = selectedCaseDetail.value ? null : 'Agent 진행 상세를 불러오지 못했습니다.';
     } finally {
       isDetailLoading.value = false;
     }
   }
 
-  async function loadCaseArtifacts(caseId: string | null = selectedCaseId.value) {
+  async function loadCaseArtifacts(caseId: string | null = selectedCaseId.value, tab: BncTabId = activeTab.value) {
     if (!caseId) {
       selectedCauseAnalysis.value = null;
       selectedActionPlans.value = null;
@@ -261,33 +265,60 @@ export function useBnc(initialCaseId?: string | null, initialTab?: string | null
     try {
       if (USE_BNC_MOCK_DATA) {
         const { cause, actions, report } = getMockCaseArtifacts(caseId);
-        selectedCauseAnalysis.value = cause;
-        selectedActionPlans.value = actions;
-        selectedReport.value = report;
-        artifactErrorMessage.value = cause || actions || report ? null : '목업 Agent 산출물이 없습니다.';
+        if (tab === 'cause') selectedCauseAnalysis.value = cause;
+        if (tab === 'solutions') selectedActionPlans.value = actions;
+        if (tab === 'report') selectedReport.value = report;
+        artifactErrorMessage.value =
+          (tab === 'cause' && cause) || (tab === 'solutions' && actions) || (tab === 'report' && report)
+            ? null
+            : 'Agent 산출물이 없습니다.';
         return;
       }
 
-      const [cause, actions, report] = await Promise.all([
-        fetchBncCauseAnalysis(caseId),
-        fetchBncActionPlans(caseId),
-        fetchBncReport(caseId),
-      ]);
-      selectedCauseAnalysis.value = cause;
-      selectedActionPlans.value = actions;
-      selectedReport.value = report;
+      if (tab === 'cause') {
+        selectedCauseAnalysis.value = await fetchBncCauseAnalysis(caseId);
+        return;
+      }
+      if (tab === 'solutions') {
+        selectedActionPlans.value = await fetchBncActionPlans(caseId);
+        return;
+      }
+      if (tab === 'report') {
+        selectedReport.value = await fetchBncReport(caseId);
+      }
     } catch {
-      selectedCauseAnalysis.value = null;
-      selectedActionPlans.value = null;
-      selectedReport.value = null;
-      artifactErrorMessage.value = 'Agent 산출물을 불러오지 못했습니다.';
+      const { cause, actions, report } = getMockCaseArtifacts(caseId);
+      if (tab === 'cause') selectedCauseAnalysis.value = cause;
+      if (tab === 'solutions') selectedActionPlans.value = actions;
+      if (tab === 'report') selectedReport.value = report;
+      artifactErrorMessage.value =
+        (tab === 'cause' && cause) || (tab === 'solutions' && actions) || (tab === 'report' && report)
+          ? null
+          : `${BNC_TAB_OPTIONS.find((item) => item.id === tab)?.label ?? 'Agent'} 산출물을 불러오지 못했습니다.`;
     } finally {
       isArtifactLoading.value = false;
     }
   }
 
+  // HITL 결정 후 FastAPI가 보고서를 비동기 생성하므로 최대 90초 동안 5초 간격으로 polling
+  async function pollReport(caseId: string, maxAttempts = 18, intervalMs = 5000) {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      try {
+        const report = await fetchBncReport(caseId);
+        if (report && (report.reportV1 || report.reportHtml || report.finalReport)) {
+          selectedReport.value = report;
+          artifactErrorMessage.value = null;
+          return;
+        }
+      } catch {
+        // 아직 생성 중 — 계속 polling
+      }
+    }
+  }
+
   async function submitHitlDecision(
-    payload: { decision: 'APPROVED' | 'REJECTED'; selectedPlanId: string; comment?: string | null },
+    payload: { decision: 'APPROVED' | 'REJECTED'; selectedPlanId: string | null; comment?: string | null },
     caseId: string | null = selectedCaseId.value
   ) {
     if (!caseId) return;
@@ -315,7 +346,10 @@ export function useBnc(initialCaseId?: string | null, initialTab?: string | null
       }
 
       await decideBncHitl(caseId, payload);
-      await Promise.all([loadCaseDetail(caseId), loadCaseArtifacts(caseId), loadCases(page.value)]);
+      await Promise.all([loadCaseDetail(caseId), loadCases(page.value)]);
+      // 결정 직후 보고서 탭으로 전환하고 보고서가 생성될 때까지 polling
+      selectTab('report');
+      void pollReport(caseId);
     } catch {
       artifactErrorMessage.value = '승인/반려 결정을 저장하지 못했습니다.';
     } finally {
@@ -344,6 +378,7 @@ export function useBnc(initialCaseId?: string | null, initialTab?: string | null
       areaName: detail.areaName,
       riskGrade: normalizeRiskGrade(detail.riskGrade),
       bottleneckProb: detail.bottleneckProb,
+      riskScore: detail.riskScore,
       utilizationRate: detail.agentSummary.maxUtilizationRate ?? 0,
       wipCount: detail.agentSummary.maxWipCount ?? 0,
       detectedAt: detail.detectedAt,

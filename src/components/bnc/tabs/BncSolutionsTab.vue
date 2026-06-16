@@ -18,7 +18,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  decide: [payload: { decision: 'APPROVED' | 'REJECTED'; selectedPlanId: string; comment?: string | null }];
+  decide: [payload: { decision: 'APPROVED' | 'REJECTED'; selectedPlanId: string | null; comment?: string | null }];
 }>();
 
 // 부모(탭)는 오케스트레이터 — 자식 컴포넌트에 넘길 값과 직접 쓰는 판단요약/조건값만 destructure.
@@ -173,7 +173,7 @@ const {
         v-if="localDecision === null"
         v-model:rejection-note="rejectionNote"
         v-model:approval-note="approvalNote"
-        :selected-plan-title="selectedPlan?.title ?? null"
+        :selected-plan-title="selectedPlan?.actionLabel ?? null"
         :recommended-plan-label="recommendedPlan?.actionLabel ?? null"
         :is-pending-reject="isPendingReject"
         :is-current-option-selected="isCurrentOptionSelected"

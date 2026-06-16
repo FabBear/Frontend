@@ -7,14 +7,6 @@ export interface ChatReference {
   docIds: string[];
 }
 
-export interface ChatAttachment {
-  id: string;
-  name: string;
-  size: number;
-  type: string;
-  status: 'READY' | 'UPLOADING' | 'DONE' | 'FAILED';
-}
-
 export interface ChatSource {
   title: string;
   sourcePath?: string | null;
@@ -43,7 +35,6 @@ export interface ChatMessage {
   followUps?: string[];
   /** SSE 스트리밍 중(미완성) — 자동읽기 등은 완성 후에만 동작. */
   pending?: boolean;
-  attachments?: ChatAttachment[];
   agentResult?: AgentTaskResult | null;
   createdAt: string;
 }

@@ -6,6 +6,7 @@ import { exportMesCsv } from '@/services/mesService';
 import { useMesMonitoring } from '@/composables/useMesMonitoring';
 
 import MesAlertBanner from '@/components/mes/MesAlertBanner.vue';
+import MesConnectionStatus from '@/components/mes/MesConnectionStatus.vue';
 import MesTabNav from '@/components/mes/MesTabNav.vue';
 import MesAllProcessTab from '@/components/mes/tabs/MesAllProcessTab.vue';
 import MesProcessTab from '@/components/mes/tabs/MesProcessTab.vue';
@@ -52,6 +53,7 @@ onUnmounted(() => {
         <p class="mes-monitor-view__subtitle">실시간 공정·Tool Group·Tool 상태를 확인합니다.</p>
       </div>
       <div class="mes-monitor-view__header-actions">
+        <MesConnectionStatus v-if="data" :snapshot="data.snapshot" />
         <div v-if="data" class="mes-monitor-view__export">
           <span class="mes-monitor-view__export-label">내보내기</span>
           <button type="button" @click="exportMesCsv(data, 'toolGroups')">TG KPI</button>

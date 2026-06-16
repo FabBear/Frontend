@@ -1,4 +1,4 @@
-export type Fab3dRisk = 'NORMAL' | 'WARNING' | 'CRITICAL';
+export type Fab3dRisk = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
 export interface Fab3dToolGroup {
   tgId: string;
@@ -11,6 +11,11 @@ export interface Fab3dToolGroup {
   bottleneckProb: number;
   toolCount: number;
   measuredAt?: string;
+  // 케이스 스냅샷 모드 전용 (CASE_SNAPSHOT)
+  isAnchor?: boolean;
+  isAffected?: boolean;
+  compositeScore?: number;
+  impactScore?: number;
 }
 
 export type Fab3dToolStatus = 'RUN' | 'IDLE' | 'SETUP' | 'DOWN';

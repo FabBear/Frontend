@@ -35,7 +35,7 @@ defineProps<Props>();
       </header>
 
       <ToolGroupDetailMetricGrid :detail="detail" />
-      <ToolGroupRiskProbability :probability="detail.bottleneckProb" :risk-grade="detail.riskGrade" />
+      <ToolGroupRiskProbability :score="detail.riskScore" :risk-grade="detail.riskGrade" />
     </template>
   </aside>
 </template>

@@ -7,10 +7,10 @@ import { RISK_LEVEL_META } from '@/constants/riskLevel';
 
 import type { BottleneckRiskGrade } from '@/types/bottleneckMonitoring';
 
-import { formatRatioPercent } from '@/utils/format';
+import { formatRiskScore } from '@/utils/format';
 
 interface Props {
-  probability: number;
+  score: number | null;
   riskGrade: BottleneckRiskGrade;
 }
 
@@ -18,21 +18,22 @@ const props = defineProps<Props>();
 
 const riskLevel = computed(() => toRiskLevel(props.riskGrade));
 const riskMeta = computed(() => RISK_LEVEL_META[riskLevel.value]);
-const probabilityText = computed(() => formatRatioPercent(props.probability));
+const scoreText = computed(() => formatRiskScore(props.score));
+const barWidth = computed(() => (props.score === null ? '0%' : `${Math.min(100, Math.max(0, props.score * 100))}%`));
 </script>
 
 <template>
-  <section class="tool-group-risk-probability" aria-label="병목 예측 확률">
-    <p class="tool-group-risk-probability__label">병목 예측 확률 <span>(ML 모델)</span></p>
+  <section class="tool-group-risk-probability" aria-label="병목 위험 점수">
+    <p class="tool-group-risk-probability__label">병목 위험 점수 <span>(ML 종합)</span></p>
     <div class="tool-group-risk-probability__bar-row">
       <div class="tool-group-risk-probability__bar">
         <span
           class="tool-group-risk-probability__bar-value"
-          :style="{ width: probabilityText, backgroundColor: riskMeta.color }"
+          :style="{ width: barWidth, backgroundColor: riskMeta.color }"
         />
       </div>
       <strong class="tool-group-risk-probability__bar-pct" :style="{ color: riskMeta.color }">
-        {{ probabilityText }}
+        {{ scoreText }}
       </strong>
     </div>
     <div class="tool-group-risk-probability__risk-badge">

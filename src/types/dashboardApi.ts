@@ -1,3 +1,5 @@
+import type { BncAlertMetrics } from '@/types/bnc';
+
 export interface DashboardApiData {
   kpi: DashboardKpiResponse;
   alerts: DashboardRiskAlertsResponse;
@@ -54,6 +56,9 @@ export interface DashboardRiskAlertItem {
   riskGrade: string;
   riskLevel?: string | null;
   bottleneckProb: number | null;
+  riskScore: number | null;
+  impactScore?: number | null;
+  alertMetrics?: BncAlertMetrics | null;
   detectedAt: string;
   estimatedDelayMin?: number | null;
   estDelayHours?: number | null;
@@ -85,5 +90,6 @@ export interface DashboardProcessToolGroup {
   riskGrade: string | null;
   utilizationRate: number | null;
   bottleneckProb: number | null;
+  riskScore: number | null;
   wipCount: number | null;
 }

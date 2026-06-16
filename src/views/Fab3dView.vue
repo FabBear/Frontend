@@ -11,7 +11,12 @@ import {
   fetchAgentTask,
   listFabBriefings,
 } from '@/services/agentTaskService';
-import { fetchFab3dMonitoringData, fetchTgRouteSteps, fetchToolActivity } from '@/services/fab3dService';
+import {
+  fetchFab3dCaseSnapshot,
+  fetchFab3dMonitoringData,
+  fetchTgRouteSteps,
+  fetchToolActivity,
+} from '@/services/fab3dService';
 
 import { useAgentTask } from '@/composables/useAgentTask';
 import { useChatDrawer } from '@/composables/useChatDrawer';
@@ -53,14 +58,26 @@ const isHeatmapCollapsed = ref(false);
 const showLegendInfo = ref(false);
 const areas = ref<Fab3dArea[]>([]);
 const toolDetails = ref<Fab3dToolDetail[]>([]);
-const dataSource = ref<'current' | 'mock'>('current');
+const dataSource = ref<'current' | 'case_snapshot' | 'mock'>('current');
 const measuredAt = ref<string | null>(null);
 const isLoadingCurrent = ref(false);
+// 케이스 스냅샷 모드 컨텍스트
+const snapshotCaseId = ref<string | null>(null);
+const snapshotAnchorTgName = ref<string | null>(null);
+const snapshotRiskGrade = ref<string | null>(null);
+const snapshotCompositeScore = ref<number | null>(null);
+const snapshotImpactScore = ref<number | null>(null);
+const snapshotAffectedCount = ref<number | null>(null);
+const snapshotCtIncreaseMin = ref<number | null>(null);
+const snapshotDiffusionPath = ref<
+  Array<{ tgId: string; tgCode: string; tgName: string; areaName: string; hop: number }>
+>([]);
 const toolStatusFilter = ref<'ALL' | Fab3dToolDetail['status']>('ALL');
 const fabAgentTask = ref<AgentTaskResponse | null>(null);
 const isAgentCardCollapsed = ref(false);
 const briefingHistory = ref<AgentRunListItem[]>([]);
 const briefingHistoryLoading = ref(false);
+const filteredHistory = computed(() => briefingHistory.value.filter((item) => item.id !== fabAgentTask.value?.taskId));
 // 브리핑 요청 시점의 sim 시각을 동결(폴링되는 measuredAt 대신 카드에 표시).
 const briefingBasisAt = ref<string | null>(null);
 // 우측 패널 탭: 현장(선택객체/FAB 현황) vs AI 분석(브리핑 결과/지난 브리핑).
@@ -136,16 +153,16 @@ const zoneBandLegend = computed(() =>
   }))
 );
 
-function uHex(u: number) {
-  if (u >= 0.9) return 'var(--color-risk-critical)';
-  if (u >= 0.85) return 'var(--color-risk-high)';
-  if (u >= 0.7) return 'var(--color-risk-medium)';
+function riskHex(risk: string | undefined) {
+  if (risk === 'CRITICAL') return 'var(--color-risk-critical)';
+  if (risk === 'HIGH') return 'var(--color-risk-high)';
+  if (risk === 'MEDIUM') return 'var(--color-risk-medium)';
   return 'var(--color-risk-low)';
 }
-function uLabel(u: number) {
-  if (u >= 0.9) return 'Critical';
-  if (u >= 0.85) return 'High';
-  if (u >= 0.7) return 'Medium';
+function riskLabel(risk: string | undefined) {
+  if (risk === 'CRITICAL') return 'Critical';
+  if (risk === 'HIGH') return 'High';
+  if (risk === 'MEDIUM') return 'Medium';
   return 'Low';
 }
 function utilizationGrade(u: number): UtilizationGrade {
@@ -201,6 +218,27 @@ const requestedTgName = computed(() => {
   const value = route.query.tg;
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 });
+const requestedCaseId = computed(() => {
+  const value = route.query.caseId;
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+});
+const isSnapshotMode = computed(() => dataSource.value === 'case_snapshot');
+const selectedTgIsAnchor = computed(
+  () => isSnapshotMode.value && !!(selectedTg.value as Fab3dToolGroup & { isAnchor?: boolean })?.isAnchor
+);
+const selectedTgIsAffected = computed(
+  () => isSnapshotMode.value && !!(selectedTg.value as Fab3dToolGroup & { isAffected?: boolean })?.isAffected
+);
+const selectedTgDiffusionHop = computed(() => {
+  if (!selectedTg.value) return null;
+  return snapshotDiffusionPath.value.find((d) => d.tgId === selectedTg.value!.tgId)?.hop ?? null;
+});
+const snapshotDiffusionPathText = computed(() =>
+  snapshotDiffusionPath.value
+    .map((item) => item.tgName)
+    .filter(Boolean)
+    .join(' → ')
+);
 let lastFocusedRouteKey = '';
 
 function normalizeTgName(name: string | null | undefined): string {
@@ -467,6 +505,7 @@ function handleZoomToArea(areaCode: string) {
 }
 
 async function handleFabBriefing() {
+  if (isSnapshotMode.value) return;
   briefingBasisAt.value = measuredAt.value; // 요청 시점 sim 시각 동결
   agentPanelTab.value = 'ai';
   const task = await runAgentTask({
@@ -476,7 +515,7 @@ async function handleFabBriefing() {
       areas: areas.value,
       tools: toolDetails.value,
       measuredAt: measuredAt.value,
-      source: dataSource.value,
+      source: dataSource.value === 'case_snapshot' ? 'current' : dataSource.value,
     }),
     params: {
       horizon: '현재~2시간',
@@ -504,14 +543,12 @@ async function loadBriefingHistory() {
   }
 }
 
-async function openBriefingFromHistory(item: AgentRunListItem) {
+async function loadBriefingFull(item: AgentRunListItem) {
   try {
-    fabAgentTask.value = await fetchAgentTask(item.id, 'FAB_SNAPSHOT_BRIEFING');
-    briefingBasisAt.value = null; // 과거 브리핑은 sim 기준시각 미저장 → 카드에 기준시각 생략
-    isAgentCardCollapsed.value = false;
-    agentPanelTab.value = 'ai';
+    const task = await fetchAgentTask(item.id, item.taskType);
+    return task.result;
   } catch {
-    // 미리보기 로드 실패 시 기존 상태 유지
+    return null;
   }
 }
 
@@ -540,12 +577,40 @@ let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 
 async function loadFab3dData(background = false) {
   if (!background) isLoadingCurrent.value = true;
-  const data = await fetchFab3dMonitoringData();
+
+  const caseId = requestedCaseId.value;
+  let data;
+  if (caseId) {
+    data = await fetchFab3dCaseSnapshot(caseId);
+  } else {
+    data = await fetchFab3dMonitoringData();
+  }
+
   areas.value = data.areas;
   toolDetails.value = data.tools;
   dataSource.value = data.source;
   measuredAt.value = data.measuredAt;
-  // 선택 상태 유지: 새 스냅샷의 동일 tgId/toolId 객체로 재바인딩해 패널 지표를 최신으로.
+
+  if (data.source === 'case_snapshot') {
+    snapshotCaseId.value = data.caseId ?? null;
+    snapshotAnchorTgName.value = data.anchorTgName ?? null;
+    snapshotRiskGrade.value = data.riskGrade ?? null;
+    snapshotCompositeScore.value = data.compositeScore ?? null;
+    snapshotImpactScore.value = data.impactScore ?? null;
+    snapshotAffectedCount.value = data.affectedCount ?? null;
+    snapshotCtIncreaseMin.value = data.ctIncreaseMin ?? null;
+    snapshotDiffusionPath.value = data.diffusionPath ?? [];
+  } else {
+    snapshotCaseId.value = null;
+    snapshotAnchorTgName.value = null;
+    snapshotRiskGrade.value = null;
+    snapshotCompositeScore.value = null;
+    snapshotImpactScore.value = null;
+    snapshotAffectedCount.value = null;
+    snapshotCtIncreaseMin.value = null;
+    snapshotDiffusionPath.value = [];
+  }
+
   if (selectedTg.value) {
     selectedTg.value = allTgs.value.find((t) => t.tgId === selectedTg.value!.tgId) ?? null;
   }
@@ -559,11 +624,14 @@ async function loadFab3dData(background = false) {
 onMounted(() => {
   void loadFab3dData();
   void loadBriefingHistory();
-  const poll = async () => {
-    await loadFab3dData(true);
+  // 스냅샷 모드에서는 폴링하지 않는다.
+  if (!requestedCaseId.value) {
+    const poll = async () => {
+      await loadFab3dData(true);
+      refreshTimer = setTimeout(poll, REFRESH_MS);
+    };
     refreshTimer = setTimeout(poll, REFRESH_MS);
-  };
-  refreshTimer = setTimeout(poll, REFRESH_MS);
+  }
 });
 onBeforeUnmount(() => {
   if (refreshTimer) clearTimeout(refreshTimer);
@@ -580,6 +648,12 @@ watch(sceneKey, () => {
 watch(requestedTgName, () => {
   lastFocusedRouteKey = '';
   void focusRequestedTg(true);
+});
+
+watch(requestedCaseId, () => {
+  lastFocusedRouteKey = '';
+  closeDetail();
+  void loadFab3dData();
 });
 </script>
 
@@ -605,7 +679,7 @@ watch(requestedTgName, () => {
             <div>
               <div class="fab3d__hm-name">{{ selectedTg.tgName }} · 설비 {{ selectedTgAllTools.length }}대</div>
               <div class="fab3d__hm-sub">
-                {{ dataSource === 'current' ? '실시간' : '데모' }} · 셀 클릭 시 우측 패널에 상세 표시
+                {{ isSnapshotMode ? '감지 당시' : '실시간' }} · 셀 클릭 시 우측 패널에 상세 표시
               </div>
             </div>
             <div class="fab3d__hm-actions">
@@ -667,13 +741,37 @@ watch(requestedTgName, () => {
       <!-- Top-left overlay -->
       <div class="fab3d__ov fab3d__ov--tl">
         <span class="fab3d__ov-title">3D FAB 뷰</span>
+
+        <!-- 스냅샷 모드 배지 -->
+        <div v-if="isSnapshotMode" class="fab3d__snapshot-badge">
+          <span class="fab3d__snapshot-badge-label">감지 당시 스냅샷</span>
+          <span v-if="snapshotAnchorTgName" class="fab3d__snapshot-badge-tg">{{ snapshotAnchorTgName }}</span>
+          <span v-if="snapshotDiffusionPathText" class="fab3d__snapshot-badge-path"
+            >확산 경로: {{ snapshotDiffusionPathText }}</span
+          >
+          <span v-if="measuredAt" class="fab3d__snapshot-badge-time">기준 시각: {{ formatEventTime(measuredAt) }}</span>
+          <span class="fab3d__snapshot-badge-warn">현재 MES가 아닙니다</span>
+        </div>
+
         <button class="fab3d__btn" @click="sceneRef?.resetCamera()">카메라 초기화</button>
-        <button class="fab3d__btn fab3d__btn--agent" :disabled="isAgentTaskRunning" @click="handleFabBriefing">
+        <button
+          class="fab3d__btn fab3d__btn--agent"
+          :disabled="isAgentTaskRunning || isSnapshotMode"
+          :title="
+            isSnapshotMode
+              ? '과거 스냅샷에서는 브리핑을 실행하지 않습니다. AI 분석 결과는 병목 대응센터에서 확인하세요.'
+              : undefined
+          "
+          @click="handleFabBriefing"
+        >
           <Sparkles :size="14" aria-hidden="true" />
           {{ isAgentTaskRunning ? 'AI 분석 중…' : 'AI 현황 브리핑' }}
         </button>
-        <span class="fab3d__source" :class="{ 'fab3d__source--live': dataSource === 'current' }">
-          {{ isLoadingCurrent ? '연결 중…' : dataSource === 'current' ? '실시간' : '데모' }}
+        <span
+          class="fab3d__source"
+          :class="{ 'fab3d__source--live': !isSnapshotMode, 'fab3d__source--snapshot': isSnapshotMode }"
+        >
+          {{ isLoadingCurrent ? '연결 중…' : isSnapshotMode ? '스냅샷' : '실시간' }}
         </span>
         <button
           class="fab3d__info-btn"
@@ -685,18 +783,18 @@ watch(requestedTgName, () => {
           i
         </button>
         <div v-if="showLegendInfo" class="fab3d__legend-popover">
-          <div class="fab3d__legend-hd">가동률 기준</div>
+          <div class="fab3d__legend-hd">병목 위험 점수 기준</div>
           <div class="fab3d__legend-row">
-            <span class="fab3d__dot" style="background: var(--color-risk-critical)" />Critical ≥ 90%
+            <span class="fab3d__dot" style="background: var(--color-risk-critical)" />Critical — 케이스 선언·전체 분석
           </div>
           <div class="fab3d__legend-row">
-            <span class="fab3d__dot" style="background: var(--color-risk-high)" />High ≥ 85%
+            <span class="fab3d__dot" style="background: var(--color-risk-high)" />High — 위험 후보·cascade 감시
           </div>
           <div class="fab3d__legend-row">
-            <span class="fab3d__dot" style="background: var(--color-risk-medium)" />Medium ≥ 70%
+            <span class="fab3d__dot" style="background: var(--color-risk-medium)" />Medium — 관심 대상
           </div>
           <div class="fab3d__legend-row">
-            <span class="fab3d__dot" style="background: var(--color-risk-low)" />Low &lt; 70%
+            <span class="fab3d__dot" style="background: var(--color-risk-low)" />Low — 정상
           </div>
           <div class="fab3d__legend-hd fab3d__legend-hd--spaced">구역 바닥색</div>
           <div v-for="band in zoneBandLegend" :key="band.type" class="fab3d__legend-row">
@@ -740,7 +838,7 @@ watch(requestedTgName, () => {
         :class="{ 'fab3d__ps--selected-tg': selectedTg }"
         :style="
           selectedTg
-            ? { borderLeftColor: uHex(selectedTg.utilizationRate) }
+            ? { borderLeftColor: riskHex(selectedTg.risk) }
             : selectedAsset
               ? { borderLeft: '3px solid var(--color-action-primary)' }
               : undefined
@@ -784,17 +882,17 @@ watch(requestedTgName, () => {
         <template v-else-if="selectedTg">
           <div class="fab3d__ps-name">{{ selectedTg.tgName }}</div>
           <div class="fab3d__ps-area">{{ formatAreaDisplay(selectedTg.areaCode) }}</div>
-          <div class="fab3d__ps-risk" :style="{ color: uHex(selectedTg.utilizationRate) }">
-            ● {{ uLabel(selectedTg.utilizationRate) }}
+          <div class="fab3d__ps-risk" :style="{ color: riskHex(selectedTg.risk) }">
+            ● {{ riskLabel(selectedTg.risk) }}
           </div>
           <dl class="fab3d__ps-kpis">
             <div>
-              <dt>가동률</dt>
-              <dd>{{ formatRatioPercent(selectedTg.utilizationRate) }}</dd>
+              <dt>병목 위험 점수</dt>
+              <dd>{{ selectedTg.compositeScore != null ? `${(selectedTg.compositeScore * 100).toFixed(0)}` : '—' }}</dd>
             </div>
             <div>
-              <dt>병목 확률</dt>
-              <dd>{{ formatRatioPercent(selectedTg.bottleneckProb) }}</dd>
+              <dt>가동률 (MES)</dt>
+              <dd>{{ formatRatioPercent(selectedTg.utilizationRate) }}</dd>
             </div>
             <div>
               <dt>WIP</dt>
@@ -804,23 +902,58 @@ watch(requestedTgName, () => {
               <dt>대기 Lot</dt>
               <dd>{{ formatFabNumber(selectedTg.waitingLots) }}</dd>
             </div>
-            <div>
-              <dt>{{ selectedTgIsBuffer ? '버퍼 슬롯' : '설비 수' }}</dt>
-              <dd>{{ selectedTg.toolCount }}{{ selectedTgIsBuffer ? '개' : '대' }}</dd>
-            </div>
           </dl>
           <div class="fab3d__bar-lbl">
-            <span>가동률</span><span>{{ formatRatioPercent(selectedTg.utilizationRate) }}</span>
+            <span>병목 위험 점수</span
+            ><span>{{
+              selectedTg.compositeScore != null ? `${(selectedTg.compositeScore * 100).toFixed(0)}` : '—'
+            }}</span>
           </div>
           <div class="fab3d__bar-track">
             <div
               class="fab3d__bar-fill"
               :style="{
-                width: `${(selectedTg.utilizationRate * 100).toFixed(1)}%`,
-                background: uHex(selectedTg.utilizationRate),
+                width: selectedTg.compositeScore != null ? `${(selectedTg.compositeScore * 100).toFixed(1)}%` : '0%',
+                background: riskHex(selectedTg.risk),
               }"
             />
           </div>
+
+          <!-- 스냅샷 모드: 병목 탐지 정보 -->
+          <section v-if="selectedTgIsAnchor" class="fab3d__bnc-info fab3d__bnc-info--anchor">
+            <div class="fab3d__bnc-info-label">병목 탐지 TG</div>
+            <dl class="fab3d__ps-kpis">
+              <div v-if="snapshotCompositeScore !== null">
+                <dt>위험 점수</dt>
+                <dd>{{ (snapshotCompositeScore * 100).toFixed(0) }}</dd>
+              </div>
+              <div v-if="snapshotImpactScore !== null">
+                <dt>확산 영향</dt>
+                <dd>{{ (snapshotImpactScore * 100).toFixed(0) }}</dd>
+              </div>
+              <div v-if="snapshotAffectedCount !== null">
+                <dt>영향 TG</dt>
+                <dd>{{ snapshotAffectedCount }}개</dd>
+              </div>
+              <div v-if="snapshotCtIncreaseMin !== null">
+                <dt>CT 증가</dt>
+                <dd>+{{ snapshotCtIncreaseMin }}분</dd>
+              </div>
+            </dl>
+            <RouterLink
+              v-if="snapshotCaseId"
+              :to="{ name: 'bottleneckCenter', query: { caseId: snapshotCaseId } }"
+              class="fab3d__bnc-info-link"
+              >AI 분석 보기 →</RouterLink
+            >
+          </section>
+          <section v-else-if="selectedTgIsAffected" class="fab3d__bnc-info fab3d__bnc-info--affected">
+            <div class="fab3d__bnc-info-label">확산 영향 TG</div>
+            <div v-if="selectedTgDiffusionHop !== null" class="fab3d__bnc-info-hop">
+              병목 TG로부터 {{ selectedTgDiffusionHop }}홉
+            </div>
+            <div class="fab3d__bnc-info-anchor-name">병목: {{ snapshotAnchorTgName }}</div>
+          </section>
 
           <!-- 공정 흐름: 이전/다음 공정으로 카메라 이동 -->
           <section v-if="!selectedTgIsBuffer" class="fab3d__flow-ctx">
@@ -1107,11 +1240,12 @@ watch(requestedTgName, () => {
       <div v-if="agentPanelTab === 'ai'" class="fab3d__ps">
         <AgentRunHistoryList
           title="지난 현황 브리핑"
-          :items="briefingHistory"
+          :items="filteredHistory"
           :loading="briefingHistoryLoading"
           deletable
-          @select="openBriefingFromHistory"
+          :load-full="loadBriefingFull"
           @delete="handleDeleteBriefing"
+          @focus-tg="focusAgentToolGroup"
         />
       </div>
 
@@ -1277,6 +1411,84 @@ watch(requestedTgName, () => {
 }
 .fab3d__source--live {
   color: var(--color-status-success);
+}
+.fab3d__source--snapshot {
+  color: var(--color-risk-high);
+}
+.fab3d__snapshot-badge {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 10px;
+  background: rgba(180, 100, 0, 0.18);
+  border: 1px solid var(--color-risk-high);
+  border-radius: 6px;
+  font-size: var(--font-size-xs);
+}
+.fab3d__snapshot-badge-label {
+  font-weight: 700;
+  color: var(--color-risk-high);
+}
+.fab3d__snapshot-badge-tg {
+  color: var(--f-text-strong);
+  font-weight: 600;
+}
+.fab3d__snapshot-badge-path {
+  color: var(--f-text);
+  font-weight: 600;
+}
+.fab3d__snapshot-badge-time {
+  color: var(--f-muted);
+}
+.fab3d__snapshot-badge-warn {
+  color: var(--color-risk-high);
+  font-weight: 600;
+}
+.fab3d__bnc-info {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.fab3d__bnc-info--anchor {
+  background: color-mix(in srgb, var(--color-risk-critical) 10%, transparent);
+  border-left: 3px solid var(--color-risk-critical);
+}
+.fab3d__bnc-info--affected {
+  background: color-mix(in srgb, var(--color-risk-high) 10%, transparent);
+  border-left: 3px solid var(--color-risk-high);
+}
+.fab3d__bnc-info-label {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--f-hint);
+}
+.fab3d__bnc-info--anchor .fab3d__bnc-info-label {
+  color: var(--color-risk-critical);
+}
+.fab3d__bnc-info--affected .fab3d__bnc-info-label {
+  color: var(--color-risk-high);
+}
+.fab3d__bnc-info-hop {
+  font-size: var(--font-size-sm);
+  color: var(--f-body);
+}
+.fab3d__bnc-info-anchor-name {
+  font-size: var(--font-size-xs);
+  color: var(--f-hint);
+}
+.fab3d__bnc-info-link {
+  font-size: var(--font-size-xs);
+  color: var(--color-action-primary);
+  text-decoration: none;
+  align-self: flex-start;
+}
+.fab3d__bnc-info-link:hover {
+  text-decoration: underline;
 }
 .fab3d__measured-at {
   font-size: var(--font-size-xs);

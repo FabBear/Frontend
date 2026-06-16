@@ -687,7 +687,7 @@ onMounted(async () => {
           <div class="action-history-view__section-header">
             <div>
               <h2>케이스 리포트</h2>
-              <p>케이스를 선택하면 오른쪽에 상세 리포트가 표시됩니다.</p>
+              <p>케이스를 선택하면 보관된 대응 리포트가 표시됩니다.</p>
             </div>
             <label class="action-history-view__sort-control">
               <span>정렬</span>
@@ -747,8 +747,12 @@ onMounted(async () => {
           </footer>
         </section>
 
-        <div v-if="selectedDetail !== null" class="action-history-view__detail-panel surface-card">
-          <FabBearProgressLoader v-if="isDetailLoading" tone="panel" label="상세 리포트를 불러오는 중입니다" />
+        <div v-if="selectedCaseId !== null" class="action-history-view__detail-panel surface-card">
+          <FabBearProgressLoader
+            v-if="isDetailLoading || selectedDetail === null"
+            tone="panel"
+            label="상세 리포트를 불러오는 중입니다"
+          />
           <ActionHistoryDetailView
             v-else
             :detail="selectedDetail"
@@ -1529,18 +1533,15 @@ onMounted(async () => {
   min-width: 0;
 }
 
-.action-history-view__body--split {
-  grid-template-columns: 1fr 2fr;
-}
-
 .action-history-view__detail-panel {
-  position: sticky;
-  top: var(--space-4);
-  max-height: calc(100svh - 160px);
-  overflow-y: auto;
   padding: var(--space-4);
   display: grid;
   gap: var(--space-4);
+  min-width: 0;
+}
+
+.action-history-view__body--split {
+  grid-template-columns: minmax(250px, 300px) minmax(0, 1fr);
 }
 
 @media (max-width: 1100px) {

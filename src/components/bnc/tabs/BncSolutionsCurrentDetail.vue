@@ -63,6 +63,7 @@ const {
         :cause-tool-groups="visibleMapCauseToolGroups"
         :affected-tool-groups="visibleMapAffectedToolGroups"
         :selected-tool-group="selectedMapToolGroup"
+        :case-id="payload?.caseId ?? null"
         @select="handleSelectMapToolGroup"
       />
     </div>

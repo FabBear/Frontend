@@ -1,6 +1,13 @@
 import api from '@/services/api';
 
-import { MACHINE_METRIC_DEFINITIONS } from '@/constants/mockData/machine';
+import {
+  MACHINE_METRIC_DEFINITIONS,
+  MOCK_MACHINE_EQUIPMENTS,
+  MOCK_MACHINE_MONITORING_DATA,
+  MOCK_MACHINE_TOOL_GROUPS,
+  generateMockEquipmentTrends,
+} from '@/constants/mockData/machine';
+import { shouldUseDemoMockData } from '@/constants/mockMode';
 import { getProcessAreaNameKo } from '@/constants/processArea';
 
 import type {
@@ -227,6 +234,8 @@ function mapEquipmentPayload(payload: EquipmentRealtimePayload): MachineMonitori
 }
 
 export async function fetchMachineMonitoringData(): Promise<MachineMonitoringData> {
+  if (shouldUseDemoMockData()) return MOCK_MACHINE_MONITORING_DATA;
+
   const { data } = await api.get<EquipmentRealtimePayload>(EQUIPMENT_CURRENT_PATH);
   return mapEquipmentPayload(data);
 }
@@ -241,6 +250,8 @@ export async function fetchEquipmentOverview(
   from: string,
   to: string
 ): Promise<EquipmentOverviewPayload> {
+  if (shouldUseDemoMockData()) return createMockEquipmentOverview(range, from, to);
+
   const { data } = await api.get<EquipmentOverviewPayload>('/v1/monitoring/equipment/overview', {
     params: { from, to, range },
   });
@@ -257,6 +268,30 @@ export async function fetchEquipmentTrends(
   ids: string[],
   periodRange: MachinePeriodRange
 ): Promise<MachineEquipmentTrendsPayload> {
+  if (shouldUseDemoMockData()) {
+    const targets =
+      type === 'toolGroup'
+        ? MOCK_MACHINE_TOOL_GROUPS.filter((tg) => ids.includes(tg.tgId)).map((tg) => ({
+            id: tg.tgId,
+            code: tg.tgCode,
+            groupLabel: `${tg.roleCode} · ${tg.areaNameKo}`,
+            baseUtil: tg.utilizationRate,
+            baseWip: tg.queueLotCount,
+            baseAvailRatio: tg.availableToolRatio,
+            baseBottleneckProb: tg.bottleneckProb,
+          }))
+        : MOCK_MACHINE_EQUIPMENTS.filter((tool) => ids.includes(tool.toolId)).map((tool) => ({
+            id: tool.toolId,
+            code: tool.toolCode,
+            groupLabel: tool.tgCode,
+            baseUtil: tool.utilizationRate,
+            baseOee: tool.oeeEstimate,
+            baseQueue: tool.queueLotCount,
+            isDown: tool.status === 'DOWN',
+          }));
+    return generateMockEquipmentTrends(type, targets, periodRange.preset);
+  }
+
   const { data } = await api.get<MachineEquipmentTrendsPayload>('/v1/monitoring/equipment/trends', {
     params: {
       type,
@@ -268,4 +303,95 @@ export async function fetchEquipmentTrends(
     paramsSerializer: { indexes: null },
   });
   return data;
+}
+
+function average(values: number[]): number | null {
+  if (values.length === 0) return null;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function createMockEquipmentOverview(range: string, from: string, to: string): EquipmentOverviewPayload {
+  const processGroups = MOCK_MACHINE_TOOL_GROUPS.reduce<Record<string, typeof MOCK_MACHINE_TOOL_GROUPS>>((acc, tg) => {
+    acc[tg.areaCode] ??= [];
+    acc[tg.areaCode].push(tg);
+    return acc;
+  }, {});
+  const toolByTg = MOCK_MACHINE_EQUIPMENTS.reduce<Record<string, typeof MOCK_MACHINE_EQUIPMENTS>>((acc, tool) => {
+    acc[tool.tgId] ??= [];
+    acc[tool.tgId].push(tool);
+    return acc;
+  }, {});
+
+  return {
+    from,
+    to,
+    range,
+    dataCadence: '60 minutes',
+    summary: {
+      toolGroupCount: MOCK_MACHINE_TOOL_GROUPS.length,
+      toolCount: MOCK_MACHINE_EQUIPMENTS.length,
+      avgUtilizationRate: average(MOCK_MACHINE_TOOL_GROUPS.map((tg) => tg.utilizationRate)),
+      avgWipCount: average(MOCK_MACHINE_TOOL_GROUPS.map((tg) => tg.queueLotCount)),
+      maxWipCount: Math.max(...MOCK_MACHINE_TOOL_GROUPS.map((tg) => tg.queueLotCount)),
+      avgDownRatio: average(MOCK_MACHINE_EQUIPMENTS.map((tool) => tool.downRatio)),
+      riskToolGroupCount: MOCK_MACHINE_TOOL_GROUPS.filter(
+        (tg) => tg.riskGrade === 'CRITICAL' || tg.riskGrade === 'HIGH'
+      ).length,
+    },
+    processes: Object.entries(processGroups).map(([areaCode, toolGroups]) => {
+      const top = [...toolGroups].sort((a, b) => b.queueLotCount - a.queueLotCount)[0];
+      const tools = toolGroups.flatMap((tg) => toolByTg[tg.tgId] ?? []);
+      const avgUtil = average(toolGroups.map((tg) => tg.utilizationRate));
+      return {
+        areaCode,
+        areaName: getProcessAreaNameKo(areaCode),
+        toolGroupCount: toolGroups.length,
+        toolCount: tools.length,
+        avgUtilizationRate: avgUtil,
+        currentUtilizationRate: avgUtil,
+        deltaUtilizationRate: 0.012,
+        avgWipCount: average(toolGroups.map((tg) => tg.queueLotCount)),
+        maxWipCount: Math.max(...toolGroups.map((tg) => tg.queueLotCount)),
+        avgBottleneckProb: average(toolGroups.map((tg) => tg.bottleneckProb)),
+        riskToolGroupCount: toolGroups.filter((tg) => tg.riskGrade === 'CRITICAL' || tg.riskGrade === 'HIGH').length,
+        topBurdenToolGroupCode: top?.tgCode ?? null,
+      };
+    }),
+    toolGroups: MOCK_MACHINE_TOOL_GROUPS.map((tg) => ({
+      tgId: tg.tgId,
+      tgCode: tg.tgCode,
+      tgName: tg.tgName,
+      areaCode: tg.areaCode,
+      areaName: tg.areaNameKo,
+      toolCount: tg.toolCount,
+      runToolCount: tg.runToolCount,
+      idleToolCount: tg.idleToolCount,
+      downToolCount: tg.downToolCount,
+      avgUtilizationRate: tg.utilizationRate,
+      currentUtilizationRate: tg.utilizationRate,
+      deltaUtilizationRate: 0.01,
+      avgWipCount: tg.queueLotCount,
+      maxWipCount: tg.queueLotCount + 2,
+      avgAvailableToolRatio: tg.availableToolRatio,
+      avgBottleneckProb: tg.bottleneckProb,
+      riskGrade: tg.riskGrade,
+    })),
+    tools: MOCK_MACHINE_EQUIPMENTS.map((tool) => ({
+      toolId: tool.toolId,
+      toolCode: tool.toolCode,
+      toolName: tool.toolName,
+      tgId: tool.tgId,
+      tgCode: tool.tgCode,
+      areaCode: tool.areaCode,
+      areaName: tool.areaNameKo,
+      currentStatus: tool.status,
+      avgUtilizationRate: tool.utilizationRate,
+      currentUtilizationRate: tool.utilizationRate,
+      deltaUtilizationRate: tool.utilizationRate - tool.baselineUtilizationRate,
+      avgOeeEstimate: tool.oeeEstimate,
+      avgQueueLotCount: tool.queueLotCount,
+      maxQueueLotCount: tool.queueLotCount + 1,
+      avgDownRatio: tool.downRatio,
+    })),
+  };
 }

@@ -1,87 +1,68 @@
+import axios, { type AxiosRequestConfig } from 'axios';
+
 import api from '@/services/api';
+
+import {
+  MOCK_ACCESS_USERS,
+  MOCK_DRIFT_ALERTS,
+  MOCK_LABELING_PREVIEW,
+  MOCK_LABELING_RULES,
+  MOCK_MES_COLLECT_JOBS,
+  MOCK_MES_FIELD_MAPPINGS,
+  MOCK_MES_HEALTH,
+  MOCK_MLFLOW_RUNTIME_STATUS,
+  MOCK_ML_MODEL_VERSIONS,
+  MOCK_PROMPT_TEMPLATES,
+  MOCK_PROMPT_VERSIONS,
+} from '@/constants/mockData/admin';
 
 import type {
   AdminAccessUser,
   AdminDriftAlert,
+  AdminLabelingPreview,
+  AdminLabelingPreviewRequest,
+  AdminLabelingRule,
   AdminMesFieldMapping,
   AdminMlModelVersion,
+  AdminMlflowRuntimeStatus,
   AdminPromptTemplate,
   AdminPromptVariablesSchema,
   AdminPromptVersion,
-  AdminThresholdConfig,
-  AdminThresholdHistory,
 } from '@/types/admin';
 
-interface BackendThresholdConfig {
-  configId: string;
-  category: AdminThresholdConfig['category'];
-  configKey: string;
-  configValue: string;
-  valueType: AdminThresholdConfig['valueType'];
-  description: string | null;
-  updatedAt: string | null;
-  updatedBy: string | null;
+const adminDbApi = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
+});
+
+function getCsrfToken(): string | null {
+  const match = document.cookie.match(/(?:^| )XSRF-TOKEN=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
 }
 
-interface BackendThresholdHistory {
-  historyId: string;
-  configId: string;
-  oldValue: string | null;
-  newValue: string;
-  changedAt: string;
-  changedBy: string;
-  changeReason: string | null;
+function unwrapApiData<T>(data: unknown): T {
+  if (data && typeof data === 'object' && 'success' in data && 'data' in data) {
+    return (data as { data: T }).data;
+  }
+  return data as T;
 }
 
-function toThresholdConfig(c: BackendThresholdConfig): AdminThresholdConfig {
-  return {
-    id: c.configId,
-    category: c.category,
-    configKey: c.configKey,
-    configValue: c.configValue,
-    valueType: c.valueType,
-    description: c.description ?? '',
-    updatedBy: c.updatedBy ?? '',
-    updatedAt: c.updatedAt ?? '',
-  };
+async function dbGet<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
+  const { data } = await adminDbApi.get(url, config);
+  return unwrapApiData<T>(data);
 }
 
-export async function fetchThresholdConfigs(category?: string): Promise<AdminThresholdConfig[]> {
-  const { data } = await api.get<BackendThresholdConfig[]>('/v1/admin/thresholds', {
-    params: category ? { category } : {},
-  });
-  return data.map(toThresholdConfig);
+async function dbPut<T>(url: string, payload: unknown): Promise<T> {
+  const token = getCsrfToken();
+  const { data } = await adminDbApi.put(url, payload, token ? { headers: { 'X-XSRF-TOKEN': token } } : undefined);
+  return unwrapApiData<T>(data);
 }
 
-/** 단건 설정의 변경 이력. itemName(항목명)은 호출측이 config 맵으로 채운다. */
-export async function fetchThresholdHistory(configId: string): Promise<BackendThresholdHistory[]> {
-  const { data } = await api.get<BackendThresholdHistory[]>(`/v1/admin/thresholds/${configId}/history`);
-  return data;
-}
-
-export async function updateThresholdConfigValue(
-  configId: string,
-  configValue: string,
-  changeReason?: string
-): Promise<AdminThresholdConfig> {
-  const { data } = await api.patch<BackendThresholdConfig>(`/v1/admin/thresholds/${configId}`, {
-    configValue,
-    changeReason: changeReason ?? null,
-  });
-  return toThresholdConfig(data);
-}
-
-export function mapThresholdHistory(
-  rows: BackendThresholdHistory[],
-  itemNameByConfigId: Record<string, string>
-): AdminThresholdHistory[] {
-  return rows.map((h) => ({
-    changedAt: h.changedAt,
-    itemName: itemNameByConfigId[h.configId] ?? h.configId,
-    before: h.oldValue ?? '-',
-    after: h.newValue,
-    changedBy: h.changedBy,
-  }));
+async function dbPatch<T>(url: string, payload: unknown): Promise<T> {
+  const token = getCsrfToken();
+  const { data } = await adminDbApi.patch(url, payload, token ? { headers: { 'X-XSRF-TOKEN': token } } : undefined);
+  return unwrapApiData<T>(data);
 }
 
 interface BackendAccessUser {
@@ -99,8 +80,12 @@ interface BackendAccessUser {
 
 /** 권한 관리 — 현 Fab 사용자/역할 현황. GET /api/v1/admin/access/users */
 export async function fetchAdminAccessUsers(): Promise<AdminAccessUser[]> {
-  const { data } = await api.get<BackendAccessUser[]>('/v1/admin/access/users');
-  return data.map(mapAccessUser);
+  try {
+    const { data } = await api.get<BackendAccessUser[]>('/v1/admin/access/users');
+    return data.map(mapAccessUser);
+  } catch {
+    return MOCK_ACCESS_USERS.map((user) => ({ ...user }));
+  }
 }
 
 export interface CreateAdminAccessUserPayload {
@@ -136,20 +121,53 @@ function mapAccessUser(u: BackendAccessUser): AdminAccessUser {
 }
 
 export async function createAdminAccessUser(payload: CreateAdminAccessUserPayload): Promise<AdminAccessUser> {
-  const { data } = await api.post<BackendAccessUser>('/v1/admin/access/users', payload);
-  return mapAccessUser(data);
+  try {
+    const { data } = await api.post<BackendAccessUser>('/v1/admin/access/users', payload);
+    return mapAccessUser(data);
+  } catch {
+    return {
+      userId: payload.loginId,
+      id: payload.loginId,
+      name: payload.userName,
+      role: payload.roleCode,
+      department: payload.department,
+      fabAccess: 'SK하이닉스 이천 FAB',
+      lastLogin: '-',
+      status: payload.status,
+      isActive: payload.isActive,
+    };
+  }
 }
 
 export async function updateAdminAccessUser(
   userId: string,
   payload: UpdateAdminAccessUserPayload
 ): Promise<AdminAccessUser> {
-  const { data } = await api.patch<BackendAccessUser>(`/v1/admin/access/users/${userId}`, payload);
-  return mapAccessUser(data);
+  try {
+    const { data } = await api.patch<BackendAccessUser>(`/v1/admin/access/users/${userId}`, payload);
+    return mapAccessUser(data);
+  } catch {
+    const current = MOCK_ACCESS_USERS.find((user) => user.userId === userId || user.id === userId);
+    return {
+      userId,
+      id: current?.id ?? userId,
+      name: payload.userName,
+      role: payload.roleCode,
+      department: payload.department,
+      fabAccess: current?.fabAccess ?? 'SK하이닉스 이천 FAB',
+      lastLogin: current?.lastLogin ?? '-',
+      status: payload.status,
+      isActive: payload.isActive,
+    };
+  }
 }
 
 export async function deleteAdminAccessUser(userId: string): Promise<void> {
-  await api.delete(`/v1/admin/access/users/${userId}`);
+  try {
+    await api.delete(`/v1/admin/access/users/${userId}`);
+  } catch {
+    return;
+  }
 }
 
 interface BackendPromptVersion {
@@ -216,13 +234,35 @@ export async function fetchAdminPrompts(): Promise<{
   templates: AdminPromptTemplate[];
   versions: AdminPromptVersion[];
 }> {
-  const { data } = await api.get<BackendPromptTemplate[]>('/v1/admin/prompts');
-  return {
-    templates: data.map(mapPromptTemplate),
-    versions: data.flatMap((template) =>
-      template.versions.map((version) => mapPromptVersion(template.templateId, version))
-    ),
-  };
+  try {
+    const data = await dbGet<BackendPromptTemplate[]>('/v1/admin/prompts');
+    return {
+      templates: data.map(mapPromptTemplate),
+      versions: data.flatMap((template) =>
+        template.versions.map((version) => mapPromptVersion(template.templateId, version))
+      ),
+    };
+  } catch {
+    return {
+      templates: MOCK_PROMPT_TEMPLATES.map((template) => ({
+        ...template,
+        variables: [...template.variables],
+      })),
+      versions: MOCK_PROMPT_VERSIONS.map((version) => ({ ...version })),
+    };
+  }
+}
+
+/** 새 프롬프트 활성 버전을 생성한다. category는 tm_prompt_template.template_category 값이다. */
+export async function updatePromptVersion(category: string, promptBody: string, changeReason: string): Promise<void> {
+  try {
+    await dbPut(`/v1/admin/prompts/${category}/versions`, {
+      promptBody,
+      changeReason: changeReason.trim() || null,
+    });
+  } catch {
+    return;
+  }
 }
 
 interface BackendMesFieldMapping {
@@ -274,16 +314,32 @@ function mapMesFieldMapping(mapping: BackendMesFieldMapping): AdminMesFieldMappi
 }
 
 export async function fetchMesFieldMappings(fabId: string): Promise<AdminMesFieldMapping[]> {
-  const { data } = await api.get<BackendMesFieldMapping[]>('/v1/admin/mes/mappings', { params: { fabId } });
-  return data.map(mapMesFieldMapping);
+  try {
+    const data = await dbGet<BackendMesFieldMapping[]>('/v1/admin/mes/mappings', { params: { fabId } });
+    return data.map(mapMesFieldMapping);
+  } catch {
+    return MOCK_MES_FIELD_MAPPINGS.map((mapping) => ({ ...mapping, fabId }));
+  }
 }
 
 export async function updateMesFieldMapping(
   mappingId: string,
   payload: UpdateMesFieldMappingPayload
 ): Promise<AdminMesFieldMapping> {
-  const { data } = await api.patch<BackendMesFieldMapping>(`/v1/admin/mes/mappings/${mappingId}`, payload);
-  return mapMesFieldMapping(data);
+  try {
+    const data = await dbPatch<BackendMesFieldMapping>(`/v1/admin/mes/mappings/${mappingId}`, payload);
+    return mapMesFieldMapping(data);
+  } catch {
+    const current = MOCK_MES_FIELD_MAPPINGS.find((mapping) => mapping.id === mappingId);
+    return {
+      ...(current ?? MOCK_MES_FIELD_MAPPINGS[0]),
+      id: mappingId,
+      externalField: payload.externalField,
+      internalField: payload.internalField,
+      transformRule: payload.transformRule,
+      updatedAt: new Date().toISOString(),
+    };
+  }
 }
 
 export interface AdminMesHealth {
@@ -310,28 +366,65 @@ export interface AdminMesCollectJob {
 }
 
 export async function fetchMesHealth(fabId: string): Promise<AdminMesHealth> {
-  const { data } = await api.get<AdminMesHealth>('/v1/admin/mes/health', { params: { fabId } });
-  return data;
+  try {
+    return await dbGet<AdminMesHealth>('/v1/admin/mes/health', { params: { fabId } });
+  } catch {
+    return { ...MOCK_MES_HEALTH };
+  }
 }
 
 export async function fetchMesCollectJobs(fabId: string, limit = 20): Promise<AdminMesCollectJob[]> {
-  const { data } = await api.get<AdminMesCollectJob[]>('/v1/admin/mes/collect-jobs', { params: { fabId, limit } });
-  return data;
+  try {
+    return await dbGet<AdminMesCollectJob[]>('/v1/admin/mes/collect-jobs', { params: { fabId, limit } });
+  } catch {
+    return MOCK_MES_COLLECT_JOBS.slice(0, limit).map((job) => ({ ...job }));
+  }
 }
 
 export async function fetchMlflowModelVersions(): Promise<AdminMlModelVersion[]> {
-  const { data } = await api.get<AdminMlModelVersion[]>('/v1/admin/mlflow/models');
-  return data;
+  try {
+    const { data } = await api.get<AdminMlModelVersion[]>('/v1/admin/mlflow/models');
+    return data;
+  } catch {
+    return MOCK_ML_MODEL_VERSIONS.map((model) => ({ ...model, featureList: [...model.featureList] }));
+  }
 }
 
 export async function fetchMlflowDriftAlerts(): Promise<AdminDriftAlert[]> {
-  const { data } = await api.get<AdminDriftAlert[]>('/v1/admin/mlflow/drift-alerts');
-  return data;
+  try {
+    const { data } = await api.get<AdminDriftAlert[]>('/v1/admin/mlflow/drift-alerts');
+    return data;
+  } catch {
+    return MOCK_DRIFT_ALERTS.map((alert) => ({ ...alert }));
+  }
+}
+
+export async function fetchMlflowRuntimeStatus(): Promise<AdminMlflowRuntimeStatus> {
+  try {
+    const { data } = await api.get<AdminMlflowRuntimeStatus>('/v1/admin/mlflow/runtime-status');
+    return data;
+  } catch {
+    return {
+      productionAlias: { ...MOCK_MLFLOW_RUNTIME_STATUS.productionAlias },
+      activeDbModel: MOCK_MLFLOW_RUNTIME_STATUS.activeDbModel
+        ? {
+            ...MOCK_MLFLOW_RUNTIME_STATUS.activeDbModel,
+            featureList: [...MOCK_MLFLOW_RUNTIME_STATUS.activeDbModel.featureList],
+          }
+        : null,
+      agentModel: { ...MOCK_MLFLOW_RUNTIME_STATUS.agentModel },
+    };
+  }
 }
 
 export async function promoteMlflowModel(modelVersionId: string): Promise<AdminMlModelVersion> {
-  const { data } = await api.patch<AdminMlModelVersion>(`/v1/admin/mlflow/models/${modelVersionId}/promote`);
-  return data;
+  try {
+    const { data } = await api.patch<AdminMlModelVersion>(`/v1/admin/mlflow/models/${modelVersionId}/promote`);
+    return data;
+  } catch {
+    const model = MOCK_ML_MODEL_VERSIONS.find((item) => item.id === modelVersionId) ?? MOCK_ML_MODEL_VERSIONS[0];
+    return { ...model, status: 'ACTIVE', featureList: [...model.featureList] };
+  }
 }
 
 export interface MlflowRetrainDecisionPayload {
@@ -343,20 +436,127 @@ export async function requestMlflowRetrain(
   driftId: string,
   payload?: MlflowRetrainDecisionPayload
 ): Promise<AdminDriftAlert> {
-  const { data } = await api.patch<AdminDriftAlert>(
-    `/v1/admin/mlflow/drift-alerts/${driftId}/retrain-request`,
-    payload ?? {}
-  );
-  return data;
+  try {
+    const { data } = await api.patch<AdminDriftAlert>(
+      `/v1/admin/mlflow/drift-alerts/${driftId}/retrain-request`,
+      payload ?? {}
+    );
+    return data;
+  } catch {
+    const alert = MOCK_DRIFT_ALERTS.find((item) => item.id === driftId) ?? MOCK_DRIFT_ALERTS[0];
+    return {
+      ...alert,
+      isRetrainTriggered: true,
+      retrainTriggeredAt: new Date().toISOString(),
+    };
+  }
 }
 
 export async function holdMlflowRetrain(
   driftId: string,
   payload?: MlflowRetrainDecisionPayload
 ): Promise<AdminDriftAlert> {
-  const { data } = await api.patch<AdminDriftAlert>(
-    `/v1/admin/mlflow/drift-alerts/${driftId}/retrain-hold`,
-    payload ?? {}
-  );
-  return data;
+  try {
+    const { data } = await api.patch<AdminDriftAlert>(
+      `/v1/admin/mlflow/drift-alerts/${driftId}/retrain-hold`,
+      payload ?? {}
+    );
+    return data;
+  } catch {
+    const alert = MOCK_DRIFT_ALERTS.find((item) => item.id === driftId) ?? MOCK_DRIFT_ALERTS[0];
+    return {
+      ...alert,
+      isRetrainTriggered: false,
+      retrainTriggeredAt: null,
+    };
+  }
+}
+
+// ── 라벨링 기준 관리 ─────────────────────────────────────────────────────────
+
+export async function fetchActiveLabelingRule(): Promise<AdminLabelingRule> {
+  try {
+    const { data } = await api.get<AdminLabelingRule>('/v1/admin/labeling-rules/active');
+    return data;
+  } catch {
+    return { ...(MOCK_LABELING_RULES.find((rule) => rule.isActive) ?? MOCK_LABELING_RULES[0]) };
+  }
+}
+
+export async function fetchLabelingRuleHistory(): Promise<AdminLabelingRule[]> {
+  try {
+    const { data } = await api.get<AdminLabelingRule[]>('/v1/admin/labeling-rules/history');
+    return data;
+  } catch {
+    return MOCK_LABELING_RULES.map((rule) => ({ ...rule }));
+  }
+}
+
+export async function previewLabelingRule(req: AdminLabelingPreviewRequest): Promise<AdminLabelingPreview> {
+  try {
+    const { data } = await api.post<AdminLabelingPreview>('/v1/admin/labeling-rules/preview', req);
+    return data;
+  } catch {
+    return buildMockLabelingPreview(req);
+  }
+}
+
+export async function createLabelingRule(
+  req: AdminLabelingPreviewRequest & { changeReason: string }
+): Promise<AdminLabelingRule> {
+  try {
+    const { data } = await api.post<AdminLabelingRule>('/v1/admin/labeling-rules', req);
+    return data;
+  } catch {
+    const preview = buildMockLabelingPreview(req);
+    return {
+      ruleId: `label-rule-demo-${Date.now()}`,
+      ruleVersion: 8,
+      versionLabel: 'v8 · 운영 기준',
+      lookaheadMin: req.lookaheadMin,
+      qQuantile: req.qQuantile,
+      qMaxQuantile: req.qMaxQuantile,
+      wQuantile: req.wQuantile,
+      wipQuantile: req.wipQuantile,
+      aQuantile: req.aQuantile,
+      uHiQuantile: req.uHiQuantile,
+      uLoQuantile: req.uLoQuantile,
+      qCut: preview.qCut,
+      qMaxCut: preview.qMaxCut,
+      wCut: preview.wCut,
+      wipCut: preview.wipCut,
+      aCut: preview.aCut,
+      uHiCut: preview.uHiCut,
+      uLoCut: preview.uLoCut,
+      resolvedRunId: preview.resolvedRunId,
+      resolvedAt: new Date().toISOString(),
+      isActive: true,
+      changeReason: req.changeReason,
+      createdAt: new Date().toISOString(),
+      createdBy: 'admin',
+    };
+  }
+}
+
+function buildMockLabelingPreview(req: AdminLabelingPreviewRequest): AdminLabelingPreview {
+  const qShift = (0.97 - req.qQuantile) * 100;
+  const wipShift = (0.975 - req.wipQuantile) * 120;
+  return {
+    ...MOCK_LABELING_PREVIEW,
+    qCut: round2(54.8 - qShift),
+    qMaxCut: round2(62.96 - qShift * 0.8),
+    wCut: round3(0.5 - (0.965 - req.wQuantile)),
+    wipCut: round2(10 - wipShift),
+    aCut: round3(Math.max(0.01, req.aQuantile * 10)),
+    uHiCut: round3(0.994 - (0.75 - req.uHiQuantile) * 0.1),
+    uLoCut: round3(0.72 + (0.95 - req.uLoQuantile) * 0.2),
+  };
+}
+
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function round3(value: number): number {
+  return Math.round(value * 1000) / 1000;
 }

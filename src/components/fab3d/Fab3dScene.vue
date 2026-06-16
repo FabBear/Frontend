@@ -171,16 +171,16 @@ const hoveredAsset = ref<Fab3dVirtualAsset | null>(null);
 const tipX = ref(0);
 const tipY = ref(0);
 
-function uHex(u: number) {
-  if (u >= 0.9) return 'var(--color-risk-critical)';
-  if (u >= 0.85) return 'var(--color-risk-high)';
-  if (u >= 0.7) return 'var(--color-risk-medium)';
+function riskHex(risk: string | undefined) {
+  if (risk === 'CRITICAL') return 'var(--color-risk-critical)';
+  if (risk === 'HIGH') return 'var(--color-risk-high)';
+  if (risk === 'MEDIUM') return 'var(--color-risk-medium)';
   return 'var(--color-risk-low)';
 }
-function uLabel(u: number) {
-  if (u >= 0.9) return 'Critical';
-  if (u >= 0.85) return 'High';
-  if (u >= 0.7) return 'Medium';
+function riskLabel(risk: string | undefined) {
+  if (risk === 'CRITICAL') return 'Critical';
+  if (risk === 'HIGH') return 'High';
+  if (risk === 'MEDIUM') return 'Medium';
   return 'Low';
 }
 
@@ -658,8 +658,8 @@ function buildFab() {
         const type = equipType(tg.tgName);
         const eqH = (HT[type] ?? 2.0) * bay.sc;
 
-        // 신호탑 신호는 권위 있는 상태값 tg.risk로 (CRITICAL=빨강 / WARNING=노랑 / NORMAL=초록)
-        const sev = tg.risk === 'CRITICAL' ? 2 : tg.risk === 'WARNING' ? 1 : 0;
+        // 본체·신호탑 모두 ML 병목 위험 점수 기준 (CRITICAL/HIGH/MEDIUM/LOW → 4단계)
+        const sev = tg.risk === 'CRITICAL' ? 3 : tg.risk === 'HIGH' ? 2 : tg.risk === 'MEDIUM' ? 1 : 0;
         const eq = mkEquipment(type, tg.utilizationRate, sev);
         eq.scale.setScalar(bay.sc);
         eq.position.set(tx, 0.28, rowZ);
@@ -674,18 +674,19 @@ function buildFab() {
         if (Array.isArray(eq.userData.towerSegs)) tgTower.set(tg.tgId, eq.userData.towerSegs);
 
         if (tg.toolCount > 1 && !tg.tgName.startsWith('Delay_')) {
-          const badge = makeCountBadge(tg.toolCount, tg.utilizationRate);
+          const riskU = sev >= 3 ? 0.95 : sev >= 2 ? 0.87 : sev >= 1 ? 0.72 : 0.5;
+          const badge = makeCountBadge(tg.toolCount, riskU);
           badge.position.set(tx, 0.28 + eqH + 0.72, rowZ);
           scene.add(badge);
         }
 
-        // 알람 구체: 항상 생성하고 가동률≥0.9일 때만 표시 → 실시간 갱신 시 visible만 토글.
+        // 알람 구체: CRITICAL 병목 탐지 TG에만 표시 → 실시간 갱신 시 visible만 토글.
         const alert = new THREE.Mesh(
           new THREE.SphereGeometry(0.85, 16, 12),
           new THREE.MeshBasicMaterial({ color: 0xc00000, transparent: true, opacity: 0.82 })
         );
         alert.position.set(tx, 0.28 + eqH + 1.9, rowZ);
-        alert.visible = tg.utilizationRate >= 0.9;
+        alert.visible = tg.risk === 'CRITICAL';
         scene.add(alert);
         alertSpheres.push(alert);
         tgAlert.set(tg.tgId, alert);
@@ -1356,11 +1357,11 @@ function applyStatus() {
     for (const tg of area.toolGroups) {
       const segs = tgTower.get(tg.tgId);
       if (segs) {
-        const sev = tg.risk === 'CRITICAL' ? 2 : tg.risk === 'WARNING' ? 1 : 0;
+        const sev = tg.risk === 'CRITICAL' ? 3 : tg.risk === 'HIGH' ? 2 : tg.risk === 'MEDIUM' ? 1 : 0;
         setTowerSeverity(segs, sev);
       }
       const alert = tgAlert.get(tg.tgId);
-      if (alert) alert.visible = tg.utilizationRate >= 0.9;
+      if (alert) alert.visible = tg.risk === 'CRITICAL';
     }
   }
 }
@@ -1382,12 +1383,11 @@ defineExpose({
   <div ref="containerRef" class="fab3d-scene">
     <div v-if="hoveredTg" class="fab3d-tooltip" :style="{ left: tipX + 'px', top: tipY + 'px' }">
       <strong class="fab3d-tooltip__name">{{ hoveredTg.tgName }}</strong>
-      <div class="fab3d-tooltip__risk" :style="{ color: uHex(hoveredTg.utilizationRate) }">
-        ● {{ uLabel(hoveredTg.utilizationRate) }}
+      <div class="fab3d-tooltip__risk" :style="{ color: riskHex(hoveredTg.risk) }">
+        ● {{ riskLabel(hoveredTg.risk) }}
       </div>
       <div class="fab3d-tooltip__row">가동률 {{ formatRatioPercent(hoveredTg.utilizationRate) }}</div>
       <div class="fab3d-tooltip__row">대기 Lot {{ hoveredTg.waitingLots }}개</div>
-      <div class="fab3d-tooltip__row">병목 확률 {{ (hoveredTg.bottleneckProb * 100).toFixed(1) }}%</div>
     </div>
     <div v-else-if="hoveredAsset" class="fab3d-tooltip" :style="{ left: tipX + 'px', top: tipY + 'px' }">
       <strong class="fab3d-tooltip__name">{{ hoveredAsset.assetName }}</strong>

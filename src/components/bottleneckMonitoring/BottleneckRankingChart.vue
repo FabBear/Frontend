@@ -27,7 +27,8 @@ const props = defineProps<Props>();
 const chartOption = computed(() => {
   const items = [...props.toolGroups].reverse();
   const names = items.map((tg) => tg.tgName);
-  const probs = items.map((tg) => toRatioPercentNumber(tg.bottleneckProb));
+  // 병목 위험 점수(0~100). 미검출(점수 없음)은 0으로(막대 없음).
+  const scores = items.map((tg) => (tg.riskScore === null ? 0 : toRatioPercentNumber(tg.riskScore)));
   const baseFontSize = resolveCssFontSize('--font-size-base');
   const colors = items.map((tg) => {
     const level = toRiskLevel(tg.riskGrade);
@@ -42,14 +43,14 @@ const chartOption = computed(() => {
       textStyle: { fontSize: baseFontSize },
       formatter: (params: { name: string; value: number }[]) => {
         const p = params[0];
-        return `${p.name}<br/><b>${p.value}%</b>`;
+        return `${p.name}<br/><b>${p.value}점</b>`;
       },
     },
     xAxis: {
       type: 'value',
       min: 0,
       max: 100,
-      axisLabel: { formatter: '{value}%', fontSize: baseFontSize },
+      axisLabel: { formatter: '{value}', fontSize: baseFontSize },
       splitLine: { lineStyle: { type: 'dashed' } },
     },
     yAxis: {
@@ -64,13 +65,13 @@ const chartOption = computed(() => {
     series: [
       {
         type: 'bar',
-        data: probs.map((value, i) => ({ value, itemStyle: { color: colors[i] } })),
+        data: scores.map((value, i) => ({ value, itemStyle: { color: colors[i] } })),
         barMaxWidth: 20,
         label: {
           show: true,
           position: 'right',
           fontSize: baseFontSize,
-          formatter: '{c}%',
+          formatter: '{c}',
         },
       },
     ],

@@ -8,6 +8,8 @@ import type { BottleneckToolGroupItem } from '@/types/bottleneckMonitoring';
 import BottleneckRankingChart from '@/components/bottleneckMonitoring/BottleneckRankingChart.vue';
 import BottleneckRankingTable from '@/components/bottleneckMonitoring/BottleneckRankingTable.vue';
 
+import { compareBottleneckRisk } from '@/utils/bottleneckRisk';
+
 interface Props {
   toolGroups: BottleneckToolGroupItem[];
 }
@@ -23,7 +25,10 @@ const viewModeOptions: { value: ViewMode; label: string }[] = [
 ];
 
 const rankedToolGroups = computed(() =>
-  [...props.toolGroups].sort((a, b) => b.bottleneckProb - a.bottleneckProb).slice(0, BOTTLENECK_RANK_LIMIT)
+  props.toolGroups
+    .filter((toolGroup) => toolGroup.riskScore !== null)
+    .sort(compareBottleneckRisk)
+    .slice(0, BOTTLENECK_RANK_LIMIT)
 );
 </script>
 
@@ -31,8 +36,8 @@ const rankedToolGroups = computed(() =>
   <section class="bn-rank-section" aria-labelledby="bn-rank-title">
     <header class="bn-rank-section__header">
       <div>
-        <h2 id="bn-rank-title" class="bn-rank-section__title">병목 확률 순위</h2>
-        <p class="bn-rank-section__subtitle">상위 {{ BOTTLENECK_RANK_LIMIT }}개 · 병목 확률 기준 정렬</p>
+        <h2 id="bn-rank-title" class="bn-rank-section__title">병목 위험 점수 순위</h2>
+        <p class="bn-rank-section__subtitle">상위 {{ BOTTLENECK_RANK_LIMIT }}개 · 감지 위험순</p>
       </div>
       <div class="bn-rank-section__toggle" role="group" aria-label="보기 방식">
         <button

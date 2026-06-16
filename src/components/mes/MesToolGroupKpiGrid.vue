@@ -21,7 +21,7 @@ const waitRatioDisplay = computed(() => `${formatNumber(Math.round(props.toolGro
 <template>
   <div class="mes-tool-group-kpi-grid">
     <div class="mes-tool-group-kpi-grid__item">
-      <span>OEE 추정</span>
+      <span>OEE</span>
       <strong>{{ formatRatioPercent(toolGroup.oeeEstimate) }}</strong>
     </div>
     <div class="mes-tool-group-kpi-grid__item">
@@ -39,10 +39,6 @@ const waitRatioDisplay = computed(() => `${formatNumber(Math.round(props.toolGro
     <div class="mes-tool-group-kpi-grid__item">
       <span>가용 장비율</span>
       <strong>{{ formatRatioPercent(toolGroup.availableToolRatio) }}</strong>
-    </div>
-    <div class="mes-tool-group-kpi-grid__item">
-      <span>병목 확률</span>
-      <strong :style="{ color: riskColor }">{{ formatRatioPercent(toolGroup.bottleneckProb) }}</strong>
     </div>
   </div>
 </template>

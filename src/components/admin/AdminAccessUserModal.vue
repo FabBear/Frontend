@@ -30,6 +30,7 @@ const draft = ref<AdminAccessUser | null>(null);
 const errors = ref<Record<string, string>>({});
 const pendingUser = ref<AdminAccessUser | null>(null);
 const isConfirmOpen = ref(false);
+const generatedPassword = ref('');
 const OTHER_DEPARTMENT_VALUE = '__OTHER__';
 const isOtherSelected = ref(false);
 const selectedDepartment = computed({
@@ -57,6 +58,7 @@ watch(
     errors.value = {};
     pendingUser.value = null;
     isConfirmOpen.value = false;
+    generatedPassword.value = '';
     if (user) {
       isOtherSelected.value = !user.department || !props.departmentSuggestions.includes(user.department);
     } else {
@@ -69,6 +71,7 @@ watch(
 function close() {
   pendingUser.value = null;
   isConfirmOpen.value = false;
+  generatedPassword.value = '';
   emit('update:modelValue', false);
 }
 
@@ -82,6 +85,29 @@ function updateLoginId(value: string) {
   if (errors.value.id) {
     errors.value = { ...errors.value, id: '' };
   }
+}
+
+function getRandomChars(length: number) {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
+  const bytes = new Uint32Array(length);
+  if (globalThis.crypto?.getRandomValues) {
+    globalThis.crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < length; i += 1) bytes[i] = Math.floor(Math.random() * chars.length);
+  }
+  return Array.from(bytes, (value) => chars[value % chars.length]).join('');
+}
+
+function issueInitialPassword() {
+  if (!draft.value) return;
+  const nextPassword = `FB-${getRandomChars(4)}-${getRandomChars(4)}`;
+  draft.value.password = nextPassword;
+  draft.value.passwordConfirm = nextPassword;
+  generatedPassword.value = nextPassword;
+  const nextErrors = { ...errors.value };
+  delete nextErrors.password;
+  delete nextErrors.passwordConfirm;
+  errors.value = nextErrors;
 }
 
 function normalizeUser(user: AdminAccessUser): AdminAccessUser {
@@ -108,7 +134,7 @@ function validateUser(user: AdminAccessUser) {
   if (!user.fabAccess) nextErrors.fabAccess = '소속 공장을 입력하세요.';
   if (!user.role) nextErrors.role = '역할을 선택하세요.';
   if (isCreateMode.value) {
-    if (!user.password) nextErrors.password = '초기 비밀번호를 입력하세요.';
+    if (!user.password) nextErrors.password = '초기 비밀번호를 발급하세요.';
     if (user.password && user.password.length < 6) nextErrors.password = '비밀번호는 6자 이상 입력하세요.';
     if (user.password !== user.passwordConfirm) nextErrors.passwordConfirm = '비밀번호가 일치하지 않습니다.';
   }
@@ -185,15 +211,15 @@ function confirmSave() {
           <small v-if="errors.fabAccess">{{ errors.fabAccess }}</small>
         </label>
         <label v-if="isCreateMode">
-          <span>초기 비밀번호</span>
-          <input v-model="draft.password" class="input" type="password" autocomplete="new-password" />
-          <em>생성 후 해당 비밀번호로 로그인할 수 있습니다.</em>
+          <div class="admin-access-user-modal__password-head">
+            <span>초기 비밀번호</span>
+            <BaseButton type="button" variant="ghost" size="sm" @click="issueInitialPassword">발급</BaseButton>
+          </div>
+          <em v-if="generatedPassword" class="admin-access-user-modal__issued-password">
+            발급됨 <strong>{{ generatedPassword }}</strong>
+          </em>
+          <em v-else>발급 버튼으로 초기 비밀번호를 생성하세요.</em>
           <small v-if="errors.password">{{ errors.password }}</small>
-        </label>
-        <label v-if="isCreateMode">
-          <span>비밀번호 확인</span>
-          <input v-model="draft.passwordConfirm" class="input" type="password" autocomplete="new-password" />
-          <small v-if="errors.passwordConfirm">{{ errors.passwordConfirm }}</small>
         </label>
       </div>
       <label>
@@ -298,6 +324,25 @@ function confirmSave() {
   font-style: normal;
   line-height: 1.45;
   max-width: 32ch;
+}
+
+.admin-access-user-modal__password-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.admin-access-user-modal__issued-password {
+  display: grid;
+  gap: 2px;
+  max-width: none;
+}
+
+.admin-access-user-modal__issued-password strong {
+  color: var(--color-fg-strong);
+  font-family: var(--font-family-mono, monospace);
+  overflow-wrap: anywhere;
 }
 
 .admin-access-user-modal__state-panel {

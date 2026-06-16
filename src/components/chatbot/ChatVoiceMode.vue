@@ -8,8 +8,6 @@ import { transcribeAudio } from '@/services/chatbotService';
 
 import { useSpeech } from '@/composables/useSpeech';
 
-import type { ChatAttachment } from '@/types/chatbot';
-
 const props = withDefaults(
   defineProps<{
     active?: boolean;
@@ -22,7 +20,7 @@ const props = withDefaults(
 );
 
 const emit = defineEmits<{
-  send: [message: string, attachments: ChatAttachment[]];
+  send: [message: string];
 }>();
 
 const recordSupported = typeof navigator !== 'undefined' && Boolean(navigator.mediaDevices?.getUserMedia);
@@ -277,7 +275,7 @@ async function handleSpeechSegment(audio: Float32Array) {
       statusMessage.value = '전송 전 확인해주세요';
     } else {
       pauseCapture(responseCooldownMs);
-      emit('send', text, []);
+      emit('send', text);
     }
   } catch (error) {
     statusMessage.value = error instanceof Error ? error.message : '전사 실패';
@@ -366,7 +364,7 @@ function confirmPendingTranscript() {
   if (text) {
     pauseCapture(responseCooldownMs);
     syncGate();
-    emit('send', text, []);
+    emit('send', text);
   }
 }
 

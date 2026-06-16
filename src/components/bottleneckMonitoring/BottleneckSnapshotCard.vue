@@ -1,22 +1,38 @@
 <script setup lang="ts">
-import { formatNumber, formatRatioPercent } from '@/utils/format';
+import { computed } from 'vue';
+
+import type { BncAlertMetrics } from '@/types/bnc';
+
+import { formatNumber, formatRatioPercent, formatRiskScore } from '@/utils/format';
 
 interface Props {
   title: string;
   subtitle: string;
-  delayHours: number | null;
-  affectedTgCount: number | null;
-  bottleneckProb: number | null;
+  riskScore: number | null;
+  alertMetrics: BncAlertMetrics | null;
   statusText: string | null;
   causeText: string | null;
   disabled?: boolean;
 }
 
-defineProps<Props>();
+const props = defineProps<Props>();
 
 const emit = defineEmits<{
   openCenter: [];
 }>();
+
+const metricCells = computed(() => {
+  const metrics = props.alertMetrics;
+  const score = props.riskScore ?? metrics?.compositeScore ?? null;
+
+  return [
+    { label: '위험 점수', value: formatRiskScore(score), tone: 'risk' },
+    { label: '영향', value: metrics ? formatRatioPercent(metrics.impactScore) : '-', tone: 'risk' },
+    { label: '후속 TG', value: metrics ? `${formatNumber(metrics.affectedCount)}개` : '-', tone: 'plain' },
+    { label: 'CT 증가', value: metrics ? `${formatNumber(metrics.ctIncreaseMin)}분` : '-', tone: 'plain' },
+    { label: '위험 Lot', value: metrics ? formatNumber(metrics.atRiskLots) : '-', tone: 'plain' },
+  ];
+});
 </script>
 
 <template>
@@ -37,25 +53,18 @@ const emit = defineEmits<{
     </header>
 
     <dl class="bottleneck-snapshot-card__meta">
-      <div class="bottleneck-snapshot-card__kpi bottleneck-snapshot-card__kpi--primary">
-        <dt>예상 지연</dt>
-        <dd>{{ delayHours === null ? '-' : `${delayHours.toFixed(1)}시간` }}</dd>
-      </div>
-      <div class="bottleneck-snapshot-card__kpi">
-        <dt>영향 TG</dt>
-        <dd>{{ affectedTgCount === null ? '-' : `${formatNumber(affectedTgCount)}개` }}</dd>
-      </div>
-      <div class="bottleneck-snapshot-card__kpi">
-        <dt>병목 확률</dt>
-        <dd>{{ formatRatioPercent(bottleneckProb) }}</dd>
-      </div>
-      <div class="bottleneck-snapshot-card__kpi">
-        <dt>대응 상태</dt>
-        <dd class="bottleneck-snapshot-card__status" :class="{ 'bottleneck-snapshot-card__status--done': statusText }">
-          {{ statusText ?? '분석 진행 중' }}
-        </dd>
+      <div
+        v-for="cell in metricCells"
+        :key="cell.label"
+        class="bottleneck-snapshot-card__kpi"
+        :class="{ 'bottleneck-snapshot-card__kpi--risk': cell.tone === 'risk' }"
+      >
+        <dt>{{ cell.label }}</dt>
+        <dd>{{ cell.value }}</dd>
       </div>
     </dl>
+
+    <p class="bottleneck-snapshot-card__status-line"><span>대응 상태</span>{{ statusText ?? '분석 진행 중' }}</p>
 
     <p v-if="causeText" class="bottleneck-snapshot-card__cause" :title="causeText">
       <span>주요 원인</span>{{ causeText }}
@@ -108,20 +117,22 @@ const emit = defineEmits<{
 
 .bottleneck-snapshot-card__meta {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-2);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1px;
   margin: 0;
+  overflow: hidden;
+  border: var(--border-width-default) solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-border-subtle);
 }
 
 .bottleneck-snapshot-card__kpi {
   display: grid;
   align-content: center;
   min-width: 0;
-  min-height: 64px;
-  border: var(--border-width-default) solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  min-height: 58px;
   background: var(--color-bg-surface);
-  padding: var(--space-2);
+  padding: var(--space-2) var(--space-3);
 }
 
 .bottleneck-snapshot-card__kpi dt {
@@ -132,38 +143,38 @@ const emit = defineEmits<{
 
 .bottleneck-snapshot-card__kpi dd {
   overflow: hidden;
-  margin: 4px 0 0;
+  margin: 2px 0 0;
   color: var(--color-fg-strong);
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
-.bottleneck-snapshot-card__kpi--primary dd {
+.bottleneck-snapshot-card__kpi--risk dd {
   color: var(--color-status-danger);
-  font-size: var(--font-size-xl);
 }
 
-.bottleneck-snapshot-card__status {
+.bottleneck-snapshot-card__status-line {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   justify-self: start;
-  width: fit-content;
+  margin: 0;
   max-width: 100%;
   border-radius: var(--radius-pill);
-  background: var(--color-bg-subtle);
-  padding: 3px 10px;
-  color: var(--color-fg-muted);
-  font-size: var(--font-size-sm) !important;
-  font-weight: var(--font-weight-semibold) !important;
+  background: var(--color-status-success-soft);
+  padding: 4px 10px;
+  color: var(--color-status-success);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
   line-height: var(--line-height-tight);
   white-space: nowrap;
 }
 
-.bottleneck-snapshot-card__status--done {
-  background: var(--color-status-success-soft);
-  color: var(--color-status-success);
+.bottleneck-snapshot-card__status-line span {
+  color: var(--color-fg-muted);
 }
 
 .bottleneck-snapshot-card__cause {
@@ -212,6 +223,12 @@ const emit = defineEmits<{
     align-items: stretch;
   }
 
+  .bottleneck-snapshot-card__meta {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
   .bottleneck-snapshot-card__meta {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

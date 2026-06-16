@@ -25,9 +25,6 @@ defineProps<{
         <span v-for="kpi in monitoringKpis" :key="kpi" class="bnc-solutions__now-chip">{{ kpi }}</span>
       </div>
     </div>
-    <p v-if="rollbackCondition" class="bnc-solutions__now-rollback">
-      <strong>원복 조건</strong> {{ rollbackCondition }}
-    </p>
   </section>
 </template>
 

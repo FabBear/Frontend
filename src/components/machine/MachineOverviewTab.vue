@@ -4,7 +4,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { fetchEquipmentOverview } from '@/services/machineService';
 
 import { getProcessAreaDisplayCode, getProcessAreaNameKo } from '@/constants/processArea';
-import { riskGradeToLevel } from '@/constants/riskLevel';
+import { RISK_LEVEL_META, riskGradeToLevel } from '@/constants/riskLevel';
 
 import type { EquipmentOverviewPayload, MachineEquipmentStatus, MachineSummary } from '@/types/machine';
 import type { MesRiskGrade } from '@/types/mes';
@@ -52,7 +52,6 @@ interface ToolGroupRow {
   deltaUtilizationRate: number;
   avgWipCount: number;
   maxWipCount: number;
-  avgBottleneckProb: number;
   riskGrade: MesRiskGrade;
 }
 
@@ -65,7 +64,6 @@ interface ProcessRow {
   deltaUtilizationRate: number;
   avgWipCount: number;
   maxWipCount: number;
-  avgBottleneckProb: number;
   riskTgCount: number;
   topBurdenToolGroupCode: string;
 }
@@ -248,6 +246,10 @@ function formatDeltaPercentPoint(value: number): string {
 
 const n = (v: number | null | undefined): number => (typeof v === 'number' ? v : 0);
 
+function riskSortOrder(grade: MesRiskGrade | null | undefined): number {
+  return RISK_LEVEL_META[riskGradeToLevel(grade)].sortOrder;
+}
+
 // ── 서버 /equipment/overview 집계 → 행 매핑 ──────────────────────────
 const allToolRows = computed<ToolRow[]>(() =>
   (overviewData.value?.tools ?? []).map((t) => ({
@@ -280,7 +282,6 @@ const toolGroupRows = computed<ToolGroupRow[]>(() =>
     deltaUtilizationRate: n(tg.deltaUtilizationRate),
     avgWipCount: n(tg.avgWipCount),
     maxWipCount: n(tg.maxWipCount),
-    avgBottleneckProb: n(tg.avgBottleneckProb),
     riskGrade: tg.riskGrade,
   }))
 );
@@ -305,11 +306,13 @@ const processRows = computed<ProcessRow[]>(() =>
       deltaUtilizationRate: n(p.deltaUtilizationRate),
       avgWipCount: n(p.avgWipCount),
       maxWipCount: n(p.maxWipCount),
-      avgBottleneckProb: n(p.avgBottleneckProb),
       riskTgCount: p.riskToolGroupCount,
       topBurdenToolGroupCode: p.topBurdenToolGroupCode ?? '-',
     }))
-    .sort((a, b) => b.riskTgCount - a.riskTgCount || b.avgBottleneckProb - a.avgBottleneckProb)
+    .sort(
+      (a, b) =>
+        b.riskTgCount - a.riskTgCount || b.avgWipCount - a.avgWipCount || b.avgUtilizationRate - a.avgUtilizationRate
+    )
 );
 
 // ── Level 2: 선택 공정의 TG ───────────────────────────────────────────
@@ -318,7 +321,12 @@ const selectedProcess = computed(() => processRows.value.find((p) => p.areaCode 
 const tgRows = computed(() =>
   toolGroupRows.value
     .filter((tg) => tg.areaCode === selectedProcessCode.value)
-    .sort((a, b) => b.avgBottleneckProb - a.avgBottleneckProb || b.avgWipCount - a.avgWipCount)
+    .sort(
+      (a, b) =>
+        riskSortOrder(a.riskGrade) - riskSortOrder(b.riskGrade) ||
+        b.avgWipCount - a.avgWipCount ||
+        b.avgUtilizationRate - a.avgUtilizationRate
+    )
 );
 
 // ── Level 3: 선택 TG의 장비 ──────────────────────────────────────────
@@ -454,14 +462,13 @@ function formatProcessLabel(areaCode: string, areaNameKo: string): string {
             <th>현재 대비</th>
             <th>평균 WIP</th>
             <th>최대 WIP</th>
-            <th>평균 병목률</th>
             <th>위험 TG</th>
             <th>부담 TG</th>
           </tr>
         </thead>
         <tbody>
           <tr v-if="processRows.length === 0">
-            <td colspan="10" class="overview-tab__empty">데이터 없음</td>
+            <td colspan="9" class="overview-tab__empty">데이터 없음</td>
           </tr>
           <tr
             v-for="p in processRows"
@@ -488,7 +495,6 @@ function formatProcessLabel(areaCode: string, areaNameKo: string): string {
             </td>
             <td>{{ formatNumber(Math.round(p.avgWipCount)) }}</td>
             <td>{{ formatNumber(p.maxWipCount) }}</td>
-            <td>{{ formatRatioPercent(p.avgBottleneckProb) }}</td>
             <td>
               <span v-if="p.riskTgCount > 0" class="overview-tab__risk-count">{{ p.riskTgCount }}개</span>
               <span v-else class="overview-tab__ok">—</span>
@@ -510,13 +516,12 @@ function formatProcessLabel(areaCode: string, areaNameKo: string): string {
             <th>현재 대비</th>
             <th>평균 WIP</th>
             <th>최대 WIP</th>
-            <th>평균 병목률</th>
             <th>위험도</th>
           </tr>
         </thead>
         <tbody>
           <tr v-if="tgRows.length === 0">
-            <td colspan="8" class="overview-tab__empty">TG 없음</td>
+            <td colspan="7" class="overview-tab__empty">TG 없음</td>
           </tr>
           <tr
             v-for="tg in tgRows"
@@ -549,7 +554,6 @@ function formatProcessLabel(areaCode: string, areaNameKo: string): string {
             </td>
             <td>{{ formatNumber(Math.round(tg.avgWipCount)) }}</td>
             <td>{{ formatNumber(tg.maxWipCount) }}</td>
-            <td>{{ formatRatioPercent(tg.avgBottleneckProb) }}</td>
             <td>
               <BaseBadge :variant="riskGradeToLevel(tg.riskGrade)">{{ tg.riskGrade ?? '—' }}</BaseBadge>
             </td>

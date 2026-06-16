@@ -10,7 +10,6 @@ import {
   isNeutralImpact,
   kpiCardMetrics,
   planDisplayLabel,
-  planLabel,
   showMetricAfter,
   targetGroupCount,
 } from '@/components/bnc/bncCardMetrics';
@@ -98,7 +97,7 @@ defineEmits<{
         </div>
       </button>
 
-      <!-- 대응안 카드 A / B / C -->
+      <!-- 후보 대응안 카드 -->
       <button
         v-for="(plan, i) in plans"
         :key="plan.planId"
@@ -118,13 +117,11 @@ defineEmits<{
             <span
               class="bnc-solutions__card-label"
               :class="{ 'bnc-solutions__card-label--sel': plan.planId === selectedOptionId }"
-              >{{ planLabel(i) }}</span
+              >후보</span
             >
             <div class="bnc-solutions__card-title-block">
-              <span class="bnc-solutions__card-title">{{ plan.actionKind ?? plan.title }}</span>
-              <span v-if="planDisplayLabel(plan, i) !== planLabel(i)" class="bnc-solutions__card-variant">{{
-                planDisplayLabel(plan, i)
-              }}</span>
+              <span class="bnc-solutions__card-title">{{ planDisplayLabel(plan, i) }}</span>
+              <span v-if="plan.actionKind" class="bnc-solutions__card-variant">{{ plan.actionKind }}</span>
             </div>
           </div>
           <div class="bnc-solutions__card-badges">

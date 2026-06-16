@@ -4,6 +4,7 @@ import { RouterLink } from 'vue-router';
 
 import {
   Activity,
+  CalendarClock,
   ClipboardList,
   Factory,
   FileClock,
@@ -37,50 +38,63 @@ const BOTTLENECK_CENTER_PATH = '/response/bottleneck-center';
 const navSections: NavSection[] = [
   {
     // 최상단 단독(카테고리 헤더 없음)
-    items: [{ label: '대시보드', to: '/dashboard', icon: LayoutDashboard }],
+    items: [{ label: '대시보드', to: '/dashboard', icon: LayoutDashboard, code: 'DASHBOARD' }],
   },
   {
     title: '모니터링',
     items: [
-      { label: '병목 모니터링', to: '/monitoring/bottlenecks', icon: Activity },
-      { label: 'MES 모니터링', to: '/monitoring/mes', icon: ServerCog },
-      { label: '장비 모니터링', to: '/monitoring/machines', icon: Wrench },
-      { label: '3D FAB 뷰', to: '/monitoring/fab-3d', icon: Factory },
+      { label: '병목 모니터링', to: '/monitoring/bottlenecks', icon: Activity, code: 'MONITORING_BOTTLENECK' },
+      { label: 'MES 모니터링', to: '/monitoring/mes', icon: ServerCog, code: 'MONITORING_MES' },
+      { label: '장비 모니터링', to: '/monitoring/machines', icon: Wrench, code: 'MONITORING_TOOL' },
+      {
+        label: 'Lot 투입 계획',
+        to: '/monitoring/lot-release-plan',
+        icon: CalendarClock,
+        code: 'MONITORING_LOT_RELEASE_PLAN',
+      },
+      { label: '3D FAB 뷰', to: '/monitoring/fab-3d', icon: Factory, code: 'MONITORING_3DFAB' },
     ],
   },
   {
     title: '대응 & 리포트',
     items: [
-      { label: '병목 대응 센터', to: BOTTLENECK_CENTER_PATH, icon: Gauge },
-      { label: '리포트 아카이브', to: '/reports/archive', icon: History },
+      { label: '병목 대응 센터', to: BOTTLENECK_CENTER_PATH, icon: Gauge, code: 'RESPONSE_CENTER' },
+      { label: '리포트 아카이브', to: '/reports/archive', icon: History, code: 'REPORT_HISTORY' },
     ],
   },
   {
     title: '관리자 전용',
     adminOnly: true,
     items: [
-      { label: '임계값 관리', to: '/admin/thresholds', icon: SlidersHorizontal },
-      { label: 'MLflow 모니터링', to: '/admin/mlflow', icon: ClipboardList },
-      { label: '권한 관리', to: '/admin/access', icon: LockKeyhole },
-      { label: 'MES 인터페이스', to: '/admin/mes-interface', icon: Settings2 },
-      { label: '프롬프트 관리', to: '/admin/prompts', icon: MessagesSquare },
-      { label: '데이터 수집', to: '/admin/ingestion', icon: FileClock },
+      { label: '라벨링 기준 관리', to: '/admin/labeling-rules', icon: SlidersHorizontal, code: 'ADMIN_THRESHOLD' },
+      { label: 'MLflow 모니터링', to: '/admin/mlflow', icon: ClipboardList, code: 'ADMIN_MLFLOW' },
+      { label: '권한 관리', to: '/admin/access', icon: LockKeyhole, code: 'ADMIN_PERMISSION' },
+      { label: 'MES 인터페이스', to: '/admin/mes-interface', icon: Settings2, code: 'ADMIN_MES' },
+      { label: '프롬프트 관리', to: '/admin/prompts', icon: MessagesSquare, code: 'ADMIN_PROMPT' },
+      { label: '데이터 수집', to: '/admin/ingestion', icon: FileClock, code: 'ADMIN_COLLECT' },
     ],
   },
 ];
 
-const visibleNavSections = computed(() =>
-  navSections
-    .filter((section) => !section.adminOnly || authStore.isAdmin)
+const visibleNavSections = computed(() => {
+  // 메뉴 API가 로드됐으면 menuCode 집합으로 노출 판단,
+  // 미로드(최초 진입/오류)면 기존 역할 기반(adminOnly+isAdmin)으로 폴백 — 사이드바가 비지 않도록.
+  const useMenuApi = authStore.menuCodes.size > 0;
+
+  return navSections
+    .filter((section) => useMenuApi || !section.adminOnly || authStore.isAdmin)
     .map((section) => ({
       ...section,
-      items: section.items.map((item) =>
-        item.to === BOTTLENECK_CENTER_PATH
-          ? { ...item, badge: props.bottleneckUnreadCount > 0 ? String(props.bottleneckUnreadCount) : undefined }
-          : item
-      ),
+      items: section.items
+        .filter((item) => !useMenuApi || !item.code || authStore.menuCodes.has(item.code))
+        .map((item) =>
+          item.to === BOTTLENECK_CENTER_PATH
+            ? { ...item, badge: props.bottleneckUnreadCount > 0 ? String(props.bottleneckUnreadCount) : undefined }
+            : item
+        ),
     }))
-);
+    .filter((section) => section.items.length > 0);
+});
 </script>
 
 <template>

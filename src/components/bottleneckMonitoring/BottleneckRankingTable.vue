@@ -5,7 +5,7 @@ import { RISK_LEVEL_META } from '@/constants/riskLevel';
 
 import type { BottleneckToolGroupItem } from '@/types/bottleneckMonitoring';
 
-import { formatNumber, formatRatioPercent } from '@/utils/format';
+import { formatNumber, formatRatioPercent, formatRiskScore } from '@/utils/format';
 
 interface Props {
   toolGroups: BottleneckToolGroupItem[];
@@ -21,7 +21,7 @@ defineProps<Props>();
         <tr>
           <th scope="col">#</th>
           <th scope="col">Tool Group</th>
-          <th scope="col">확률</th>
+          <th scope="col">위험 점수</th>
           <th scope="col">가동률</th>
           <th scope="col">대기 Lot</th>
           <th scope="col">위험등급</th>
@@ -34,7 +34,7 @@ defineProps<Props>();
         <tr v-for="(tg, index) in toolGroups" :key="tg.tgId">
           <td class="bottleneck-ranking-table__rank">{{ index + 1 }}</td>
           <td class="bottleneck-ranking-table__name">{{ tg.tgName }}</td>
-          <td>{{ formatRatioPercent(tg.bottleneckProb) }}</td>
+          <td>{{ formatRiskScore(tg.riskScore) }}</td>
           <td>{{ formatRatioPercent(tg.utilizationRate) }}</td>
           <td>{{ formatNumber(tg.wipCount) }}</td>
           <td>

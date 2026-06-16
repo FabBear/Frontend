@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { ROUTE_NAMES } from '@/constants/routes';
@@ -11,23 +11,23 @@ import ReportV1CandidateComparisonSection from '@/components/report/reportV1/Rep
 import ReportV1CauseSection from '@/components/report/reportV1/ReportV1CauseSection.vue';
 import ReportV1DiffusionSection from '@/components/report/reportV1/ReportV1DiffusionSection.vue';
 import ReportV1ForecastSection from '@/components/report/reportV1/ReportV1ForecastSection.vue';
-import ReportV1PdfDocument from '@/components/report/reportV1/ReportV1PdfDocument.vue';
 import ReportV1RagEvidenceSection from '@/components/report/reportV1/ReportV1RagEvidenceSection.vue';
 import ReportV1SummaryHeader from '@/components/report/reportV1/ReportV1SummaryHeader.vue';
 import ReportV1TrendSection from '@/components/report/reportV1/ReportV1TrendSection.vue';
 import '@/components/report/reportV1/reportV1.css';
 
-import { buildReportPdfFilename, downloadElementAsPdf } from '@/utils/reportPdf';
+import { buildReportPdfFilename } from '@/utils/reportPdf';
 import type { ReportV1TgForecastRow } from '@/utils/reportV1DisplayAdapter';
 import { buildReportV1DisplayModel } from '@/utils/reportV1DisplayAdapter';
+import { downloadReportV1DocumentPdf } from '@/utils/reportV1Pdf';
 
 const props = defineProps<{
   report: ReportV1;
+  caseId?: string | null;
 }>();
 
 const router = useRouter();
 
-const pdfReportRef = ref<HTMLElement | null>(null);
 const pdfError = ref<string | null>(null);
 const isDownloading = ref(false);
 
@@ -66,18 +66,22 @@ function openInArchive(caseId: string) {
 }
 
 function goToFab3d(tgName: string) {
-  void router.push({ name: ROUTE_NAMES.fab3d, query: { tg: tgName } });
+  void router.push({
+    name: ROUTE_NAMES.fab3d,
+    query: {
+      ...(props.caseId ? { caseId: props.caseId } : {}),
+      tg: tgName,
+    },
+  });
 }
 
 async function handlePdfDownload() {
-  if (!pdfReportRef.value || isDownloading.value) return;
+  if (isDownloading.value) return;
   isDownloading.value = true;
   pdfError.value = null;
 
-  await nextTick();
-
   try {
-    await downloadElementAsPdf(pdfReportRef.value, reportFilename.value);
+    await downloadReportV1DocumentPdf(props.report, reportFilename.value, props.caseId);
   } catch (err) {
     pdfError.value = err instanceof Error ? err.message : 'PDF 생성 실패';
     console.error('[PDF]', err);
@@ -133,15 +137,6 @@ defineExpose({ triggerPdfDownload: handlePdfDownload, isDownloading, pdfError })
       />
 
       <p v-if="pdfError" class="report-v1__pdf-error" role="alert">PDF 생성 중 오류 발생: {{ pdfError }}</p>
-    </article>
-
-    <article ref="pdfReportRef" class="report-v1__pdf" aria-hidden="true">
-      <ReportV1PdfDocument
-        :report="report"
-        :display="display"
-        :approved-label="approvedLabel"
-        :decision-body="decisionBody"
-      />
     </article>
   </section>
 </template>

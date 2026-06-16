@@ -23,7 +23,7 @@ const emit = defineEmits<{
   <section class="machine-tg-table" aria-label="Tool Group 비교">
     <div class="machine-tg-table__head">
       <h2>2. 같은 역할 Tool Group 비교</h2>
-      <p>부하와 병목이 큰 TG가 먼저 보입니다. TG를 선택하면 아래에 같은 TG 내 Tool 비교가 열립니다.</p>
+      <p>가동률과 WIP 부담이 큰 TG가 먼저 보입니다. TG를 선택하면 아래에 같은 TG 내 Tool 비교가 열립니다.</p>
     </div>
 
     <div class="machine-tg-table__cards">

@@ -38,7 +38,10 @@ const forwardResults = computed(() =>
     </div>
     <div class="report-v1__path">
       <Route :size="18" aria-hidden="true" />
-      <span v-for="node in report.diffusion.diffusion_path" :key="node">{{ node }}</span>
+      <template v-for="(node, idx) in report.diffusion.diffusion_path" :key="node">
+        <span v-if="idx > 0" class="report-v1__path-sep" aria-hidden="true">→</span>
+        <span>{{ node }}</span>
+      </template>
     </div>
     <div class="report-v1__impact-list">
       <button

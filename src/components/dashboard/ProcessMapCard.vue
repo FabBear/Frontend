@@ -26,6 +26,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   selectArea: [areaCode: string];
+  selectToolGroup: [tgId: string, areaCode: string];
 }>();
 
 const activeGrades = ref<Set<ProcessRiskGrade>>(new Set(['dc', 'dr']));
@@ -33,9 +34,16 @@ const localSelectedAreaCode = ref<string | null>(null);
 const currentSelectedAreaCode = computed(() => props.selectedAreaCode ?? localSelectedAreaCode.value);
 const metricHint = computed(() =>
   props.metricMode === 'bottleneck'
-    ? '병목 확률 기준 · API 위험등급'
+    ? '병목 위험 점수 기준 · 검출 케이스만 상위 등급'
     : '가동률 기준 · Critical ≥90% · High ≥85% · Medium ≥70%'
 );
+const mapTitle = computed(() => (props.metricMode === 'bottleneck' ? '병목 탐지 맵' : '공정 상태맵'));
+const metricLabel = computed(() => (props.metricMode === 'bottleneck' ? '병목 위험 점수' : '가동률'));
+function formatMetric(value: number | null): string {
+  if (value === null) return '-';
+  // 병목: 0~100 위험 점수(% 아님) / 가동률: 백분율
+  return props.metricMode === 'bottleneck' ? `${Math.round(value * 100)}` : `${(value * 100).toFixed(0)}%`;
+}
 const gradeCounts = computed<Record<ProcessRiskGrade, number>>(() => {
   const counts = Object.fromEntries(PROCESS_RISK_GRADES.map((grade) => [grade, 0])) as Record<ProcessRiskGrade, number>;
 
@@ -64,6 +72,11 @@ function handleSelectArea(areaCode: string) {
   emit('selectArea', areaCode);
 }
 
+function handleSelectToolGroup(tgId: string, areaCode: string) {
+  localSelectedAreaCode.value = areaCode;
+  emit('selectToolGroup', tgId, areaCode);
+}
+
 function getTgRiskGrade(tg: DashboardProcessToolGroupData): ProcessRiskGrade {
   if (tg.riskLevel === 'critical') return 'dc';
   if (tg.riskLevel === 'high') return 'dr';
@@ -71,8 +84,9 @@ function getTgRiskGrade(tg: DashboardProcessToolGroupData): ProcessRiskGrade {
   return 'dg';
 }
 
-function getTgMetricValue(tg: DashboardProcessToolGroupData): number {
-  return props.metricMode === 'bottleneck' ? tg.bottleneckProb : tg.utilizationRate;
+function getTgMetricValue(tg: DashboardProcessToolGroupData): number | null {
+  // 병목: riskScore(검출된 것만 존재, 없으면 null=미표시) / 가동률: 항상 존재
+  return props.metricMode === 'bottleneck' ? tg.riskScore : tg.utilizationRate;
 }
 
 function getAreaRiskGrade(toolGroups: DashboardProcessToolGroupData[]): ProcessRiskGrade | null {
@@ -94,7 +108,8 @@ const processedAreas = computed(() =>
           PROCESS_RISK_GRADES.indexOf(getTgRiskGrade(a)) - PROCESS_RISK_GRADES.indexOf(getTgRiskGrade(b));
         return riskDiff !== 0 ? riskDiff : b.utilizationRate - a.utilizationRate;
       });
-    const metricValue = visibleTgs.length ? Math.max(...visibleTgs.map(getTgMetricValue)) : null;
+    const scoredValues = visibleTgs.map(getTgMetricValue).filter((v): v is number => v !== null);
+    const metricValue = scoredValues.length ? Math.max(...scoredValues) : null;
     const areaRiskGrade = getAreaRiskGrade(visibleTgs);
     const colors =
       areaRiskGrade === null
@@ -132,7 +147,7 @@ const processedAreas = computed(() =>
 <template>
   <section class="process-map" aria-labelledby="pm-title">
     <div class="process-map__header">
-      <h2 id="pm-title" class="process-map__title">공정 상태맵</h2>
+      <h2 id="pm-title" class="process-map__title">{{ mapTitle }}</h2>
       <p class="process-map__hint">{{ metricHint }}</p>
     </div>
 
@@ -157,7 +172,7 @@ const processedAreas = computed(() =>
             :class="{ 'process-map__process-btn--selected': item.isSelected }"
             type="button"
             :style="item.btnStyle"
-            :aria-label="`${item.area.areaCode} (${item.nameKo}) ${metricMode === 'bottleneck' ? '병목 확률' : '가동률'} ${item.metricValue === null ? '-' : `${(item.metricValue * 100).toFixed(0)}%`}`"
+            :aria-label="`${item.area.areaCode} (${item.nameKo}) ${metricLabel} ${formatMetric(item.metricValue)}`"
             @click="handleSelectArea(item.area.areaCode)"
           >
             <span
@@ -170,17 +185,20 @@ const processedAreas = computed(() =>
             <span v-else class="process-map__risk-chip process-map__risk-chip--empty">-</span>
             <strong>{{ item.nameKo }}</strong>
             <span>{{ item.displayCode }}</span>
-            <span>{{ item.metricValue === null ? '-' : `${(item.metricValue * 100).toFixed(0)}%` }}</span>
+            <span>{{ formatMetric(item.metricValue) }}</span>
           </button>
 
           <div class="process-map__tg-col">
             <p class="process-map__tg-count">{{ item.visibleTgs.length }}/{{ item.totalTgCount }} TG</p>
             <div class="process-map__tg-list">
-              <span
+              <button
                 v-for="tg in item.visibleTgs"
                 :key="tg.tgId"
                 class="process-map__tg-chip"
-                :title="`${tg.tgCode} · ${tg.riskGrade} · ${metricMode === 'bottleneck' ? '병목 확률' : '가동률'} ${(getTgMetricValue(tg) * 100).toFixed(1)}%`"
+                type="button"
+                :title="`${tg.tgCode} · ${tg.riskGrade} · ${metricLabel} ${formatMetric(getTgMetricValue(tg))}`"
+                :aria-label="`${tg.tgName} ${metricLabel} ${formatMetric(getTgMetricValue(tg))} 상세 보기`"
+                @click="handleSelectToolGroup(tg.tgId, item.area.areaCode)"
               >
                 <i
                   class="process-map__tg-dot"
@@ -188,7 +206,7 @@ const processedAreas = computed(() =>
                   aria-hidden="true"
                 />
                 {{ tg.tgName }}
-              </span>
+              </button>
               <span v-if="item.visibleTgs.length === 0" class="process-map__tg-empty"> 해당 등급 없음 </span>
             </div>
           </div>
@@ -376,8 +394,24 @@ const processedAreas = computed(() =>
   background: var(--color-bg-surface);
   padding: 3px 10px;
   color: var(--color-fg);
+  font: inherit;
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-tight);
+  text-align: left;
   white-space: nowrap;
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.process-map__tg-chip:hover,
+.process-map__tg-chip:focus-visible {
+  border-color: var(--color-state-selected-border);
+  background: var(--color-state-selected-bg);
+  color: var(--color-fg-strong);
+  outline: none;
 }
 
 .process-map__tg-empty {

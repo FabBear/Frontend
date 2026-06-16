@@ -60,10 +60,11 @@ const emit = defineEmits<{
 
 <style scoped>
 .tool-group-table {
-  --tool-group-table-min-width: 520px;
+  --tool-group-table-min-width: 620px;
   --tool-group-table-status-width: 100px;
   --tool-group-table-name-width: auto;
   --tool-group-table-metric-width: 90px;
+  --tool-group-table-score-width: 86px;
   min-width: 0;
 }
 
@@ -113,6 +114,10 @@ const emit = defineEmits<{
 
 .tool-group-table__col-name {
   /* auto: 남은 공간을 TG명 컬럼이 모두 차지 */
+}
+
+.tool-group-table__col-score {
+  width: var(--tool-group-table-score-width);
 }
 
 .tool-group-table__col-util,

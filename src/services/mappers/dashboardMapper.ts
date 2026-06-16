@@ -1,8 +1,8 @@
 import { TREND_META } from '@/constants/dashboard';
 import { getMesSemiconductorProcessCode, getProcessAreaSortOrder } from '@/constants/processArea';
-import { PROCESS_RISK_THRESHOLDS } from '@/constants/processRisk';
 import { riskGradeToLevel } from '@/constants/riskLevel';
 
+import type { BncAlertMetrics } from '@/types/bnc';
 import type {
   BottleneckAlertItem,
   DashboardData,
@@ -65,7 +65,8 @@ export function mapRiskAlerts(alerts: DashboardRiskAlertsResponse): BottleneckAl
 function mapAlert(alert: DashboardRiskAlertItem): BottleneckAlertItem {
   const currentStepName = alert.currentStepName ?? '-';
   const hasCause = Boolean(alert.mainCause);
-  const affectedTgCount = alert.affectedTgCount ?? alert.affectedLotCount ?? 0;
+  const affectedTgCount = alert.affectedTgCount ?? 0;
+  const alertMetrics = mapAlertMetrics(alert);
 
   return {
     caseId: alert.caseId,
@@ -75,9 +76,12 @@ function mapAlert(alert: DashboardRiskAlertItem): BottleneckAlertItem {
     riskGrade: alert.riskGrade,
     riskLevel: riskGradeToLevel(alert.riskGrade),
     bottleneckProb: alert.bottleneckProb ?? 0,
+    riskScore: alert.riskScore ?? alertMetrics?.compositeScore ?? null,
+    impactScore: alert.impactScore ?? alertMetrics?.impactScore ?? null,
+    alertMetrics,
     estDelayHours: alert.estDelayHours ?? minutesToHours(alert.estimatedDelayMin ?? 0),
     affectedTgCount,
-    affectedLotCount: alert.affectedLotCount ?? affectedTgCount,
+    affectedLotCount: alert.affectedLotCount ?? null,
     mainCause: alert.mainCause ?? '원인 분석 진행 중',
     status: alert.status ?? '-',
     currentStepName,
@@ -85,6 +89,20 @@ function mapAlert(alert: DashboardRiskAlertItem): BottleneckAlertItem {
     canShowSolutions: getAgentStepOrder(currentStepName) >= 4,
     detectedAt: alert.detectedAt,
   };
+}
+
+function mapAlertMetrics(alert: DashboardRiskAlertItem): BncAlertMetrics | null {
+  const metrics = alert.alertMetrics ?? null;
+  const mapped: BncAlertMetrics = {
+    compositeScore: metrics?.compositeScore ?? alert.riskScore ?? null,
+    probability: metrics?.probability ?? alert.bottleneckProb ?? null,
+    impactScore: metrics?.impactScore ?? alert.impactScore ?? null,
+    affectedCount: metrics?.affectedCount ?? alert.affectedTgCount ?? null,
+    ctIncreaseMin: metrics?.ctIncreaseMin ?? null,
+    atRiskLots: metrics?.atRiskLots ?? alert.affectedLotCount ?? null,
+  };
+
+  return Object.values(mapped).some((value) => value !== null) ? mapped : null;
 }
 
 function getAgentStepOrder(stepName: string): number {
@@ -154,7 +172,8 @@ function createProcessAreaGroup(
 
 function mapProcessToolGroup(toolGroup: DashboardProcessToolGroup): DashboardProcessToolGroupData {
   const utilizationRate = toolGroup.utilizationRate ?? 0;
-  const riskGrade = normalizeRiskGrade(toolGroup.riskGrade) ?? getRiskGradeByUtilization(utilizationRate);
+  // 등급은 백엔드 ML 기반(riskScore) 등급을 그대로 사용. 가동률 폴백 폐기.
+  const riskGrade = normalizeRiskGrade(toolGroup.riskGrade) ?? 'LOW';
 
   return {
     tgId: toolGroup.tgId,
@@ -164,6 +183,7 @@ function mapProcessToolGroup(toolGroup: DashboardProcessToolGroup): DashboardPro
     riskLevel: riskGradeToLevel(riskGrade),
     utilizationRate,
     bottleneckProb: toolGroup.bottleneckProb ?? 0,
+    riskScore: toolGroup.riskScore,
     wipCount: toolGroup.wipCount ?? 0,
   };
 }
@@ -174,13 +194,6 @@ function normalizeRiskGrade(riskGrade: string | null): string | null {
   return normalized === 'CRITICAL' || normalized === 'HIGH' || normalized === 'MEDIUM' || normalized === 'LOW'
     ? normalized
     : null;
-}
-
-function getRiskGradeByUtilization(utilizationRate: number): string {
-  if (utilizationRate >= PROCESS_RISK_THRESHOLDS.critical) return 'CRITICAL';
-  if (utilizationRate >= PROCESS_RISK_THRESHOLDS.high) return 'HIGH';
-  if (utilizationRate >= PROCESS_RISK_THRESHOLDS.medium) return 'MEDIUM';
-  return 'LOW';
 }
 
 export function mapTrends(trends: DashboardTrendsResponse): KpiTrendSeries[] {

@@ -3,6 +3,7 @@ import { useRoute, useRouter } from 'vue-router';
 
 import { createMesMonitoringEventSource, fetchMesMonitoringData, mapMesPayload } from '@/services/mesService';
 
+import { shouldUseDemoMockData } from '@/constants/mockMode';
 import type { RiskLevel } from '@/constants/riskLevel';
 
 import type {
@@ -128,6 +129,13 @@ export function useMesMonitoring() {
 
   function connectMesStream() {
     disconnectMesStream();
+    if (shouldUseDemoMockData()) {
+      isStreamConnected.value = true;
+      if (data.value) {
+        data.value = { ...data.value, snapshot: { ...data.value.snapshot, isConnected: true } };
+      }
+      return;
+    }
 
     eventSource = createMesMonitoringEventSource();
 

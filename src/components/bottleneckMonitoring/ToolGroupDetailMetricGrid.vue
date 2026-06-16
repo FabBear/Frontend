@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { BottleneckToolGroupDetail } from '@/types/bottleneckMonitoring';
 
-import { formatNumber, formatQtimeDays, formatRatioPercent } from '@/utils/format';
+import { formatNumber, formatQtimeDays, formatRatioPercent, formatRiskScore } from '@/utils/format';
 
 interface Props {
   detail: BottleneckToolGroupDetail;
@@ -29,8 +29,8 @@ defineProps<Props>();
       <strong>{{ formatRatioPercent(detail.utilizationRate) }}</strong>
     </div>
     <div class="tool-group-detail-metric-grid__item tool-group-detail-metric-grid__item--wide">
-      <span>병목 예측 확률</span>
-      <strong>{{ formatRatioPercent(detail.bottleneckProb) }}</strong>
+      <span>병목 위험 점수</span>
+      <strong>{{ formatRiskScore(detail.riskScore) }}</strong>
     </div>
   </div>
 </template>

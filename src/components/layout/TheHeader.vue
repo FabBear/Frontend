@@ -20,8 +20,9 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  notificationOpen: false,
   chatOpen: false,
+  dataAsOf: null,
+  notificationOpen: false,
 });
 
 const emit = defineEmits<{

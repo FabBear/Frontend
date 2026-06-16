@@ -14,8 +14,14 @@ import {
   formatNumber,
   formatReversibility,
   formatScope,
+  normalizeActionLabelRecord,
   toNumber,
 } from '@/services/bncFormatters';
+
+import { MOCK_BNC_REPORTS } from '@/constants/mockData/bncArtifacts';
+import { MOCK_ARCHIVE_REPORTS } from '@/constants/mockData/ragCaseReports';
+import { MOCK_ACTION_HISTORY_REPORTS } from '@/constants/mockData/report';
+import { shouldUseDemoMockData } from '@/constants/mockMode';
 
 import type {
   BncActionPlanBaseline,
@@ -46,9 +52,17 @@ interface BackendCauseAnalysis {
     feature: string;
     importance: number | null;
     rank: number | null;
+    kpiValue: number | null;
+    contributionPct: number | null;
   }>;
   ragSimilarCases: BncCauseAnalysis['ragSimilarCases'];
   modelPerformance: BncCauseAnalysis['modelPerformance'];
+  // compare_json.cause 기반 확장 필드 (있을 수도, 없을 수도 있음)
+  judgment: BncCauseAnalysis['judgment'] | null;
+  causeCategories: BncCauseAnalysis['causeCategories'] | null;
+  upstreamSuspects: string[] | null;
+  simForecast: BncCauseAnalysis['simForecast'] | null;
+  gStar: BncCauseAnalysis['gStar'] | null;
   createdAt: string;
 }
 
@@ -294,11 +308,11 @@ interface BackendReportPayload {
   reportId: string;
   caseId: string;
   summary: string | null;
-  reportHtml: string | null;
+  renderedMarkdown: string | null;
   rootCauseText: string | null;
   actionComparisonText: string | null;
   timelineJson: unknown;
-  reportV1?: ReportV1 | null;
+  reportJson?: ReportV1 | null;
   hasPdf: boolean;
   generatedAt: string;
   regeneratedCount: number | null;
@@ -307,7 +321,7 @@ interface BackendReportPayload {
 
 export interface BncHitlDecisionRequest {
   decision: 'APPROVED' | 'REJECTED';
-  selectedPlanId: string;
+  selectedPlanId: string | null;
   comment?: string | null;
 }
 
@@ -654,16 +668,35 @@ function normalizeTimeline(timelineJson: unknown): BncReportTimelineItem[] {
 }
 
 function mapCauseAnalysis(data: BackendCauseAnalysis): BncCauseAnalysis {
+  const totalShapAbs = data.shapFeatures.reduce((sum, item) => sum + Math.abs(toNumber(item.importance) ?? 0), 0);
+
   return {
     ...data,
-    shapFeatures: data.shapFeatures.map((item, index) => ({
-      feature: item.feature,
-      label: featureLabel(item.feature),
-      importance: toNumber(item.importance),
-      rank: item.rank ?? index + 1,
-      direction: '병목 기여',
-    })),
+    shapFeatures: data.shapFeatures.map((item, index) => {
+      const importance = toNumber(item.importance) ?? 0;
+      const contributionPct =
+        item.contributionPct != null
+          ? (toNumber(item.contributionPct) ?? null)
+          : totalShapAbs > 0
+            ? (Math.abs(importance) / totalShapAbs) * 100
+            : null;
+      return {
+        feature: item.feature,
+        label: featureLabel(item.feature),
+        importance,
+        rank: item.rank ?? index + 1,
+        direction: '병목 기여',
+        kpiValue: toNumber(item.kpiValue) ?? undefined,
+        contributionPct: contributionPct ?? undefined,
+        shapValue: importance,
+      };
+    }),
     trendInsights: [],
+    judgment: data.judgment ?? null,
+    causeCategories: data.causeCategories ?? [],
+    upstreamSuspects: data.upstreamSuspects ?? [],
+    simForecast: data.simForecast ?? null,
+    gStar: data.gStar ?? null,
     forwardForecastText:
       data.diffusion.affectedToolGroups.length > 0
         ? `${data.diffusion.affectedToolGroups.map((item) => item.tgName).join(', ')}까지 병목 영향이 확산될 수 있습니다.`
@@ -716,6 +749,7 @@ function mapCompareAgentActionPlans(data: BackendCompareAgentPayload, fallbackCa
   const currentEffect = data.action_effects.find(isNoActionCompareEffect) ?? null;
   const currentMetrics = buildCompareCurrentMetrics(currentEffect);
   const candidateEffects = data.action_effects.filter((effect) => !isNoActionCompareEffect(effect));
+  const recommendedActionLabel = extractActionLabel(data.recommendation.action_label);
   const plans: BncActionPlansPayload['plans'] = candidateEffects.map((effect) => {
     const actionLabel = extractActionLabel(effect.label);
     const parsed = parsePlanDescription(effect.description);
@@ -746,7 +780,7 @@ function mapCompareAgentActionPlans(data: BackendCompareAgentPayload, fallbackCa
       operationItems: parsed.operationItems,
       targetToolGroups: parsed.targetToolGroups,
       impactTone: hasNoKpiDelta ? 'neutral' : 'positive',
-      recommended: actionLabel === data.recommendation.action_label,
+      recommended: actionLabel === recommendedActionLabel,
     };
   });
   const recommendedPlan = plans.find((plan) => plan.recommended) ?? plans[0] ?? null;
@@ -765,11 +799,11 @@ function mapCompareAgentActionPlans(data: BackendCompareAgentPayload, fallbackCa
     baselineSnapshot: [
       ...(currentMetrics ?? []),
       { label: '심각도', value: data.severity, caption: data.process_name },
-      { label: '후보 대응안', value: `${candidateEffects.length.toLocaleString('ko-KR')}개`, caption: 'A/B 비교' },
+      { label: '후보 대응안', value: `${candidateEffects.length.toLocaleString('ko-KR')}개`, caption: '후보 비교' },
       {
         label: '판정',
         value: data.decision_info ? formatDecisionStatus(data.decision_info.decision_status) : '-',
-        caption: data.decision_info ? `Top ${data.decision_info.top_label}` : undefined,
+        caption: data.decision_info ? `Top ${extractActionLabel(data.decision_info.top_label)}` : undefined,
       },
     ],
     currentOption: currentEffect
@@ -788,7 +822,7 @@ function mapCompareAgentActionPlans(data: BackendCompareAgentPayload, fallbackCa
       : undefined,
     plans,
     recommendation: {
-      actionLabel: data.recommendation.action_label,
+      actionLabel: recommendedActionLabel,
       actionKind: data.recommendation.action_kind,
       reason: data.recommendation.reason,
       structured: data.recommendation.structured
@@ -796,7 +830,7 @@ function mapCompareAgentActionPlans(data: BackendCompareAgentPayload, fallbackCa
             headline: data.recommendation.structured.headline,
             primaryReason: data.recommendation.structured.primary_reason,
             tradeoffs: data.recommendation.structured.tradeoffs,
-            whyNotOthers: data.recommendation.structured.why_not_others,
+            whyNotOthers: normalizeActionLabelRecord(data.recommendation.structured.why_not_others),
             caveats: data.recommendation.structured.caveats,
             confidenceLevel: data.recommendation.structured.confidence_level,
             immediateActions: data.recommendation.structured.immediate_actions,
@@ -808,8 +842,8 @@ function mapCompareAgentActionPlans(data: BackendCompareAgentPayload, fallbackCa
     decisionInfo: data.decision_info
       ? {
           decisionStatus: data.decision_info.decision_status,
-          topLabel: data.decision_info.top_label,
-          equivalentSet: data.decision_info.equivalent_set,
+          topLabel: extractActionLabel(data.decision_info.top_label),
+          equivalentSet: data.decision_info.equivalent_set.map(extractActionLabel),
           tiebreakerUsed: data.decision_info.tiebreaker_used,
           decisionCaveat: data.decision_info.decision_caveat,
         }
@@ -840,9 +874,10 @@ function mapCompareV2ActionPlans(data: BackendCompareV2Payload, fallbackCaseId: 
     ) ?? null;
   const candidateOptions = data.action_options.filter((option) => option !== baselineOption);
   const currentMetrics = buildCompareV2CurrentMetrics(data);
+  const recommendedActionLabel = extractActionLabel(data.recommendation.recommended_label);
   const recommendedOption =
     candidateOptions.find((option) => option.is_recommended) ??
-    candidateOptions.find((option) => option.label === data.recommendation.recommended_label) ??
+    candidateOptions.find((option) => extractActionLabel(option.label) === recommendedActionLabel) ??
     candidateOptions[0] ??
     null;
   const isApproved = data.approval_info?.status === '승인';
@@ -852,12 +887,13 @@ function mapCompareV2ActionPlans(data: BackendCompareV2Payload, fallbackCaseId: 
 
   const plans: BncActionPlansPayload['plans'] = candidateOptions.map((option) => {
     const metrics = buildCompareV2Metrics(option);
+    const actionLabel = extractActionLabel(option.label);
 
     return {
-      planId: `${fallbackCaseId}-plan-${option.label.toLowerCase()}`,
-      actionLabel: option.label,
+      planId: `${fallbackCaseId}-plan-${actionLabel}`,
+      actionLabel,
       actionKind: option.kind,
-      title: `${option.label}. ${option.kind}`,
+      title: `${actionLabel}. ${option.kind}`,
       summary: option.description,
       expectedImpact: buildCompareV2ExpectedImpact(option),
       riskText:
@@ -879,7 +915,7 @@ function mapCompareV2ActionPlans(data: BackendCompareV2Payload, fallbackCaseId: 
       operationItems: buildCompareV2OperationItems(option),
       targetToolGroups: option.target_toolgroups,
       impactTone: resolveCompareV2ImpactTone(option),
-      recommended: option.is_recommended || option.label === data.recommendation.recommended_label,
+      recommended: option.is_recommended || actionLabel === recommendedActionLabel,
     };
   });
 
@@ -900,7 +936,7 @@ function mapCompareV2ActionPlans(data: BackendCompareV2Payload, fallbackCaseId: 
         value: decisionMeta
           ? formatDecisionStatus(decisionMeta.decision_status)
           : (data.recommendation.recommendation_status ?? '-'),
-        caption: decisionMeta ? `Top ${decisionMeta.top_label}` : `추천 ${data.recommendation.recommended_label}`,
+        caption: decisionMeta ? `Top ${extractActionLabel(decisionMeta.top_label)}` : `추천 ${recommendedActionLabel}`,
       },
     ],
     currentOption: baselineOption
@@ -951,7 +987,7 @@ function mapCompareV2ActionPlans(data: BackendCompareV2Payload, fallbackCaseId: 
     },
     plans,
     recommendation: {
-      actionLabel: data.recommendation.recommended_label,
+      actionLabel: recommendedActionLabel,
       actionKind: recommendedOption?.kind ?? '',
       reason: [data.recommendation.primary_reason, data.recommendation.why_recommended?.explanation]
         .filter(Boolean)
@@ -960,7 +996,7 @@ function mapCompareV2ActionPlans(data: BackendCompareV2Payload, fallbackCaseId: 
         headline: data.recommendation.headline,
         primaryReason: data.recommendation.primary_reason,
         tradeoffs: data.recommendation.tradeoffs,
-        whyNotOthers: data.recommendation.why_not_others,
+        whyNotOthers: normalizeActionLabelRecord(data.recommendation.why_not_others),
         caveats: data.recommendation.caveats,
         confidenceLevel: data.recommendation.confidence_level,
         immediateActions: data.recommendation.immediate_actions,
@@ -979,8 +1015,8 @@ function mapCompareV2ActionPlans(data: BackendCompareV2Payload, fallbackCaseId: 
     decisionInfo: decisionMeta
       ? {
           decisionStatus: decisionMeta.decision_status,
-          topLabel: decisionMeta.top_label,
-          equivalentSet: decisionMeta.equivalent_set,
+          topLabel: extractActionLabel(decisionMeta.top_label),
+          equivalentSet: decisionMeta.equivalent_set.map(extractActionLabel),
           tiebreakerUsed: decisionMeta.tiebreaker_used,
           decisionCaveat:
             decisionMeta.decision_caveat ||
@@ -1012,11 +1048,11 @@ function mapReport(data: BackendReportPayload): BncReportPayload {
     reportId: data.reportId,
     caseId: data.caseId,
     summary: data.summary ?? '',
-    reportHtml: data.reportHtml,
+    reportHtml: data.renderedMarkdown,
     rootCauseText: data.rootCauseText ?? '',
     actionComparisonText: data.actionComparisonText ?? '',
     timeline: normalizeTimeline(data.timelineJson),
-    reportV1: data.reportV1 ?? undefined,
+    reportV1: data.reportJson ?? undefined,
     hasPdf: data.hasPdf,
     generatedAt: data.generatedAt,
     regeneratedCount: data.regeneratedCount ?? 0,
@@ -1025,7 +1061,9 @@ function mapReport(data: BackendReportPayload): BncReportPayload {
 }
 
 export async function fetchBncCases(params: FetchBncCasesParams = {}): Promise<BncCaseListData> {
-  const { data } = await api.get<BncCaseListData>('/v1/response-center/cases', { params });
+  // 병목 대응 센터는 CRITICAL 케이스만(HIGH는 cascade-only라 원인/대응/보고서 없음). 명시 param이 있으면 우선.
+  const merged = { riskGrade: 'CRITICAL', ...params };
+  const { data } = await api.get<BncCaseListData>('/v1/response-center/cases', { params: merged });
   return data;
 }
 
@@ -1053,11 +1091,17 @@ export async function decideBncHitl(caseId: string, payload: BncHitlDecisionRequ
 }
 
 export async function fetchBncReport(caseId: string): Promise<BncReportPayload> {
+  if (shouldUseDemoMockData()) {
+    const mock = MOCK_BNC_REPORTS[caseId] ?? MOCK_ARCHIVE_REPORTS[caseId] ?? MOCK_ACTION_HISTORY_REPORTS[caseId];
+    if (mock) return mock;
+  }
   const { data } = await api.get<BackendReportPayload>(`/v1/response-center/cases/${caseId}/report`);
   return mapReport(data);
 }
 
 export async function downloadBncReportPdf(caseId: string): Promise<void> {
+  if (shouldUseDemoMockData()) return;
+
   const response = await api.get<Blob>(`/v1/response-center/cases/${caseId}/report/pdf`, {
     responseType: 'blob',
   });

@@ -30,6 +30,7 @@ const {
   errorMessage: notificationErrorMessage,
   streamError,
   markRead,
+  markAllRead,
 } = useNotifications();
 
 const pageTitle = computed(() => {
@@ -81,7 +82,6 @@ async function handleOpenToastNotification() {
   const notification = latestToastUnread.value;
   if (!notification) return;
 
-  await markRead(notification.id);
   if (notification.type === 'MODEL_RETRAIN') {
     void handleOpenNotificationMlflow(notification.id);
     return;
@@ -138,11 +138,13 @@ async function handleLogout() {
     <TheNotificationPanel
       :open="isNotificationOpen"
       :notifications="notifications"
+      :unread-count="unreadCount"
       :loading="isNotificationLoading"
       :error-message="notificationErrorMessage"
       :stream-error="streamError"
       @close="isNotificationOpen = false"
       @mark-read="markRead"
+      @mark-all-read="markAllRead"
       @open-case="handleOpenNotificationCase"
       @open-monitoring="handleOpenNotificationMonitoring"
       @open-mlflow="handleOpenNotificationMlflow"

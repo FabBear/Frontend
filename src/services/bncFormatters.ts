@@ -48,12 +48,32 @@ export function featureLabel(feature: string): string {
   return FEATURE_LABELS[feature] ?? feature.replaceAll('_', ' ');
 }
 
+const ACTION_LABELS = ['standard', 'conservative', 'aggressive'] as const;
+
 export function actionLabelFromIndex(index: number): string {
-  return String.fromCharCode(65 + index);
+  return ACTION_LABELS[index] ?? `option-${index + 1}`;
 }
 
 export function extractActionLabel(label: string): string {
-  return label.match(/[A-Z]/)?.[0] ?? label;
+  const normalized = label.trim().toLowerCase();
+  if (!normalized) return label;
+  if (normalized.includes('standard') || normalized.includes('표준')) return 'standard';
+  if (normalized.includes('conservative') || normalized.includes('보수')) return 'conservative';
+  if (normalized.includes('aggressive') || normalized.includes('강화') || normalized.includes('공격')) {
+    return 'aggressive';
+  }
+
+  const alphaLabel = normalized.match(/\b([abc])\b/)?.[1];
+  if (alphaLabel) return actionLabelFromIndex(alphaLabel.charCodeAt(0) - 'a'.charCodeAt(0));
+
+  return normalized;
+}
+
+export function normalizeActionLabelRecord(
+  record: Record<string, string> | undefined
+): Record<string, string> | undefined {
+  if (!record) return undefined;
+  return Object.fromEntries(Object.entries(record).map(([key, value]) => [extractActionLabel(key), value]));
 }
 
 export function formatNeutralDelta(value: number, suffix = '', digits = 1): string {

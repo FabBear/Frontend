@@ -26,7 +26,7 @@ function getToolAccentColor(tool: MesToolMetric): string {
           <th>장비 ID</th>
           <th>상태</th>
           <th>가동률</th>
-          <th>OEE 추정</th>
+          <th>OEE</th>
           <th>정비 비율</th>
           <th>Q-time</th>
           <th>대기 Lot</th>

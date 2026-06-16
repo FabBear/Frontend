@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Component } from 'vue';
+import { type Component, computed } from 'vue';
 
 import { AlertTriangle, CheckCircle2, Info, TriangleAlert, X } from '@lucide/vue';
 
@@ -12,12 +12,14 @@ import { formatKoTime } from '@/utils/format';
 interface Props {
   open: boolean;
   notifications: NotificationItem[];
+  unreadCount?: number;
   loading?: boolean;
   errorMessage?: string | null;
   streamError?: boolean;
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
+  unreadCount: 0,
   loading: false,
   errorMessage: null,
   streamError: false,
@@ -26,6 +28,7 @@ withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   close: [];
   markRead: [notificationId: string];
+  markAllRead: [];
   openCase: [caseId: string];
   openMonitoring: [caseId: string];
   openMlflow: [notificationId: string];
@@ -44,20 +47,36 @@ const levelLabelMap: Record<NotificationLevel, string> = {
   info: '정보',
   success: '완료',
 };
+
+const hasUnread = computed(() => props.unreadCount > 0);
+
+function handleOpenCase(notification: NotificationItem) {
+  if (!notification.refCaseId) return;
+  emit('markRead', notification.id);
+  emit('openCase', notification.refCaseId);
+}
+
+function handleOpenMonitoring(notification: NotificationItem) {
+  if (!notification.refCaseId) return;
+  emit('markRead', notification.id);
+  emit('openMonitoring', notification.refCaseId);
+}
 </script>
 
 <template>
   <aside v-if="open" class="notification-panel" aria-label="알림 패널">
     <header class="notification-panel__header">
       <h2>알림</h2>
-      <button class="notification-panel__close" type="button" aria-label="알림 닫기" @click="emit('close')">
-        <X :size="18" aria-hidden="true" />
-      </button>
+      <div class="notification-panel__header-actions">
+        <button class="notification-panel__mark-all" type="button" :disabled="!hasUnread" @click="emit('markAllRead')">
+          전체 읽음
+        </button>
+        <button class="notification-panel__close" type="button" aria-label="알림 닫기" @click="emit('close')">
+          <X :size="18" aria-hidden="true" />
+        </button>
+      </div>
     </header>
 
-    <p v-if="streamError" class="notification-panel__status notification-panel__status--warning">
-      실시간 알림 연결이 끊겼습니다. 목록 조회 데이터로 표시합니다.
-    </p>
     <p v-if="loading" class="notification-panel__status">알림을 불러오는 중입니다.</p>
     <p v-else-if="errorMessage" class="notification-panel__status notification-panel__status--error">
       {{ errorMessage }}
@@ -91,7 +110,7 @@ const levelLabelMap: Record<NotificationLevel, string> = {
             v-if="notification.refCaseId"
             class="notification-panel__action"
             type="button"
-            @click="emit('openMonitoring', notification.refCaseId)"
+            @click="handleOpenMonitoring(notification)"
           >
             병목 모니터링
           </button>
@@ -99,7 +118,7 @@ const levelLabelMap: Record<NotificationLevel, string> = {
             v-if="notification.refCaseId"
             class="notification-panel__action notification-panel__action--ghost"
             type="button"
-            @click="emit('openCase', notification.refCaseId)"
+            @click="handleOpenCase(notification)"
           >
             케이스 보기
           </button>
@@ -148,6 +167,37 @@ const levelLabelMap: Record<NotificationLevel, string> = {
 
 .notification-panel__header h2 {
   font-size: var(--font-size-lg);
+}
+
+.notification-panel__header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.notification-panel__mark-all {
+  min-height: 28px;
+  border: var(--border-width-default) solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-card);
+  padding: 0 10px;
+  color: var(--color-fg-muted);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.notification-panel__mark-all:hover:not(:disabled),
+.notification-panel__mark-all:focus-visible {
+  border-color: var(--color-action-primary-border);
+  background: var(--color-action-primary-soft);
+  color: var(--color-action-primary);
+  outline: none;
+}
+
+.notification-panel__mark-all:disabled {
+  cursor: not-allowed;
+  opacity: var(--opacity-disabled);
 }
 
 .notification-panel__close {

@@ -15,6 +15,7 @@ export function useDashboardData() {
     alerts: null,
     processAreas: null,
     trends: null,
+    releasePlan: null,
   });
   const isLoading = ref(false);
   const sectionErrors = shallowRef<DashboardSectionErrors>({});
@@ -67,6 +68,13 @@ export function useDashboardData() {
       delete nextErrors.alerts;
     } else if (errors.alerts && nextData.alerts === null) {
       nextErrors.alerts = errors.alerts;
+    }
+
+    if (data.releasePlan !== null) {
+      nextData.releasePlan = data.releasePlan;
+      delete nextErrors.releasePlan;
+    } else if (errors.releasePlan && nextData.releasePlan === null) {
+      nextErrors.releasePlan = errors.releasePlan;
     }
 
     if (data.processAreas !== null) {

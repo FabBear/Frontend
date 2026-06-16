@@ -13,7 +13,9 @@ const props = defineProps<{
 
 const statusMeta = computed(() => {
   if (props.step.status === 'DONE') return { label: '완료', mod: 'done' };
-  if (props.step.status === 'RUNNING') return { label: '실행 중', mod: 'running' };
+  if (props.step.status === 'RUNNING' || props.step.status === 'IN_PROGRESS') {
+    return { label: '실행 중', mod: 'running' };
+  }
   if (props.step.status === 'FAILED') return { label: '실패', mod: 'failed' };
   return { label: '대기', mod: 'waiting' };
 });

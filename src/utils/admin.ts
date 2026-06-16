@@ -1,30 +1,10 @@
-import type {
-  AdminResourceItem,
-  AdminResourceKey,
-  AdminResourceMeta,
-  AdminStatus,
-  AdminThresholdConfig,
-  AdminThresholdHistory,
-} from '@/types/admin';
+import type { AdminResourceItem, AdminResourceKey, AdminResourceMeta, AdminStatus } from '@/types/admin';
 
 export function getAdminStatusVariant(status: AdminStatus) {
   if (status === 'ERROR') return 'danger';
   if (status === 'WARNING') return 'warning';
   if (status === 'DISABLED') return 'info';
   return 'success';
-}
-
-export function validateThresholdValue(value: string, valueType: AdminThresholdConfig['valueType']): string | null {
-  const trimmed = value.trim();
-  if (!trimmed) return '값을 입력하세요.';
-  if (valueType === 'FLOAT') {
-    if (isNaN(Number(trimmed))) return '실수 숫자만 입력할 수 있습니다.';
-  } else if (valueType === 'INT') {
-    if (!/^-?\d+$/.test(trimmed)) return '정수만 입력할 수 있습니다.';
-  } else if (valueType === 'BOOL') {
-    if (trimmed !== 'true' && trimmed !== 'false') return 'true 또는 false만 입력할 수 있습니다.';
-  }
-  return null;
 }
 
 export function getAdminStatusLabel(status: AdminStatus) {
@@ -39,7 +19,7 @@ export function getAdminStatusLabel(status: AdminStatus) {
 
 export function getAdminResourceActionLabel(resourceKey: AdminResourceKey) {
   const labels: Record<AdminResourceKey, string> = {
-    thresholds: '기준값 변경은 저장 시 이력에 남습니다.',
+    labelingRules: '라벨링 기준 변경은 저장 시 이력에 남습니다.',
     access: '사용자 역할과 접근 범위를 확인하고 필요한 경우 편집합니다.',
     mlflow: '모델 성능과 버전 상태를 확인합니다.',
     mesInterface: 'MES 원천 필드와 내부 표준 필드 매핑을 관리합니다.',
@@ -97,38 +77,4 @@ export function normalizeAdminItem(nextItem: AdminResourceItem) {
 
 export function removeAdminItem(items: AdminResourceItem[], itemId: string) {
   return items.filter((item) => item.id !== itemId);
-}
-
-export function updateThresholdConfig(
-  configs: AdminThresholdConfig[],
-  histories: AdminThresholdHistory[],
-  configId: string,
-  configValue: string,
-  updatedBy: string
-) {
-  const target = configs.find((config) => config.id === configId);
-  if (!target || target.configValue === configValue) {
-    return { configs, histories };
-  }
-
-  const updatedConfig = {
-    ...target,
-    configValue,
-    updatedBy,
-    updatedAt: new Date().toISOString(),
-  };
-
-  return {
-    configs: configs.map((config) => (config.id === configId ? updatedConfig : config)),
-    histories: [
-      {
-        changedAt: new Date().toISOString(),
-        itemName: target.configKey,
-        before: target.configValue,
-        after: configValue,
-        changedBy: updatedBy,
-      },
-      ...histories,
-    ],
-  };
 }

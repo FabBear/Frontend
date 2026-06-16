@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 
-import { fetchAdminPrompts } from '@/services/adminService';
+import { fetchAdminPrompts, updatePromptVersion } from '@/services/adminService';
 
 import type { AdminPromptTemplate, AdminPromptVersion } from '@/types/admin';
 
@@ -10,13 +10,6 @@ import BaseButton from '@/components/base/BaseButton.vue';
 import BaseTable from '@/components/base/BaseTable.vue';
 import type { BaseTableColumn, BaseTableRow } from '@/components/base/BaseTable.vue';
 
-interface PromptBlock {
-  key: string;
-  title: string;
-  body: string;
-  masked: boolean;
-}
-
 const templates = ref<AdminPromptTemplate[]>([]);
 const allVersions = ref<AdminPromptVersion[]>([]);
 const selectedId = ref('');
@@ -24,7 +17,14 @@ const selectedVersionId = ref<string | null>(null);
 const isLoading = ref(false);
 const errorMessage = ref('');
 
-const selectedTemplate = computed(() => templates.value.find((template) => template.id === selectedId.value));
+const editBody = ref('');
+const editReason = ref('');
+const isSaving = ref(false);
+const saveError = ref('');
+
+const visibleTemplates = computed(() => templates.value);
+
+const selectedTemplate = computed(() => visibleTemplates.value.find((template) => template.id === selectedId.value));
 
 const versions = computed(() =>
   allVersions.value
@@ -41,13 +41,9 @@ const selectedVersion = computed(
   () => versions.value.find((version) => version.id === selectedVersionId.value) ?? activeVersion.value
 );
 
-const displaySchema = computed(
-  () => selectedVersion.value?.variablesSchema ?? selectedTemplate.value?.variablesSchema ?? null
-);
+const isEditable = computed(() => selectedVersion.value?.status === 'ACTIVE');
 
-const variables = computed(() => displaySchema.value?.variables ?? selectedTemplate.value?.variables ?? []);
-const hiddenSections = computed(() => displaySchema.value?.hiddenSections ?? []);
-const promptBlocks = computed(() => parsePromptBody(selectedVersion.value?.body ?? ''));
+const isDirty = computed(() => editBody.value !== (selectedVersion.value?.body ?? ''));
 
 const versionColumns: BaseTableColumn[] = [
   { key: 'version', label: '버전' },
@@ -57,73 +53,45 @@ const versionColumns: BaseTableColumn[] = [
   { key: 'status', label: '상태' },
 ];
 
-function parsePromptBody(body: string): PromptBlock[] {
-  const blocks: PromptBlock[] = [];
-  let current: PromptBlock | null = null;
-  let maskedBlock: PromptBlock | null = null;
-
-  const pushBlock = (title: string, masked = false) => {
-    const block: PromptBlock = {
-      key: `${blocks.length}-${title}`,
-      title,
-      body: '',
-      masked,
-    };
-    blocks.push(block);
-    return block;
-  };
-
-  body.split(/\r?\n/).forEach((line) => {
-    const trimmed = line.trim();
-    const titleMatch = trimmed.match(/^#\s+(.+)$/);
-    const sectionMatch = trimmed.match(/^##\s+(.+)$/);
-    const bracketSectionMatch = trimmed.match(/^\[(?!MASKED:)(.+)]$/);
-    const maskedMatch = trimmed.match(/^\[MASKED:\s*(.+)]$/);
-
-    if (titleMatch) {
-      current = pushBlock('프롬프트 이름');
-      maskedBlock = null;
-      current.body = titleMatch[1];
-      return;
-    }
-
-    if (sectionMatch) {
-      current = pushBlock(sectionMatch[1]);
-      maskedBlock = null;
-      return;
-    }
-
-    if (bracketSectionMatch) {
-      current = pushBlock(bracketSectionMatch[1]);
-      maskedBlock = null;
-      return;
-    }
-
-    if (maskedMatch) {
-      if (!maskedBlock) maskedBlock = pushBlock('비공개 마스킹 영역', true);
-      maskedBlock.body += `${maskedBlock.body ? '\n' : ''}${maskedMatch[1]}`;
-      current = null;
-      return;
-    }
-
-    if (!trimmed && !current) return;
-    maskedBlock = null;
-    if (!current) current = pushBlock('프롬프트 본문');
-    current.body += `${current.body ? '\n' : ''}${line}`;
-  });
-
-  return blocks.filter((block) => block.body.trim().length > 0);
-}
-
-function formatExposure(value: string | undefined) {
-  if (value === 'masked_prompt_preview') return '실제 형식 · 민감 영역 마스킹';
-  if (value === 'sanitized_summary') return '제한 공개';
-  return value ?? '실제 형식 · 민감 영역 마스킹';
-}
-
 watch(selectedTemplate, () => {
   selectedVersionId.value = activeVersion.value?.id ?? versions.value[0]?.id ?? null;
 });
+
+watch(
+  selectedVersion,
+  (v) => {
+    editBody.value = v?.body ?? '';
+    editReason.value = '';
+    saveError.value = '';
+  },
+  { immediate: true }
+);
+
+async function saveEdit() {
+  const category = selectedTemplate.value?.category;
+  if (!category || !editBody.value.trim()) {
+    saveError.value = '프롬프트 본문을 입력하세요.';
+    return;
+  }
+  const originalTokens = [...(selectedVersion.value?.body ?? '').matchAll(/\{[^}]+\}/g)].map((m) => m[0]);
+  const editedSet = new Set([...editBody.value.matchAll(/\{[^}]+\}/g)].map((m) => m[0]));
+  const missing = originalTokens.filter((t) => !editedSet.has(t));
+  if (missing.length) {
+    saveError.value = `다음 변수 토큰은 삭제할 수 없습니다: ${missing.join(', ')}`;
+    return;
+  }
+  isSaving.value = true;
+  saveError.value = '';
+  try {
+    await updatePromptVersion(category, editBody.value, editReason.value);
+    await loadPrompts();
+  } catch (error) {
+    console.error(error);
+    saveError.value = '저장에 실패했습니다. 다시 시도해 주세요.';
+  } finally {
+    isSaving.value = false;
+  }
+}
 
 async function loadPrompts() {
   isLoading.value = true;
@@ -132,7 +100,8 @@ async function loadPrompts() {
     const result = await fetchAdminPrompts();
     templates.value = result.templates;
     allVersions.value = result.versions;
-    selectedId.value = result.templates[0]?.id ?? '';
+    const firstVisible = visibleTemplates.value[0];
+    selectedId.value = firstVisible?.id ?? '';
     selectedVersionId.value =
       result.versions.find((version) => version.templateId === selectedId.value && version.status === 'ACTIVE')?.id ??
       null;
@@ -165,12 +134,8 @@ onMounted(() => {
   <div class="admin-prompt-view">
     <header class="admin-prompt-view__header">
       <div>
-        <div class="admin-prompt-view__title-row">
-          <h1>프롬프트 관리</h1>
-        </div>
-        <p>
-          Agent별 활성 프롬프트와 이전 버전을 확인합니다. 실제 프롬프트 구조는 유지하고 민감한 운영 규칙만 마스킹합니다.
-        </p>
+        <h1>프롬프트 관리</h1>
+        <p>DB에 등록된 Agent 프롬프트의 활성 버전과 이력을 확인합니다.</p>
       </div>
     </header>
 
@@ -184,103 +149,86 @@ onMounted(() => {
     </section>
 
     <template v-else>
-      <section class="admin-prompt-view__tabs surface-card" aria-label="Agent prompt tabs">
+      <nav class="admin-prompt-view__tabs" role="tablist" aria-label="Agent 프롬프트 탭">
         <button
-          v-for="template in templates"
+          v-for="template in visibleTemplates"
           :key="template.id"
+          class="admin-prompt-view__tab"
           :class="{ 'admin-prompt-view__tab--active': template.id === selectedId }"
           type="button"
+          role="tab"
+          :aria-selected="template.id === selectedId"
           @click="selectTemplate(template)"
         >
           {{ template.label }}
         </button>
-      </section>
+      </nav>
 
-      <section v-if="selectedTemplate && selectedVersion" class="admin-prompt-view__layout">
-        <div class="admin-prompt-view__card surface-card admin-prompt-view__prompt-card">
-          <div class="admin-prompt-view__card-head">
-            <div class="admin-prompt-view__card-meta">
-              <BaseBadge :variant="selectedVersion.status === 'ACTIVE' ? 'success' : 'info'">
-                {{ selectedVersion.status === 'ACTIVE' ? '활성' : '이전' }} {{ selectedVersion.version }}
-              </BaseBadge>
-              <span>{{ selectedVersion.updatedAt }} · {{ selectedVersion.updatedBy }}</span>
-            </div>
-            <BaseBadge variant="warning">마스킹 미리보기</BaseBadge>
+      <div v-if="selectedTemplate && selectedVersion" class="admin-prompt-view__meta-bar surface-card">
+        <div class="admin-prompt-view__meta-left">
+          <BaseBadge :variant="selectedVersion.status === 'ACTIVE' ? 'success' : 'info'">
+            {{ selectedVersion.status === 'ACTIVE' ? '활성' : '이전' }} {{ selectedVersion.version }}
+          </BaseBadge>
+          <span v-if="selectedTemplate.purpose" class="admin-prompt-view__meta-item">
+            <span class="admin-prompt-view__meta-label">목적</span>{{ selectedTemplate.purpose }}
+          </span>
+          <span v-if="selectedTemplate.inputSpec" class="admin-prompt-view__meta-item">
+            <span class="admin-prompt-view__meta-label">입력</span>{{ selectedTemplate.inputSpec }}
+          </span>
+          <span v-if="selectedTemplate.outputSpec" class="admin-prompt-view__meta-item">
+            <span class="admin-prompt-view__meta-label">출력</span>{{ selectedTemplate.outputSpec }}
+          </span>
+        </div>
+        <button class="admin-prompt-view__compare-btn" type="button" disabled>템플릿 비교</button>
+      </div>
+
+      <section v-if="selectedTemplate && selectedVersion" class="admin-prompt-view__card surface-card">
+        <div class="admin-prompt-view__two-col">
+          <div class="admin-prompt-view__prompt-pane">
+            <h2>프롬프트 본문</h2>
+            <textarea
+              v-if="isEditable"
+              v-model="editBody"
+              class="admin-prompt-view__editor"
+              spellcheck="false"
+              aria-label="프롬프트 본문 편집"
+            ></textarea>
+            <pre v-else class="admin-prompt-view__preview">{{ selectedVersion.body }}</pre>
+            <template v-if="isEditable">
+              <p v-if="saveError" class="admin-prompt-view__save-error">{{ saveError }}</p>
+              <div class="admin-prompt-view__save-row">
+                <input
+                  v-model="editReason"
+                  class="admin-prompt-view__reason"
+                  type="text"
+                  maxlength="500"
+                  placeholder="변경 사유 (선택)"
+                />
+                <BaseButton size="sm" :disabled="!isDirty || isSaving" @click="saveEdit">
+                  {{ isSaving ? '저장 중…' : '저장' }}
+                </BaseButton>
+              </div>
+            </template>
           </div>
 
-          <div class="admin-prompt-view__section-title">
-            <h2>{{ selectedTemplate.label }}</h2>
-            <p>{{ selectedTemplate.description }}</p>
-          </div>
-
-          <dl class="admin-prompt-view__summary-strip">
-            <div>
-              <dt>공개 방식</dt>
-              <dd>{{ formatExposure(displaySchema?.exposure) }}</dd>
-            </div>
-            <div>
-              <dt>변경 사유</dt>
-              <dd>{{ selectedVersion.changeReason }}</dd>
-            </div>
-          </dl>
-
-          <div class="admin-prompt-view__prompt-preview" aria-label="Masked prompt preview">
-            <section
-              v-for="block in promptBlocks"
-              :key="block.key"
-              class="admin-prompt-view__prompt-block"
-              :class="{ 'admin-prompt-view__prompt-block--masked': block.masked }"
-            >
-              <header>
-                <span>{{ block.masked ? '[MASKED]' : '##' }}</span>
-                <h3>{{ block.title }}</h3>
-              </header>
-              <pre>{{ block.body }}</pre>
-            </section>
+          <div class="admin-prompt-view__var-pane">
+            <h2>사용 가능한 변수</h2>
+            <dl v-if="selectedTemplate.variables?.length" class="admin-prompt-view__var-list">
+              <div v-for="v in selectedTemplate.variables" :key="v.token" class="admin-prompt-view__var-row">
+                <dt class="admin-prompt-view__var-token">{{ v.token }}</dt>
+                <dd>{{ v.description }}</dd>
+              </div>
+            </dl>
+            <p v-else class="admin-prompt-view__var-empty">이 Agent에는 고정 변수가 없습니다.</p>
+            <p class="admin-prompt-view__var-note">변수는 DB variables_schema 기준으로 표시됩니다.</p>
           </div>
         </div>
-
-        <aside class="admin-prompt-view__card surface-card">
-          <h2>변수 스키마</h2>
-          <dl v-if="variables.length" class="admin-prompt-view__schema-list">
-            <div v-for="variable in variables" :key="variable.token">
-              <dt>
-                <code>{{ variable.token }}</code>
-              </dt>
-              <dd>{{ variable.description }}</dd>
-            </div>
-          </dl>
-          <p v-else class="admin-prompt-view__schema-note">공개 가능한 변수 스키마가 없습니다.</p>
-
-          <div v-if="hiddenSections.length" class="admin-prompt-view__aside-block">
-            <h3>마스킹 영역</h3>
-            <div class="admin-prompt-view__chips admin-prompt-view__chips--muted">
-              <span v-for="section in hiddenSections" :key="section">{{ section }}</span>
-            </div>
-          </div>
-
-          <h2>운영 메타</h2>
-          <dl class="admin-prompt-view__meta-list">
-            <div>
-              <dt>Agent Key</dt>
-              <dd>{{ selectedTemplate.category }}</dd>
-            </div>
-            <div>
-              <dt>Source</dt>
-              <dd>{{ displaySchema?.sourcePath ?? '-' }}</dd>
-            </div>
-            <div>
-              <dt>Runtime</dt>
-              <dd>{{ displaySchema?.runtimeUsage ?? '-' }}</dd>
-            </div>
-          </dl>
-        </aside>
       </section>
 
       <section class="admin-prompt-view__card surface-card">
         <div class="admin-prompt-view__section-title">
           <h2>버전 이력</h2>
-          <p>이전 버전은 선택해서 내용을 확인할 수 있습니다.</p>
+          <p>이전 버전을 선택하면 위 미리보기에서 해당 본문을 확인할 수 있습니다.</p>
         </div>
         <BaseTable
           :columns="versionColumns"
@@ -307,21 +255,11 @@ onMounted(() => {
   gap: var(--space-4);
 }
 
-.admin-prompt-view__header {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: var(--space-3);
+.admin-prompt-view__header > div {
+  display: grid;
+  gap: var(--space-1);
 }
 
-.admin-prompt-view__title-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.admin-prompt-view__tabs,
 .admin-prompt-view__card {
   padding: var(--space-4);
 }
@@ -329,46 +267,188 @@ onMounted(() => {
 .admin-prompt-view__tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--color-border-default);
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: 0 var(--space-4);
 }
 
-.admin-prompt-view__tabs button {
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-surface);
+.admin-prompt-view__tab {
+  padding: var(--space-3);
   color: var(--color-fg-muted);
-  padding: var(--space-2) var(--space-3);
-  cursor: pointer;
-  font: inherit;
   font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.admin-prompt-view__tab:hover {
+  color: var(--color-fg-strong);
 }
 
 .admin-prompt-view__tab--active {
-  border-color: var(--color-action-primary) !important;
-  background: var(--color-action-primary-soft) !important;
-  color: var(--color-action-primary) !important;
+  color: var(--color-action-primary);
+  border-bottom-color: var(--color-action-primary);
 }
 
-.admin-prompt-view__layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.85fr);
-  gap: var(--space-4);
-  align-items: start;
-}
-
-.admin-prompt-view__card-head {
+.admin-prompt-view__meta-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
 
-.admin-prompt-view__card-meta {
+.admin-prompt-view__meta-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  font-size: var(--font-size-sm);
+  color: var(--color-fg-muted);
+}
+
+.admin-prompt-view__meta-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.admin-prompt-view__meta-label {
+  color: var(--color-fg-subtle);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  background: var(--color-bg-subtle);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 1px 6px;
+}
+
+.admin-prompt-view__compare-btn {
+  font-size: var(--font-size-sm);
+  color: var(--color-fg-subtle);
+  background: none;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-3);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.admin-prompt-view__two-col {
+  display: grid;
+  grid-template-columns: 1fr 260px;
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.admin-prompt-view__prompt-pane {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.admin-prompt-view__editor {
+  width: 100%;
+  resize: vertical;
+  min-height: 280px;
+  border: 1px solid var(--color-action-primary-border, var(--color-border-default));
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-surface);
+  padding: var(--space-3);
+  color: var(--color-fg-strong);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+}
+
+.admin-prompt-view__preview {
+  overflow: auto;
+  margin: 0;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-surface);
+  padding: var(--space-3);
+  color: var(--color-fg-strong);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.admin-prompt-view__save-row {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  flex-wrap: wrap;
-  min-width: 0;
+}
+
+.admin-prompt-view__reason {
+  flex: 1;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-surface);
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-fg-strong);
+  font: inherit;
+  font-size: var(--font-size-sm);
+}
+
+.admin-prompt-view__save-error {
+  color: var(--color-risk-high);
+  font-size: var(--font-size-sm);
+  margin: 0;
+}
+
+.admin-prompt-view__var-pane {
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+}
+
+.admin-prompt-view__var-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.admin-prompt-view__var-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.admin-prompt-view__var-token {
+  color: var(--color-action-primary);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.admin-prompt-view__var-empty {
+  color: var(--color-fg-subtle);
+  font-size: var(--font-size-sm);
+  margin: 0;
+}
+
+.admin-prompt-view__var-note {
+  font-size: var(--font-size-xs);
+  color: var(--color-fg-subtle);
+  line-height: var(--line-height-relaxed);
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: var(--space-2);
+  margin-top: var(--space-1);
+  margin-bottom: 0;
 }
 
 .admin-prompt-view__section-title {
@@ -382,157 +462,8 @@ onMounted(() => {
   color: var(--color-fg-muted);
 }
 
-.admin-prompt-view__prompt-card {
-  align-content: start;
-}
-
-.admin-prompt-view__summary-strip {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-subtle);
-}
-
-.admin-prompt-view__summary-strip div {
-  display: grid;
-  gap: var(--space-1);
-  min-width: 0;
-  border-right: 1px solid var(--color-border-subtle);
-  padding: var(--space-3);
-}
-
-.admin-prompt-view__summary-strip div:last-child {
-  border-right: 0;
-}
-
-.admin-prompt-view__summary-strip dd {
-  color: var(--color-fg-strong);
-  font-weight: var(--font-weight-semibold);
-}
-
-.admin-prompt-view__prompt-preview {
-  overflow: hidden;
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-surface);
-}
-
-.admin-prompt-view__prompt-block {
-  display: grid;
-  gap: var(--space-2);
-  border-bottom: 1px solid var(--color-border-subtle);
-  padding: var(--space-3);
-}
-
-.admin-prompt-view__prompt-block:last-child {
-  border-bottom: 0;
-}
-
-.admin-prompt-view__prompt-block header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.admin-prompt-view__prompt-block header span {
-  display: inline-flex;
-  align-items: center;
-  min-height: 22px;
-  border-radius: var(--radius-sm);
-  background: var(--color-action-primary-soft);
-  color: var(--color-action-primary);
-  padding: 0 7px;
-  font-family: var(--font-family-mono);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-bold);
-}
-
-.admin-prompt-view__prompt-block pre {
-  overflow: auto;
-  margin: 0;
-  color: var(--color-fg-strong);
-  font-family: var(--font-family-mono);
-  font-size: var(--font-size-sm);
-  white-space: pre-wrap;
-  line-height: var(--line-height-relaxed);
-}
-
-.admin-prompt-view__prompt-block--masked {
-  background: color-mix(in srgb, var(--color-risk-high) 5%, var(--color-bg-surface));
-}
-
-.admin-prompt-view__prompt-block--masked header span {
-  background: color-mix(in srgb, var(--color-risk-high) 12%, var(--color-bg-surface));
-  color: var(--color-risk-high);
-}
-
-.admin-prompt-view__prompt-block--masked pre {
-  color: color-mix(in srgb, var(--color-risk-high) 72%, var(--color-fg-strong));
-}
-
-.admin-prompt-view__meta-list,
-.admin-prompt-view__schema-list {
-  display: grid;
-  gap: 0;
-}
-
-.admin-prompt-view__meta-list div,
-.admin-prompt-view__schema-list div {
-  display: grid;
-  gap: var(--space-2);
-  padding: var(--space-2) 0;
-  border-bottom: 1px solid var(--color-border-subtle);
-}
-
-.admin-prompt-view__meta-list div {
-  grid-template-columns: 88px minmax(0, 1fr);
-}
-
-.admin-prompt-view__meta-list div:last-child,
-.admin-prompt-view__schema-list div:last-child {
-  border-bottom: 0;
-}
-
-.admin-prompt-view__aside-block {
-  display: grid;
-  gap: var(--space-2);
-}
-
-.admin-prompt-view__schema-note {
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-subtle);
-  color: var(--color-fg-muted);
-  font-size: var(--font-size-xs);
-  padding: var(--space-2) var(--space-3);
-}
-
-.admin-prompt-view__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.admin-prompt-view__chips span {
-  border: 1px solid var(--color-action-primary-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-action-primary-soft);
-  color: var(--color-action-primary);
-  padding: 3px 8px;
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-}
-
-.admin-prompt-view__chips--muted span {
-  border-color: var(--color-border-subtle);
-  background: var(--color-bg-subtle);
-  color: var(--color-fg-muted);
-}
-
 h1,
 h2,
-h3,
 p,
 dl {
   margin: 0;
@@ -549,60 +480,19 @@ h2 {
   font-size: var(--font-size-lg);
 }
 
-h3 {
-  color: var(--color-fg-strong);
-  font-size: var(--font-size-sm);
-}
-
 p,
-span,
 dd {
   color: var(--color-fg-muted);
 }
 
 dt {
   margin: 0;
-  color: var(--color-fg-muted);
-  font-size: var(--font-size-sm);
 }
 
 dd {
   margin: 0;
   min-width: 0;
   word-break: break-word;
-}
-
-code {
-  color: var(--color-fg-strong);
-  font-family: var(--font-family-mono);
-  font-size: var(--font-size-xs);
-  background: var(--color-bg-subtle);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
-  padding: 1px 6px;
-}
-
-@media (max-width: 980px) {
-  .admin-prompt-view__header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .admin-prompt-view__layout {
-    grid-template-columns: 1fr;
-  }
-
-  .admin-prompt-view__summary-strip {
-    grid-template-columns: 1fr;
-  }
-
-  .admin-prompt-view__summary-strip div {
-    border-right: 0;
-    border-bottom: 1px solid var(--color-border-subtle);
-  }
-
-  .admin-prompt-view__summary-strip div:last-child {
-    border-bottom: 0;
-  }
+  font-size: var(--font-size-sm);
 }
 </style>

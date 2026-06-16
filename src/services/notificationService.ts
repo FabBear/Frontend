@@ -1,5 +1,8 @@
 import api from '@/services/api';
 
+import { DEMO_NOTIFICATION_LIST } from '@/constants/mockData/demoAlert';
+import { shouldUseDemoMockData } from '@/constants/mockMode';
+
 import type {
   NotificationItem,
   NotificationItemResponse,
@@ -13,23 +16,35 @@ import type {
 const NOTIFICATION_STREAM_PATH = '/v1/notifications/stream';
 
 export async function fetchNotifications(): Promise<NotificationListData> {
-  const { data } = await api.get<NotificationListResponse>('/v1/notifications', {
-    params: {
-      page: 0,
-      size: 20,
-      sort: 'createdAt,desc',
-    },
-  });
+  if (shouldUseDemoMockData()) return DEMO_NOTIFICATION_LIST;
 
-  return {
-    totalUnreadCount: data.totalUnreadCount,
-    items: data.items.map(mapNotificationItem),
-  };
+  try {
+    const { data } = await api.get<NotificationListResponse>('/v1/notifications', {
+      params: {
+        page: 0,
+        size: 20,
+        sort: 'createdAt,desc',
+      },
+    });
+
+    return {
+      totalUnreadCount: data.totalUnreadCount,
+      items: data.items.map(mapNotificationItem),
+    };
+  } catch {
+    return DEMO_NOTIFICATION_LIST;
+  }
 }
 
 export async function markNotificationsRead(notificationIds: string[]): Promise<void> {
   if (notificationIds.length === 0) return;
+  if (shouldUseDemoMockData()) return;
   await api.put('/v1/notifications/read', { notificationIds, readAll: false });
+}
+
+export async function markAllNotificationsRead(): Promise<void> {
+  if (shouldUseDemoMockData()) return;
+  await api.put('/v1/notifications/read', { notificationIds: [], readAll: true });
 }
 
 export function createNotificationEventSource(): EventSource {

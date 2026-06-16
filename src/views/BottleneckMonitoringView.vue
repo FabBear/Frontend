@@ -19,6 +19,7 @@ import ProcessMapCard from '@/components/dashboard/ProcessMapCard.vue';
 
 import bearSearchUrl from '@/assets/bear-search.svg';
 
+import { compareBottleneckRisk } from '@/utils/bottleneckRisk';
 import { formatKoMonthDayTime } from '@/utils/format';
 
 const route = useRoute();
@@ -58,9 +59,7 @@ const {
   handlePageChange: handleAlertPageChange,
 } = useBottleneckAlertList();
 
-const topBottleneck = computed(
-  () => [...toolGroups.value].sort((a, b) => b.bottleneckProb - a.bottleneckProb)[0] ?? null
-);
+const topBottleneck = computed(() => [...toolGroups.value].sort(compareBottleneckRisk)[0] ?? null);
 const selectedAlert = computed(() => {
   const caseId = getRouteCaseId() ?? snapshot.value?.caseId;
 
@@ -69,11 +68,14 @@ const selectedAlert = computed(() => {
 const selectedCaseId = computed(
   () => getRouteCaseId() ?? selectedAlert.value?.caseId ?? snapshot.value?.caseId ?? null
 );
-const selectedBottleneckProb = computed(
-  () => selectedAlert.value?.bottleneckProb ?? topBottleneck.value?.bottleneckProb ?? null
+const selectedAlertMetrics = computed(() => selectedAlert.value?.alertMetrics ?? null);
+const selectedRiskScore = computed(
+  () =>
+    selectedAlert.value?.riskScore ??
+    selectedAlertMetrics.value?.compositeScore ??
+    topBottleneck.value?.riskScore ??
+    null
 );
-const selectedDelayHours = computed(() => selectedAlert.value?.estDelayHours ?? null);
-const selectedAffectedTgCount = computed(() => selectedAlert.value?.affectedTgCount ?? null);
 const selectedCauseText = computed(() => selectedAlert.value?.mainCause ?? null);
 const selectedStatusText = computed(() => {
   if (!selectedAlert.value) return null;
@@ -141,6 +143,12 @@ function getRouteCaseId() {
   return typeof caseId === 'string' && caseId.length > 0 ? caseId : null;
 }
 
+function getRouteToolGroupId() {
+  const tgId = route.query.tgId;
+
+  return typeof tgId === 'string' && tgId.length > 0 ? tgId : null;
+}
+
 async function handleSelectAlert(caseId: string) {
   await router.push({
     name: ROUTE_NAMES.bottleneckMonitoring,
@@ -160,6 +168,19 @@ async function handleSelectArea(areaCode: string | null) {
   });
 }
 
+async function handleSelectMapToolGroup(tgId: string, areaCode: string) {
+  const caseId = getRouteCaseId();
+
+  await router.push({
+    name: ROUTE_NAMES.bottleneckMonitoring,
+    query: {
+      ...(caseId ? { caseId } : {}),
+      areaCode,
+      tgId,
+    },
+  });
+}
+
 function handleOpenCenter(caseId: string) {
   router.push({ name: ROUTE_NAMES.bottleneckCenter, query: { caseId } });
 }
@@ -175,6 +196,10 @@ async function refreshMonitoringData(blocking = false) {
   }
 
   await loadMonitoringData(getRouteAreaCode(), getRouteCaseId());
+  const tgId = getRouteToolGroupId();
+  if (tgId) {
+    await selectToolGroup(tgId);
+  }
   hasMonitoringLoaded.value = true;
 }
 
@@ -196,21 +221,28 @@ onMounted(() => {
   void refreshMonitoringData(true);
 });
 
-watch([() => route.query.areaCode, () => route.query.caseId], ([, nextCaseId], [, previousCaseId]) => {
-  if (nextCaseId !== previousCaseId) {
-    void refreshMonitoringData(true);
-    return;
-  }
+watch(
+  [() => route.query.areaCode, () => route.query.caseId, () => route.query.tgId],
+  ([, nextCaseId], [, previousCaseId]) => {
+    if (nextCaseId !== previousCaseId) {
+      void refreshMonitoringData(true);
+      return;
+    }
 
-  void selectArea(getRouteAreaCode());
-});
+    void selectArea(getRouteAreaCode());
+    const tgId = getRouteToolGroupId();
+    if (tgId) {
+      void selectToolGroup(tgId);
+    }
+  }
+);
 </script>
 
 <template>
   <div class="bottleneck-monitoring-view">
     <header class="bottleneck-monitoring-view__header">
       <div>
-        <h1 class="bottleneck-monitoring-view__title">병목 알림 케이스 모니터링</h1>
+        <h1 class="bottleneck-monitoring-view__title">병목 모니터링</h1>
         <p class="bottleneck-monitoring-view__subtitle">
           이전에 감지된 병목 알림 케이스와 해당 시점의 공정/TG 위험도를 확인합니다.
         </p>
@@ -267,9 +299,8 @@ watch([() => route.query.areaCode, () => route.query.caseId], ([, nextCaseId], [
           <BottleneckSnapshotCard
             :title="snapshotTitle"
             :subtitle="snapshotSubtitle"
-            :delay-hours="selectedDelayHours"
-            :affected-tg-count="selectedAffectedTgCount"
-            :bottleneck-prob="selectedBottleneckProb"
+            :risk-score="selectedRiskScore"
+            :alert-metrics="selectedAlertMetrics"
             :status-text="selectedStatusText"
             :cause-text="selectedCauseText"
             :disabled="!snapshot"
@@ -281,6 +312,7 @@ watch([() => route.query.areaCode, () => route.query.caseId], ([, nextCaseId], [
             :selected-area-code="selectedAreaCode"
             metric-mode="bottleneck"
             @select-area="handleSelectArea"
+            @select-tool-group="handleSelectMapToolGroup"
           />
 
           <BottleneckToolGroupPanel
@@ -303,18 +335,30 @@ watch([() => route.query.areaCode, () => route.query.caseId], ([, nextCaseId], [
 
 <style scoped>
 .bottleneck-monitoring-view {
+  --bottleneck-monitoring-sticky-header-height: 74px;
+  --bottleneck-monitoring-selector-top: calc(var(--bottleneck-monitoring-sticky-header-height) + var(--space-3));
+  --bottleneck-monitoring-selector-max-height: calc(
+    100svh - var(--layout-header-height) - var(--spacing-page) - var(--bottleneck-monitoring-selector-top)
+  );
+
   display: grid;
   min-width: 0;
   gap: var(--space-3);
 }
 
 .bottleneck-monitoring-view__header {
+  position: sticky;
+  top: calc(var(--spacing-page) * -1);
+  z-index: var(--z-index-sticky);
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-4);
+  margin: calc(var(--spacing-page) * -1) calc(var(--spacing-page) * -1) 0;
   border-bottom: var(--border-width-default) solid var(--color-border-default);
-  padding-bottom: var(--space-2);
+  background: color-mix(in srgb, var(--color-bg-surface) 94%, transparent);
+  padding: var(--spacing-page) var(--spacing-page) var(--space-2);
+  backdrop-filter: blur(10px);
 }
 
 .bottleneck-monitoring-view__title {
@@ -431,6 +475,11 @@ watch([() => route.query.areaCode, () => route.query.caseId], ([, nextCaseId], [
 }
 
 @media (max-width: 1120px) {
+  .bottleneck-monitoring-view {
+    --bottleneck-monitoring-selector-top: 0px;
+    --bottleneck-monitoring-selector-max-height: none;
+  }
+
   .bottleneck-monitoring-view__workspace {
     grid-template-columns: 1fr;
   }
@@ -439,6 +488,10 @@ watch([() => route.query.areaCode, () => route.query.caseId], ([, nextCaseId], [
 @media (max-width: 760px) {
   .bottleneck-monitoring-view__header {
     display: grid;
+    position: static;
+    margin: 0;
+    padding: 0 0 var(--space-2);
+    backdrop-filter: none;
   }
 
   .bottleneck-monitoring-view__empty {

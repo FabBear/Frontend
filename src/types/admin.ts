@@ -1,6 +1,13 @@
 export type AdminUserRole = 'ADMIN' | 'ENGINEER';
 
-export type AdminResourceKey = 'thresholds' | 'access' | 'mlflow' | 'mesInterface' | 'prompts' | 'ingestion' | 'logs';
+export type AdminResourceKey =
+  | 'labelingRules'
+  | 'access'
+  | 'mlflow'
+  | 'mesInterface'
+  | 'prompts'
+  | 'ingestion'
+  | 'logs';
 
 export type AdminStatus = 'NORMAL' | 'WARNING' | 'ERROR' | 'DISABLED';
 
@@ -26,27 +33,6 @@ export interface AdminResourceItem {
   owner: string;
   updatedAt: string;
   metrics: Array<{ label: string; value: string }>;
-}
-
-export interface AdminThresholdConfig {
-  id: string;
-  fabId?: string;
-  category: 'BOTTLENECK' | 'KPI' | 'ACTION_RULE';
-  configKey: string;
-  configValue: string;
-  valueType: 'FLOAT' | 'INT' | 'STRING' | 'BOOL';
-  description: string;
-  unit?: string;
-  updatedBy: string;
-  updatedAt: string;
-}
-
-export interface AdminThresholdHistory {
-  changedAt: string;
-  itemName: string;
-  before: string;
-  after: string;
-  changedBy: string;
 }
 
 export interface AdminMlModelVersion {
@@ -75,7 +61,17 @@ export interface DriftRetrainDecision {
   status?: 'APPROVED' | 'ON_HOLD' | string;
   trigger_status?: 'REQUESTED' | 'DEFERRED' | string;
   trigger_mode?: string;
-  pipeline_status?: 'PENDING_ML_PIPELINE' | 'ON_HOLD' | string;
+  pipeline_status?:
+    | 'PENDING_ML_PIPELINE'
+    | 'QUEUED'
+    | 'RUNNING'
+    | 'STAGING_READY'
+    | 'SUCCEEDED'
+    | 'FAILED'
+    | 'QUEUE_FAILED'
+    | 'QUEUE_DISABLED'
+    | 'ON_HOLD'
+    | string;
   decided_at?: string;
   decided_by_user_id?: string;
   decided_by_login_id?: string;
@@ -90,6 +86,21 @@ export interface DriftRetrainDecision {
   reasonText?: string | null;
   reason?: string | null;
   next_step?: string;
+  runner?: string;
+  requested_by?: string;
+  requested_by_login_id?: string;
+  requested_at?: string;
+  updated_at?: string;
+  started_at?: string;
+  completed_at?: string;
+  jenkins_job?: string;
+  jenkins_queue_url?: string | null;
+  jenkins_build_url?: string | null;
+  jenkins_build_number?: string | null;
+  jenkins_trigger_http_status?: number;
+  resulting_model_version_id?: string;
+  resulting_mlflow_version?: string;
+  error_message?: string;
 }
 
 export interface DriftReportDetail {
@@ -117,6 +128,30 @@ export interface AdminDriftAlert {
   resultingModelVersionId: string | null;
   alertStatus?: 'NEW' | 'ACK' | 'CLOSED';
   detail?: DriftReportDetail | null;
+}
+
+export interface AdminMlflowAliasStatus {
+  modelName: string;
+  alias: string;
+  version: string | null;
+  available: boolean;
+  errorMessage: string | null;
+}
+
+export interface AdminAgentModelStatus {
+  modelName: string;
+  alias: string;
+  loadedVersion: string | null;
+  source: 'MLFLOW' | 'LOCAL_FALLBACK' | string | null;
+  lastRefreshAt: string | null;
+  available: boolean;
+  errorMessage: string | null;
+}
+
+export interface AdminMlflowRuntimeStatus {
+  productionAlias: AdminMlflowAliasStatus;
+  activeDbModel: AdminMlModelVersion | null;
+  agentModel: AdminAgentModelStatus;
 }
 
 export interface AdminAccessUser {
@@ -159,6 +194,9 @@ export interface AdminPromptTemplate {
   body: string;
   variables: Array<{ token: string; description: string }>;
   variablesSchema?: AdminPromptVariablesSchema | null;
+  purpose?: string;
+  inputSpec?: string;
+  outputSpec?: string;
 }
 
 export interface AdminPromptVersion {
@@ -172,6 +210,65 @@ export interface AdminPromptVersion {
   changeReason: string;
   status: 'ACTIVE' | 'PREVIOUS';
   variablesSchema?: AdminPromptVariablesSchema | null;
+}
+
+// ── 라벨링 기준 관리 ────────────────────────────────────────────────────────
+
+export interface AdminLabelingRule {
+  ruleId: string;
+  ruleVersion: number;
+  versionLabel: string;
+  lookaheadMin: number;
+  // 분위수 knob
+  qQuantile: number;
+  qMaxQuantile: number;
+  wQuantile: number;
+  wipQuantile: number;
+  aQuantile: number;
+  uHiQuantile: number;
+  uLoQuantile: number;
+  // 환산 절대 cutoff
+  qCut: number | null;
+  qMaxCut: number | null;
+  wCut: number | null;
+  wipCut: number | null;
+  aCut: number | null;
+  uHiCut: number | null;
+  uLoCut: number | null;
+  resolvedRunId: string | null;
+  resolvedAt: string | null;
+  isActive: boolean;
+  changeReason: string | null;
+  createdAt: string;
+  createdBy: string;
+}
+
+export interface AdminLabelingPreviewRequest {
+  lookaheadMin: number;
+  qQuantile: number;
+  qMaxQuantile: number;
+  wQuantile: number;
+  wipQuantile: number;
+  aQuantile: number;
+  uHiQuantile: number;
+  uLoQuantile: number;
+  windowMinutes?: number;
+}
+
+export interface AdminLabelingPreview {
+  evaluated: number;
+  skipped: number;
+  beforePositive: number;
+  afterPositive: number;
+  changed: number;
+  qCut: number | null;
+  qMaxCut: number | null;
+  wCut: number | null;
+  wipCut: number | null;
+  aCut: number | null;
+  uHiCut: number | null;
+  uLoCut: number | null;
+  resolvedRunId: string | null;
 }
 
 export interface AdminPromptVariablesSchema {

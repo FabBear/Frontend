@@ -30,7 +30,6 @@ function routeTab() {
 }
 
 const {
-  isMockMode,
   tabOptions,
   cases,
   selectedCaseId,
@@ -64,9 +63,9 @@ const disabledTabs = computed<Set<BncTabId>>(() => {
   const steps = selectedCaseDetail.value?.agentProgress ?? [];
   const isDone = (name: string) => steps.some((step) => step.stepName === name && step.status === 'DONE');
   const disabled = new Set<BncTabId>();
-  if (!isDone('CAUSE_ANALYZER')) disabled.add('cause');
-  if (!isDone('COMPARE_AGENT')) disabled.add('solutions');
-  if (!isDone('REPORT_AGENT')) disabled.add('report');
+  if (!isDone('CAUSE_ANALYSIS')) disabled.add('cause');
+  if (!isDone('ACTION_PLAN_COMPARE')) disabled.add('solutions');
+  if (!isDone('REPORT_GEN')) disabled.add('report');
   return disabled;
 });
 
@@ -161,7 +160,6 @@ watch(selectedCaseDetail, (detail) => {
       <div>
         <div class="bnc-view__title-row">
           <h1 class="bnc-view__title">병목 대응 센터</h1>
-          <span v-if="isMockMode" class="bnc-view__mock-badge">Mock Preview · 백엔드 연동 전</span>
         </div>
         <p class="bnc-view__subtitle">Agent 분석 결과를 확인하고 대응안을 검토하는 운영 의사결정 화면입니다.</p>
       </div>
@@ -203,6 +201,7 @@ watch(selectedCaseDetail, (detail) => {
             :analysis="selectedCauseAnalysis"
             :loading="isArtifactLoading"
             :error-message="artifactErrorMessage"
+            :case-id="selectedCaseId"
           />
           <BncSolutionsTab
             v-else-if="activeTab === 'solutions'"
@@ -250,20 +249,6 @@ watch(selectedCaseDetail, (detail) => {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
-}
-
-.bnc-view__mock-badge {
-  display: inline-flex;
-  align-items: center;
-  min-height: 28px;
-  padding: 0 var(--space-3);
-  border: 1px solid color-mix(in srgb, var(--color-gold) 32%, var(--color-border));
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--color-gold) 10%, var(--color-surface));
-  color: color-mix(in srgb, var(--color-brand-brown) 80%, var(--color-gold));
-  font-size: var(--font-size-sm);
-  font-weight: 800;
-  letter-spacing: 0;
 }
 
 .bnc-view__subtitle {

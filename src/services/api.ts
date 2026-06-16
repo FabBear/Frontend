@@ -1,9 +1,13 @@
 import axios from 'axios';
 import type { InternalAxiosRequestConfig } from 'axios';
 
+import { shouldUseDemoMockData } from '@/constants/mockMode';
+
 // _csrfRetried: CSRF priming 후 무한 retry 방지 플래그
 // _authVerifiedOn401: 단일 요청에서 인증 재확인 중복 방지 플래그
 type RetryableConfig = InternalAxiosRequestConfig & { _csrfRetried?: boolean; _authVerifiedOn401?: boolean };
+
+const MOCK_AUTH_STORAGE_KEY = 'fabbear.mockAuthUser';
 
 // XSRF-TOKEN 쿠키를 읽어 반환 — Spring이 발급한 CSRF 토큰
 function getCsrfToken(): string | null {
@@ -19,6 +23,10 @@ const api = axios.create({
 
 // 상태 변경 요청 — XSRF-TOKEN 쿠키값을 X-XSRF-TOKEN 헤더로 전달
 api.interceptors.request.use((config) => {
+  if (shouldUseDemoMockData()) {
+    return Promise.reject(new Error('API request skipped'));
+  }
+
   if (['post', 'put', 'patch', 'delete'].includes((config.method ?? '').toLowerCase())) {
     const token = getCsrfToken();
     if (token) config.headers['X-XSRF-TOKEN'] = token;
@@ -66,6 +74,9 @@ api.interceptors.response.use(
         });
       } catch (meError) {
         if (axios.isAxiosError(meError) && meError.response?.status === 401) {
+          if (window.localStorage.getItem(MOCK_AUTH_STORAGE_KEY)) {
+            return Promise.reject(error);
+          }
           authStore.clearAuth();
         }
       }

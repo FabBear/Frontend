@@ -203,9 +203,6 @@ const showObservability = computed(
             </span>
           </div>
         </div>
-        <div v-if="message.attachments?.length" class="chat-message__attachments">
-          <span v-for="file in message.attachments" :key="file.id">{{ file.name }}</span>
-        </div>
       </div>
       <div v-if="message.role === 'ASSISTANT' && message.content" class="chat-message__actions">
         <button type="button" class="chat-message__action" :title="copied ? '복사됨' : '복사'" @click="copyContent">
@@ -389,12 +386,6 @@ const showObservability = computed(
   color: var(--color-fg-muted);
 }
 
-.chat-message__attachments {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-}
-
 .chat-message__agent-result {
   display: grid;
   gap: var(--space-3);
@@ -570,13 +561,6 @@ const showObservability = computed(
   border-radius: var(--radius-md);
   background: var(--color-login-panel-bg);
   padding: var(--space-2);
-}
-
-.chat-message__attachments span {
-  padding: 2px var(--space-2);
-  background: color-mix(in srgb, var(--color-bg-surface) 82%, transparent);
-  border-radius: var(--radius-pill);
-  font-size: var(--font-size-xs);
 }
 
 .chat-message__sources {

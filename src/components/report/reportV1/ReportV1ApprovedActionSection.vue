@@ -3,11 +3,12 @@ import { ClipboardCheck } from '@lucide/vue';
 
 import type { ReportV1 } from '@/types/report';
 
+import ReportV1TgForecastPanel from '@/components/report/reportV1/ReportV1TgForecastPanel.vue';
+
 import type { ReportV1CandidateDisplay, ReportV1TgForecastRow } from '@/utils/reportV1DisplayAdapter';
 import {
   cleanStepText,
   deltaTone,
-  formatValue,
   impactDeltaText,
   monitoringTargetText,
   visibleImpacts,
@@ -65,30 +66,9 @@ defineProps<{
       </article>
     </div>
 
-    <div v-if="forecastGroups.length" class="report-v1__tg-forecast" data-pdf-avoid-break>
-      <h4>승인안 TG별 전망</h4>
-      <table>
-        <thead>
-          <tr>
-            <th>Tool Group</th>
-            <th>KPI</th>
-            <th>현재</th>
-            <th>무대응</th>
-            <th>대응 후</th>
-          </tr>
-        </thead>
-        <tbody>
-          <template v-for="group in forecastGroups" :key="group.toolgroup">
-            <tr v-for="row in group.rows" :key="`${group.toolgroup}-${row.kpi}`">
-              <td>{{ row.toolgroup }}</td>
-              <td>{{ row.label }}</td>
-              <td>{{ formatValue(row.kpi, row.unit, row.current) }}</td>
-              <td>{{ formatValue(row.kpi, row.unit, row.noAction) }}</td>
-              <td>{{ formatValue(row.kpi, row.unit, row.action) }}</td>
-            </tr>
-          </template>
-        </tbody>
-      </table>
+    <div v-if="forecastGroups.length" class="report-v1__tg-forecast">
+      <h4>TG별 전망</h4>
+      <ReportV1TgForecastPanel :groups="forecastGroups" />
     </div>
   </section>
 </template>

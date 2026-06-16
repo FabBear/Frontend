@@ -1,5 +1,7 @@
 import api from '@/services/api';
 
+import { MOCK_MES_MONITORING_DATA } from '@/constants/mockData/mes';
+import { shouldUseDemoMockData } from '@/constants/mockMode';
 import { getMesSemiconductorProcessCode, getProcessAreaNameKo } from '@/constants/processArea';
 import { RISK_LEVEL_META, riskGradeToLevel } from '@/constants/riskLevel';
 
@@ -278,9 +280,9 @@ function createKpiCards(payload: MesRealtimePayload): MesKpiCard[] {
     },
     {
       key: 'bottleneck',
-      title: '병목 TG 수',
+      title: '고가동 TG 수',
       value: `${formatNumber(fab?.bottleneckTgCount ?? null)}개`,
-      subtitle: '병목 확률 ≥50%',
+      subtitle: '가동률 High 이상',
       tone: 'danger',
     },
     {
@@ -349,6 +351,8 @@ export function mapMesPayload(payload: MesRealtimePayload, isConnected = true): 
 }
 
 export async function fetchMesMonitoringData(): Promise<MesMonitoringData> {
+  if (shouldUseDemoMockData()) return MOCK_MES_MONITORING_DATA;
+
   const { data } = await api.get<MesRealtimePayload>(MES_CURRENT_PATH);
   return mapMesPayload(data, true);
 }
@@ -374,7 +378,7 @@ export function exportMesCsv(data: MesMonitoringData, type: ExportType): void {
       '가동률(%)',
       '위험도',
       'WIP(Lot)',
-      '병목확률(%)',
+      'XGBoost 확률(%)',
       '평균Q-time(분)',
       'Setup비율(%)',
       '가용장비율(%)',
@@ -416,7 +420,7 @@ export function exportMesCsv(data: MesMonitoringData, type: ExportType): void {
     ]);
     filename = `mes_tool_kpi_${date}.csv`;
   } else {
-    headers = ['공정명', 'TG수', '평균가동률(%)', '최대가동률(%)', 'WIP(Lot)', '위험도', '병목TG수', 'Setup비율(%)'];
+    headers = ['공정명', 'TG수', '평균가동률(%)', '최대가동률(%)', 'WIP(Lot)', '위험도', '고가동TG수', 'Setup비율(%)'];
     rows = data.processSummaries.map((p) => [
       p.areaNameKo,
       String(p.toolGroupCount),

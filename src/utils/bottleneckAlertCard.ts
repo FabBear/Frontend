@@ -3,7 +3,7 @@ import { formatAlertAreaDisplay } from '@/constants/processArea';
 
 import type { BottleneckAlertItem } from '@/types/dashboard';
 
-import { formatKoMonthDayTime, formatNumber, formatRatioPercent } from '@/utils/format';
+import { formatKoMonthDayTime, formatNumber, formatRatioPercent, formatRiskScore } from '@/utils/format';
 
 type MetricTone = 'default' | 'risk' | 'muted';
 type StatusVariant = 'success' | 'warning' | 'info' | 'danger';
@@ -26,7 +26,7 @@ const DASHBOARD_STEP_LABELS: Record<string, string> = {
   CAUSE_ANALYSIS: '원인 분석',
   ACTION_PLAN_GEN: '대응안 생성',
   ACTION_PLAN_COMPARE: '대응안 비교',
-  HITL_WAITING: '승인 대기',
+  HITL_WAITING: 'HITL 승인',
   REPORT_GEN: '보고서 작성',
 };
 
@@ -51,10 +51,17 @@ export function getBottleneckAlertSubtitle(alert: BottleneckAlertItem): string {
 
 export function getBottleneckAlertMetrics(alert: BottleneckAlertItem): BottleneckCaseMetric[] {
   return [
-    { label: '병목 확률', value: formatRatioPercent(alert.bottleneckProb), tone: 'risk' },
-    { label: '영향 TG', value: formatNumber(alert.affectedTgCount), unit: '개' },
-    { label: '예상 지연', value: alert.estDelayHours.toFixed(1), unit: '시간' },
+    { label: '위험 점수', value: formatRiskScore(alert.riskScore), tone: 'risk' },
+    { label: '영향', value: formatAlertImpact(alert) },
+    { label: '위험 Lot', value: formatNumber(alert.alertMetrics?.atRiskLots ?? null) },
   ];
+}
+
+function formatAlertImpact(alert: BottleneckAlertItem): string {
+  if (alert.alertMetrics?.impactScore !== null && alert.alertMetrics?.impactScore !== undefined) {
+    return formatRatioPercent(alert.alertMetrics.impactScore);
+  }
+  return `${formatNumber(alert.alertMetrics?.affectedCount ?? alert.affectedTgCount)}개`;
 }
 
 export function getBottleneckAlertStatusText(alert: BottleneckAlertItem): string {
@@ -80,8 +87,8 @@ export function getBottleneckAlertStatusBadge(alert: BottleneckAlertItem): Bottl
   const stepName = normalizeText(alert.currentStepName);
 
   if (status === 'DETECTED') return BNC_STATUS_META.DETECTED;
-  if (status === 'AWAITING_HITL' || stepName === 'HITL_WAITING') return BNC_STATUS_META.AWAITING_HITL;
   if (isResolvedStatus(status)) return BNC_STATUS_META.RESOLVED;
+  if (status === 'AWAITING_HITL' || stepName === 'HITL_WAITING') return BNC_STATUS_META.AWAITING_HITL;
   if (isFailedStatus(status)) return { label: '확인 필요', variant: 'danger' };
   if (status === 'ANALYZING' || status === 'RUNNING' || status === 'IN_PROGRESS' || isUsableStepName(stepName)) {
     return BNC_STATUS_META.ANALYZING;

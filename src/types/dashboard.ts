@@ -1,5 +1,8 @@
 import type { RiskLevel } from '@/constants/riskLevel';
 
+import type { BncAlertMetrics } from '@/types/bnc';
+import type { ReleasePlanSummary } from '@/types/productionPlan';
+
 export interface FabKpiSnapshot {
   rtf: number | null;
   rtfDelta: number | null;
@@ -24,9 +27,12 @@ export interface BottleneckAlertItem {
   riskGrade: string;
   riskLevel: RiskLevel;
   bottleneckProb: number;
+  riskScore: number | null;
+  impactScore: number | null;
+  alertMetrics: BncAlertMetrics | null;
   estDelayHours: number;
   affectedTgCount: number;
-  affectedLotCount: number;
+  affectedLotCount: number | null;
   mainCause: string;
   status: string;
   currentStepName: string;
@@ -83,6 +89,7 @@ export interface DashboardProcessToolGroupData {
   riskLevel: RiskLevel;
   utilizationRate: number;
   bottleneckProb: number;
+  riskScore: number | null;
   wipCount: number;
 }
 
@@ -109,6 +116,7 @@ export interface DashboardSectionData {
   alerts: BottleneckAlertItem[] | null;
   processAreas: DashboardProcessAreaData[] | null;
   trends: KpiTrendSeries[] | null;
+  releasePlan: ReleasePlanSummary | null;
 }
 
 export type DashboardSectionKey = keyof DashboardSectionData;

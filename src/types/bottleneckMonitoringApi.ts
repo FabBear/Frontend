@@ -1,3 +1,4 @@
+import type { BncAlertMetrics } from '@/types/bnc';
 import type { BottleneckRiskGrade } from '@/types/bottleneckMonitoring';
 
 export interface BottleneckSnapshotResponse {
@@ -21,9 +22,11 @@ export interface BottleneckAlertResponseItem {
   riskGrade: BottleneckRiskGrade;
   riskLevel: string | null;
   bottleneckProb: number | null;
+  riskScore: number | null;
   detectedAt: string;
   estDelayHours: number | null;
   affectedTgCount: number | null;
+  alertMetrics?: BncAlertMetrics | null;
   mainCause: string | null;
   status: string | null;
   currentStepName: string | null;
@@ -56,6 +59,7 @@ export interface BottleneckToolGroupDetailResponse {
   setupRatio: number | null;
   waitRatio: number | null;
   bottleneckProb: number | null;
+  riskScore: number | null;
   riskGrade: BottleneckRiskGrade | null;
   relatedCaseId: string | null;
 }
@@ -72,6 +76,7 @@ export interface BottleneckRankingItemResponse {
   tgName: string;
   areaName: string;
   bottleneckProb: number | null;
+  riskScore: number | null;
   utilizationRate: number | null;
   wipCount: number | null;
   riskGrade: BottleneckRiskGrade | null;

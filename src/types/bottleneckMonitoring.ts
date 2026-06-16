@@ -47,6 +47,7 @@ export interface BottleneckToolGroupItem {
   waitRatio: number | null;
   availableToolRatio: number | null;
   bottleneckProb: number;
+  riskScore: number | null;
   measuredAt: string;
   areaId: string;
   areaCode: string;
@@ -73,6 +74,7 @@ export interface BottleneckToolGroupDetail {
   setupRatio: number | null;
   waitRatio: number | null;
   bottleneckProb: number;
+  riskScore: number | null;
   riskGrade: BottleneckRiskGrade;
   relatedCaseId: string | null;
 }

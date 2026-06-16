@@ -19,7 +19,17 @@ const topShapFeatures = computed(() => props.report.cause.shap_top.slice(0, 5));
   <section class="report-v1__panel">
     <div class="report-v1__panel-head">
       <h3>원인 요약</h3>
-      <span>{{ report.cause.consensus_axes.axes_agreed_count }}/4 분석 수렴</span>
+      <span class="report-v1__consensus">
+        <span
+          v-for="i in 4"
+          :key="i"
+          :class="[
+            'report-v1__consensus-dot',
+            i <= report.cause.consensus_axes.axes_agreed_count ? 'report-v1__consensus-dot--active' : '',
+          ]"
+        />
+        {{ report.cause.consensus_axes.axes_agreed_count }}/4 분석 수렴
+      </span>
     </div>
     <div class="report-v1__cause-layout">
       <div class="report-v1__primary-cause">

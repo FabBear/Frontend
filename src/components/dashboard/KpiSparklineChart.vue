@@ -22,7 +22,9 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  targetValue: undefined,
   showAxes: true,
+  xLabels: undefined,
 });
 
 function withAlpha(color: string, alpha: number): string {

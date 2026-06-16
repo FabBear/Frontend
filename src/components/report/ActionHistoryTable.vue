@@ -30,14 +30,7 @@ const fullColumns: BaseTableColumn[] = [
   { key: 'action', label: '' },
 ];
 
-const compactColumns: BaseTableColumn[] = [
-  { key: 'decidedAt', label: '일시' },
-  { key: 'targetTgText', label: 'Tool Group' },
-  { key: 'selectedPlanTitle', label: '선택 대응안' },
-  { key: 'status', label: '결과' },
-];
-
-const columns = computed(() => (props.compact ? compactColumns : fullColumns));
+const columns = computed(() => fullColumns);
 
 function toRow(item: ActionHistoryItem): BaseTableRow {
   return { ...item, id: item.caseId };
@@ -82,7 +75,31 @@ function deltaClass(value: number, inverse = false) {
 </script>
 
 <template>
+  <div v-if="props.compact" class="action-history-table__compact-list">
+    <p v-if="props.loading" class="action-history-table__state">리포트를 불러오는 중입니다.</p>
+    <p v-else-if="props.items.length === 0" class="action-history-table__state">
+      조건에 맞는 케이스 리포트가 없습니다.
+    </p>
+    <button
+      v-for="item in props.items"
+      v-else
+      :key="item.caseId"
+      type="button"
+      class="action-history-table__compact-item"
+      :class="{ 'action-history-table__compact-item--active': item.caseId === props.selectedCaseId }"
+      @click="$emit('select', item.caseId)"
+    >
+      <span class="action-history-table__compact-date">{{ formatDateTime(item.decidedAt) }}</span>
+      <strong>{{ item.targetTgText }}</strong>
+      <span>{{ item.selectedPlanTitle }}</span>
+      <BaseBadge :variant="item.decision === 'APPROVED' ? 'success' : 'warning'">
+        {{ item.decision === 'APPROVED' ? '승인' : '반려' }}
+      </BaseBadge>
+    </button>
+  </div>
+
   <BaseTable
+    v-else
     :columns="columns"
     :rows="props.items.map(toRow)"
     :loading="props.loading"
@@ -123,6 +140,56 @@ function deltaClass(value: number, inverse = false) {
 </template>
 
 <style scoped>
+.action-history-table__compact-list {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.action-history-table__compact-item {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  border: 1px solid transparent;
+  border-bottom-color: var(--color-border-subtle);
+  background: transparent;
+  color: var(--color-fg);
+  cursor: pointer;
+  font: inherit;
+  padding: var(--space-3);
+  text-align: left;
+}
+
+.action-history-table__compact-item:hover,
+.action-history-table__compact-item--active {
+  border-color: var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-action-primary) 7%, var(--color-bg-surface));
+}
+
+.action-history-table__compact-item strong {
+  color: var(--color-fg-strong);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.action-history-table__compact-item span {
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-sm);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.action-history-table__compact-date {
+  font-size: var(--font-size-xs);
+}
+
+.action-history-table__state {
+  margin: 0;
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-sm);
+}
+
 .action-history-table__tg {
   display: inline-block;
   margin-right: var(--space-2);

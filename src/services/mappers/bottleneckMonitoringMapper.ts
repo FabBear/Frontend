@@ -18,6 +18,8 @@ import type {
 } from '@/types/bottleneckMonitoringApi';
 import type { DashboardProcessAreaData, DashboardProcessToolGroupData } from '@/types/dashboard';
 
+import { resolveBottleneckRiskGrade } from '@/utils/bottleneckRisk';
+
 const RISK_GRADES: BottleneckRiskGrade[] = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
 
 interface AreaContext {
@@ -84,7 +86,8 @@ export function mapBottleneckToolGroupDetail(detail: BottleneckToolGroupDetailRe
     setupRatio: detail.setupRatio,
     waitRatio: detail.waitRatio,
     bottleneckProb: detail.bottleneckProb ?? 0,
-    riskGrade: normalizeRiskGrade(detail.riskGrade),
+    riskScore: detail.riskScore,
+    riskGrade: resolveBottleneckRiskGrade(detail.riskScore),
     relatedCaseId: detail.relatedCaseId,
   };
 }
@@ -97,7 +100,7 @@ function mapRankingItem(item: BottleneckRankingItemResponse, area: AreaContext):
     tgCode: item.tgCode,
     tgName: item.tgName,
     status: null,
-    riskGrade: normalizeRiskGrade(item.riskGrade),
+    riskGrade: resolveBottleneckRiskGrade(item.riskScore),
     utilizationRate: item.utilizationRate ?? 0,
     wipCount: item.wipCount ?? 0,
     avgQtimeMin: null,
@@ -105,6 +108,7 @@ function mapRankingItem(item: BottleneckRankingItemResponse, area: AreaContext):
     waitRatio: null,
     availableToolRatio: null,
     bottleneckProb: item.bottleneckProb ?? 0,
+    riskScore: item.riskScore,
     measuredAt: item.measuredAt,
     areaId: area.areaId,
     areaCode: processCode,
@@ -121,21 +125,29 @@ function mapDashboardToolGroup(toolGroup: BottleneckToolGroupItem): DashboardPro
     riskLevel: riskGradeToLevel(toolGroup.riskGrade),
     utilizationRate: toolGroup.utilizationRate,
     bottleneckProb: toolGroup.bottleneckProb,
+    riskScore: toolGroup.riskScore,
     wipCount: toolGroup.wipCount,
   };
 }
 
 export function mapBottleneckToolGroupsToDashboardAreas(
-  toolGroups: BottleneckToolGroupItem[]
+  toolGroups: BottleneckToolGroupItem[],
+  areas: BottleneckAreaSummary[] = []
 ): DashboardProcessAreaData[] {
   const groups = toolGroups.reduce<Record<string, BottleneckToolGroupItem[]>>((acc, toolGroup) => {
     acc[toolGroup.areaCode] ??= [];
     acc[toolGroup.areaCode].push(toolGroup);
     return acc;
   }, {});
+  const areaCodes = [
+    ...areas.map((area) => area.areaCode),
+    ...Object.keys(groups).filter((areaCode) => !areas.some((area) => area.areaCode === areaCode)),
+  ];
 
-  return Object.entries(groups)
-    .map(([areaCode, areaToolGroups]) => {
+  return areaCodes
+    .map((areaCode) => {
+      const areaToolGroups = groups[areaCode] ?? [];
+      const areaSummary = areas.find((area) => area.areaCode === areaCode);
       const tgSummary = RISK_GRADES.reduce(
         (summary, riskGrade) => {
           summary[riskGrade] = areaToolGroups.filter((toolGroup) => toolGroup.riskGrade === riskGrade).length;
@@ -146,10 +158,10 @@ export function mapBottleneckToolGroupsToDashboardAreas(
       const [firstToolGroup] = areaToolGroups;
 
       return {
-        areaId: firstToolGroup?.areaId ?? areaCode,
+        areaId: areaSummary?.areaId ?? firstToolGroup?.areaId ?? areaCode,
         areaCode,
-        areaName: firstToolGroup?.areaName ?? getProcessAreaNameKo(areaCode),
-        totalTgCount: areaToolGroups.length,
+        areaName: areaSummary?.areaName ?? firstToolGroup?.areaName ?? getProcessAreaNameKo(areaCode),
+        totalTgCount: areaSummary?.totalTgCount ?? areaToolGroups.length,
         bottleneckTgCount: areaToolGroups.filter(isBottleneckRisk).length,
         tgSummary,
         toolGroups: areaToolGroups.map(mapDashboardToolGroup),
@@ -159,7 +171,7 @@ export function mapBottleneckToolGroupsToDashboardAreas(
 }
 
 function isBottleneckRisk(toolGroup: BottleneckToolGroupItem): boolean {
-  return toolGroup.riskGrade === 'CRITICAL' || toolGroup.riskGrade === 'HIGH' || toolGroup.bottleneckProb >= 0.5;
+  return toolGroup.riskGrade === 'CRITICAL' || toolGroup.riskGrade === 'HIGH';
 }
 
 function createAreaContextMap(areas: BottleneckAreaSummary[]): Map<string, AreaContext> {
@@ -185,10 +197,6 @@ export function normalizeBottleneckRiskSummary(
     },
     {} as Record<BottleneckRiskGrade, number>
   );
-}
-
-function normalizeRiskGrade(riskGrade: BottleneckRiskGrade | null): BottleneckRiskGrade {
-  return riskGrade && RISK_GRADES.includes(riskGrade) ? riskGrade : 'LOW';
 }
 
 function normalizeAreaCode(areaName: string): string {

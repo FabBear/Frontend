@@ -796,198 +796,114 @@
   font-size: var(--font-size-sm);
 }
 
-.report-v1__pdf {
-  position: fixed;
-  top: 0;
-  left: -10000px;
-  width: 794px;
-  min-height: 1123px;
-  padding: 42px;
-  background: #ffffff;
-  color: #111827;
-  font-family:
-    Pretendard,
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    sans-serif;
+/* ── PDF 캡처 모드 ───────────────────────────────────────────── */
+
+/* 인터랙티브 요소 숨김 */
+.report-v1__surface.is-pdf-mode .report-v1__panel-link,
+.report-v1__surface.is-pdf-mode .report-v1__rag-link {
+  display: none;
+}
+
+/* 클릭 가능한 임팩트 카드 → 정적 카드처럼 */
+.report-v1__surface.is-pdf-mode .report-v1__impact-card {
+  cursor: default;
   pointer-events: none;
 }
 
-.report-v1__pdf * {
-  box-sizing: border-box;
+.report-v1__surface.is-pdf-mode .report-v1__impact-arrow {
+  display: none;
 }
 
-.report-v1__pdf-cover {
-  padding: 28px;
-  color: #ffffff;
-  background: #1f2937;
-  border-radius: 8px;
+/* ── PDF page-break 힌트 ─────────────────────────────────────── */
+
+.report-v1__panel {
+  break-before: auto;
 }
 
-.report-v1__pdf-cover p,
-.report-v1__pdf-cover h1 {
-  margin: 0;
-}
-
-.report-v1__pdf-cover h1 {
-  margin-top: 8px;
-  font-size: 28px;
-}
-
-.report-v1__pdf-cover dl {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-  margin: 18px 0 0;
-}
-
-.report-v1__pdf-cover dt,
-.report-v1__pdf-cover dd {
-  margin: 0;
-  font-size: 11px;
-}
-
-.report-v1__pdf-cover dt {
-  opacity: 0.7;
-}
-
-.report-v1__pdf-section {
-  margin-top: 24px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.report-v1__pdf-section h2 {
-  margin: 0 0 12px;
-  color: #111827;
-  font-size: 18px;
-}
-
-.report-v1__pdf-section h3 {
-  margin: 14px 0 6px;
-  color: #374151;
-  font-size: 13px;
-}
-
-.report-v1__pdf-section p,
-.report-v1__pdf-section li {
-  margin: 6px 0;
-  color: #374151;
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-.report-v1__pdf-kpis {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  margin-top: 14px;
-}
-
-.report-v1__pdf-kpis div {
-  padding: 10px;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-}
-
-.report-v1__pdf-kpis span,
-.report-v1__pdf-kpis em {
-  display: block;
-  color: #6b7280;
-  font-size: 10px;
-  font-style: normal;
-}
-
-.report-v1__pdf-kpis strong {
-  display: block;
-  margin: 4px 0;
-  color: #111827;
-  font-size: 16px;
-}
-
-.report-v1__pdf-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 10px;
-}
-
-.report-v1__pdf-table th,
-.report-v1__pdf-table td {
-  padding: 6px 7px;
-  border: 1px solid #e5e7eb;
-  text-align: left;
-  vertical-align: top;
-}
-
-.report-v1__pdf-table th {
-  background: #f3f4f6;
-  color: #111827;
-}
-
-.report-v1__pdf-chart {
-  padding: 10px;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-}
-
-.report-v1__pdf-chart svg {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
-.report-v1__pdf-decision-notes {
-  display: grid;
-  gap: 10px;
-  margin-top: 14px;
-  padding: 10px;
-  border: 1px solid #dbeafe;
-  border-left: 4px solid #2563eb;
-  border-radius: 6px;
-  background: #eff6ff;
-}
-
-.report-v1__pdf-decision-notes h3 {
-  margin: 0;
-  color: #1e3a8a;
-}
-
-.report-v1__pdf-note-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-}
-
-.report-v1__pdf-note-grid div {
-  padding: 8px;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  background: #ffffff;
-}
-
-.report-v1__pdf-note-grid strong {
-  display: block;
-  margin-bottom: 4px;
-  color: #111827;
-  font-size: 11px;
-}
-
-.report-v1__pdf-note-grid ul {
-  margin: 0;
-  padding-left: 14px;
-}
-
-.report-v1__pdf-section table,
-.report-v1__pdf-section thead,
-.report-v1__pdf-section tr,
-.report-v1__pdf-section ol,
-.report-v1__pdf-section ul,
-.report-v1__pdf-kpis,
-.report-v1__pdf-chart,
-.report-v1__pdf-decision-notes {
+.report-v1__kpi,
+.report-v1__forecast-card,
+.report-v1__candidate,
+.report-v1__decision-note,
+.report-v1__rag-item,
+.report-v1__tg-forecast,
+.report-v1__forward,
+.report-v1__cause-layout,
+.report-v1__evidence-grid,
+.report-v1__action-grid,
+.report-v1__candidate-grid {
   break-inside: avoid;
-  page-break-inside: avoid;
+}
+
+.report-v1__panel table,
+.report-v1__panel thead,
+.report-v1__panel tr {
+  break-inside: avoid;
+}
+
+/* ── KPI 카드 delta 방향 표시 ────────────────────────────────── */
+
+.report-v1__kpi-delta {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 2px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.report-v1__kpi-delta--good {
+  color: var(--color-status-success);
+}
+
+.report-v1__kpi-delta--bad {
+  color: var(--color-status-danger);
+}
+
+.report-v1__kpi-delta--flat {
+  color: var(--color-fg-muted);
+}
+
+/* ── 확산 경로 구분자 ────────────────────────────────────────── */
+
+.report-v1__path-sep {
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-xs);
+  flex-shrink: 0;
+}
+
+/* ── 분석 수렴 도트 ──────────────────────────────────────────── */
+
+.report-v1__consensus {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--color-fg-muted);
+}
+
+.report-v1__consensus-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-border-default);
+  flex-shrink: 0;
+}
+
+.report-v1__consensus-dot--active {
+  background: var(--color-action-primary);
+}
+
+/* ── TG 전망 테이블 대응 후 컬러링 ──────────────────────────── */
+
+.report-v1__tg-forecast td.is-improved {
+  color: var(--color-status-success);
+  font-weight: var(--font-weight-semibold);
+}
+
+.report-v1__tg-forecast td.is-worsened {
+  color: var(--color-status-danger);
+  font-weight: var(--font-weight-semibold);
 }
 
 @media (max-width: 1180px) {

@@ -5,12 +5,18 @@ import { useRoute, useRouter } from 'vue-router';
 import {
   fetchMlflowDriftAlerts,
   fetchMlflowModelVersions,
+  fetchMlflowRuntimeStatus,
   holdMlflowRetrain,
   promoteMlflowModel,
   requestMlflowRetrain,
 } from '@/services/adminService';
 
-import type { AdminDriftAlert, AdminMlModelVersion, DriftRetrainDecision } from '@/types/admin';
+import type {
+  AdminDriftAlert,
+  AdminMlModelVersion,
+  AdminMlflowRuntimeStatus,
+  DriftRetrainDecision,
+} from '@/types/admin';
 
 import BaseBadge from '@/components/base/BaseBadge.vue';
 import BaseButton from '@/components/base/BaseButton.vue';
@@ -23,6 +29,7 @@ const route = useRoute();
 const router = useRouter();
 const models = ref<AdminMlModelVersion[]>([]);
 const driftAlerts = ref<AdminDriftAlert[]>([]);
+const runtimeStatus = ref<AdminMlflowRuntimeStatus | null>(null);
 const keyword = ref('');
 const statusFilter = ref<AdminMlModelVersion['status'] | 'ALL'>('ALL');
 const pendingPromote = ref<AdminMlModelVersion | null>(null);
@@ -49,7 +56,7 @@ const filteredModels = computed(() => {
 const activeModel = computed(() => models.value.find((m) => m.status === 'ACTIVE') ?? null);
 const stagingCount = computed(() => models.value.filter((m) => m.status === 'STAGING').length);
 const retrainPendingCount = computed(
-  () => driftAlerts.value.filter((a) => !a.isRetrainTriggered && !isRetrainOnHold(a)).length
+  () => driftAlerts.value.filter((a) => !retrainDecision(a) && !isRetrainOnHold(a)).length
 );
 
 const statusOptions: Array<{ value: AdminMlModelVersion['status'] | 'ALL'; label: string }> = [
@@ -84,7 +91,8 @@ const promoteRecommendation = computed(() => {
 });
 
 const canSubmitReportDecision = computed(() => {
-  if (!reportAlert.value || isActionPending.value || retrainDecision(reportAlert.value)) return false;
+  const decision = retrainDecision(reportAlert.value);
+  if (!reportAlert.value || isActionPending.value || (decision && !isRetriableDecision(decision))) return false;
   if (reportDecisionMode.value === 'APPROVE') {
     if (!approvalReasonCode.value) return false;
     if (approvalReasonCode.value === 'OTHER') return customApprovalReason.value.trim().length > 0;
@@ -109,6 +117,10 @@ function statusVariant(status: AdminMlModelVersion['status']) {
 }
 
 function retrainStatusVariant(alert: AdminDriftAlert) {
+  const status = retrainDecision(alert)?.pipeline_status;
+  if (status === 'STAGING_READY' || status === 'SUCCEEDED') return 'success';
+  if (status === 'QUEUE_FAILED' || status === 'FAILED' || status === 'QUEUE_DISABLED') return 'danger';
+  if (status === 'QUEUED' || status === 'RUNNING' || status === 'PENDING_ML_PIPELINE') return 'warning';
   if (alert.isRetrainTriggered) return 'success';
   if (isRetrainOnHold(alert)) return 'info';
   return 'warning';
@@ -136,6 +148,12 @@ async function loadMlflowData() {
     const [modelRows, driftRows] = await Promise.all([fetchMlflowModelVersions(), fetchMlflowDriftAlerts()]);
     models.value = modelRows.map((m) => ({ ...m, featureList: [...(m.featureList ?? [])] }));
     driftAlerts.value = driftRows;
+    try {
+      runtimeStatus.value = await fetchMlflowRuntimeStatus();
+    } catch (runtimeError) {
+      console.warn('[AdminMlflowView] runtime status failed:', runtimeError);
+      runtimeStatus.value = null;
+    }
     openRouteDriftReport();
   } catch (error) {
     console.error('[AdminMlflowView] load failed:', error);
@@ -209,7 +227,29 @@ function isRetrainOnHold(alert: AdminDriftAlert) {
   return retrainDecision(alert)?.status === 'ON_HOLD';
 }
 
+function pipelineStatusLabel(status: string | null | undefined) {
+  const labels: Record<string, string> = {
+    PENDING_ML_PIPELINE: '연결 대기',
+    QUEUE_DISABLED: '트리거 비활성',
+    QUEUE_FAILED: '큐 등록 실패',
+    QUEUED: '큐 등록됨',
+    RUNNING: '학습 중',
+    STAGING_READY: '후보 등록됨',
+    SUCCEEDED: '완료',
+    FAILED: '실패',
+    ON_HOLD: '보류됨',
+  };
+  return status ? (labels[status] ?? status) : '';
+}
+
+function isRetriableDecision(decision: DriftRetrainDecision | null) {
+  return ['QUEUE_FAILED', 'FAILED', 'QUEUE_DISABLED'].includes(decision?.pipeline_status ?? '');
+}
+
 function retrainStatusLabel(alert: AdminDriftAlert) {
+  const decision = retrainDecision(alert);
+  const pipelineLabel = pipelineStatusLabel(decision?.pipeline_status);
+  if (pipelineLabel) return pipelineLabel;
   if (alert.isRetrainTriggered) return '승인됨';
   if (isRetrainOnHold(alert)) return '보류됨';
   return '승인 대기';
@@ -270,6 +310,16 @@ function decisionAt(decision: DriftRetrainDecision | null) {
 function formatDecisionAt(decision: DriftRetrainDecision | null) {
   const at = decisionAt(decision);
   return at ? formatKoMonthDayTime(at) : '-';
+}
+
+function runtimeVersion(value: string | null | undefined) {
+  return value ? `v${value}` : '-';
+}
+
+function runtimeSourceLabel(source: string | null | undefined) {
+  if (source === 'MLFLOW') return 'MLflow';
+  if (source === 'LOCAL_FALLBACK') return '로컬 실행';
+  return source ?? '-';
 }
 
 function routeDriftId() {
@@ -346,6 +396,35 @@ watch(
         <span>재학습 승인 대기</span>
         <strong>{{ retrainPendingCount }}</strong>
         <small>{{ retrainPendingCount > 0 ? '관리자 확인 필요' : '처리 완료' }}</small>
+      </div>
+    </section>
+
+    <section v-if="runtimeStatus" class="admin-mlflow-view__runtime surface-card">
+      <div>
+        <span>DB ACTIVE</span>
+        <strong>{{ runtimeStatus.activeDbModel ? `v${runtimeStatus.activeDbModel.mlflowVersion}` : '-' }}</strong>
+        <small>{{ runtimeStatus.activeDbModel?.modelName ?? 'ACTIVE 없음' }}</small>
+      </div>
+      <div>
+        <span>MLflow production</span>
+        <strong>{{ runtimeVersion(runtimeStatus.productionAlias.version) }}</strong>
+        <small>{{
+          runtimeStatus.productionAlias.available ? runtimeStatus.productionAlias.modelName : '연결 실패'
+        }}</small>
+      </div>
+      <div>
+        <span>AI-Agent 로드 모델</span>
+        <strong>{{ runtimeVersion(runtimeStatus.agentModel.loadedVersion) }}</strong>
+        <small>{{
+          runtimeStatus.agentModel.available ? runtimeSourceLabel(runtimeStatus.agentModel.source) : '연결 실패'
+        }}</small>
+      </div>
+      <div>
+        <span>AI-Agent 갱신</span>
+        <strong>{{
+          runtimeStatus.agentModel.lastRefreshAt ? formatKoMonthDayTime(runtimeStatus.agentModel.lastRefreshAt) : '-'
+        }}</strong>
+        <small>{{ runtimeStatus.agentModel.alias ?? 'production' }}</small>
       </div>
     </section>
 
@@ -451,7 +530,8 @@ watch(
               <td>
                 <div class="admin-mlflow-view__decision-cell">
                   <BaseBadge :variant="retrainStatusVariant(alert)">{{ retrainStatusLabel(alert) }}</BaseBadge>
-                  <small v-if="decisionReason(alert)">{{ decisionReason(alert) }}</small>
+                  <small v-if="retrainDecision(alert)?.next_step">{{ retrainDecision(alert)?.next_step }}</small>
+                  <small v-else-if="decisionReason(alert)">{{ decisionReason(alert) }}</small>
                 </div>
               </td>
               <td>
@@ -584,12 +664,33 @@ watch(
           <dt>사유</dt>
           <dd>{{ decisionReasonText(retrainDecision(reportAlert)) || '-' }}</dd>
         </div>
+        <div>
+          <dt>파이프라인</dt>
+          <dd>{{ pipelineStatusLabel(retrainDecision(reportAlert)?.pipeline_status) || '-' }}</dd>
+        </div>
+        <div v-if="retrainDecision(reportAlert)?.resulting_mlflow_version">
+          <dt>후보 모델</dt>
+          <dd>v{{ retrainDecision(reportAlert)?.resulting_mlflow_version }}</dd>
+        </div>
+        <div v-if="retrainDecision(reportAlert)?.error_message">
+          <dt>오류</dt>
+          <dd>{{ retrainDecision(reportAlert)?.error_message }}</dd>
+        </div>
       </dl>
 
-      <section v-else class="admin-mlflow-view__decision-form">
+      <section
+        v-if="!retrainDecision(reportAlert) || isRetriableDecision(retrainDecision(reportAlert))"
+        class="admin-mlflow-view__decision-form"
+      >
         <div class="admin-mlflow-view__decision-head">
-          <h3>재학습 결정</h3>
-          <p>재학습 승인 또는 보류를 선택합니다.</p>
+          <h3>{{ retrainDecision(reportAlert) ? '재학습 결정 수정' : '재학습 결정' }}</h3>
+          <p>
+            {{
+              retrainDecision(reportAlert)
+                ? '재학습 요청 상태를 다시 기록합니다.'
+                : '재학습 승인 또는 보류를 선택합니다.'
+            }}
+          </p>
         </div>
         <div class="admin-mlflow-view__decision-toggle" role="group" aria-label="재학습 결정">
           <button
@@ -635,7 +736,7 @@ watch(
         <p v-if="modalErrorMessage" class="admin-mlflow-view__modal-error">{{ modalErrorMessage }}</p>
         <footer class="admin-mlflow-view__decision-footer">
           <BaseButton size="sm" :disabled="!canSubmitReportDecision" @click="submitReportDecision">
-            {{ reportDecisionMode === 'APPROVE' ? '승인 기록' : '보류 기록' }}
+            {{ reportDecisionMode === 'APPROVE' ? '재학습 요청' : '보류 기록' }}
           </BaseButton>
           <BaseButton size="sm" variant="ghost" @click="closeReport">닫기</BaseButton>
         </footer>
@@ -744,6 +845,35 @@ watch(
 
 .admin-mlflow-view__summary-alert strong {
   color: var(--color-risk-high) !important;
+}
+
+.admin-mlflow-view__runtime {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+
+.admin-mlflow-view__runtime div {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.admin-mlflow-view__runtime span,
+.admin-mlflow-view__runtime small {
+  overflow: hidden;
+  color: var(--color-fg-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-mlflow-view__runtime strong {
+  overflow: hidden;
+  color: var(--color-fg-strong);
+  font-size: var(--font-size-md);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-mlflow-view__registry,
@@ -1069,6 +1199,12 @@ watch(
   color: var(--color-fg-strong);
   font-size: var(--font-size-sm);
   font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.admin-mlflow-view__report-approval a {
+  color: var(--color-action-primary);
+  text-decoration: none;
 }
 
 .admin-mlflow-view__decision-form {
@@ -1146,11 +1282,13 @@ watch(
 
 @media (max-width: 1100px) {
   .admin-mlflow-view__header,
-  .admin-mlflow-view__summary {
+  .admin-mlflow-view__summary,
+  .admin-mlflow-view__runtime {
     grid-template-columns: 1fr;
   }
 
-  .admin-mlflow-view__summary {
+  .admin-mlflow-view__summary,
+  .admin-mlflow-view__runtime {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

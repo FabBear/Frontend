@@ -18,15 +18,45 @@ export const BNC_STATUS_META: Record<
 };
 
 export const BNC_AGENT_STEP_NAMES = [
-  'BOTTLENECK_DETECTOR',
-  'CASCADE_ANALYZER',
-  'CAUSE_ANALYZER',
-  'SOLUTION_GENERATOR',
-  'COMPARE_AGENT',
-  'REPORT_AGENT',
+  'DIFFUSION_ANALYSIS',
+  'CAUSE_ANALYSIS',
+  'ACTION_PLAN_GEN',
+  'ACTION_PLAN_COMPARE',
+  'REPORT_GEN',
+  'HITL_WAITING',
 ] as const;
 
 export const BNC_STEP_META: Record<string, { label: string; description: string; sourcePath: string }> = {
+  DIFFUSION_ANALYSIS: {
+    label: '확산 영향 분석',
+    description: '후속 TG 전파 경로와 영향 Lot 규모 산출',
+    sourcePath: 'AI-Agent/agents/cascade_analyzer',
+  },
+  CAUSE_ANALYSIS: {
+    label: '원인 분석',
+    description: 'SHAP · trend · upstream · Forward Sim 기반 원인 후보 도출',
+    sourcePath: 'AI-Agent/agents/cause_analyzer',
+  },
+  ACTION_PLAN_GEN: {
+    label: '대응안 생성',
+    description: 'RAG + LLM 기반 대응 후보 생성',
+    sourcePath: 'AI-Agent/agents/solution_generator',
+  },
+  ACTION_PLAN_COMPARE: {
+    label: '대응안 비교',
+    description: '디지털 트윈 시뮬레이션으로 대응안별 KPI 개선폭 비교',
+    sourcePath: 'AI-Agent/agents/compare_agent',
+  },
+  HITL_WAITING: {
+    label: 'HITL 승인',
+    description: '관리자 승인/보류 결정 기록',
+    sourcePath: 'AI-Agent/app/services/agent_service.py',
+  },
+  REPORT_GEN: {
+    label: '보고서 작성',
+    description: 'HITL 검토 이력을 포함한 최종 대응 보고서 생성',
+    sourcePath: 'AI-Agent/agents/report_agent',
+  },
   BOTTLENECK_DETECTOR: {
     label: '병목 감지',
     description: 'XGBoost 기반 KPI 스냅샷에서 잠재 병목 TG 감지',
@@ -37,25 +67,10 @@ export const BNC_STEP_META: Record<string, { label: string; description: string;
     description: '후속 TG 전파 경로와 영향 Lot 규모 산출',
     sourcePath: 'AI-Agent/agents/cascade_analyzer',
   },
-  CAUSE_ANALYZER: {
-    label: '원인 분석',
-    description: 'SHAP · trend · upstream · Forward Sim 기반 원인 후보 도출',
-    sourcePath: 'AI-Agent/agents/cause_analyzer',
-  },
   SOLUTION_GENERATOR: {
     label: '대응안 생성',
     description: 'RAG + LLM 기반 대응 후보 생성',
     sourcePath: 'AI-Agent/agents/solution_generator',
-  },
-  COMPARE_AGENT: {
-    label: '대응안 비교',
-    description: '디지털 트윈 시뮬레이션으로 대응안별 KPI 개선폭 비교',
-    sourcePath: 'AI-Agent/agents/compare_agent',
-  },
-  REPORT_AGENT: {
-    label: '보고서 작성',
-    description: 'HITL 검토 이력을 포함한 최종 대응 보고서 생성',
-    sourcePath: 'AI-Agent/agents/report_agent',
   },
 };
 

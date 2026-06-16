@@ -24,7 +24,7 @@ const AREA_NAME_MAP: Record<string, string> = {
   Etch: 'Dry Etch',
 };
 
-// 시나리오 시드: 특정 TG의 병목 확률을 고정해 데모 흐름을 안정적으로 유지한다.
+// 시나리오 시드: 특정 TG의 병목 확률을 안정적으로 유지한다.
 const KNOWN_BOTTLENECK_PROB: Record<string, number> = {
   DE_FE_72: 0.999,
   DE_BE_67: 0.997,
@@ -130,6 +130,7 @@ export const MOCK_BOTTLENECK_TOOL_GROUPS: BottleneckToolGroupItem[] = MOCK_PM_DA
     waitRatio: getWaitRatio(toolGroup),
     availableToolRatio: Math.round(getAvailableToolRatio(toolGroup) * 10000) / 10000,
     bottleneckProb: getBottleneckProb(toolGroup),
+    riskScore: null,
     measuredAt: CAPTURED_AT,
     areaId,
     areaCode: area.name,
@@ -153,6 +154,7 @@ export const MOCK_BOTTLENECK_TOOL_GROUP_DETAILS: Record<string, BottleneckToolGr
       setupRatio: item.setupRatio,
       waitRatio: item.waitRatio,
       bottleneckProb: item.bottleneckProb,
+      riskScore: item.riskScore,
       riskGrade: item.riskGrade,
       relatedCaseId: item.status ? `case-${item.tgCode.toLowerCase().replaceAll('_', '-')}` : null,
     },

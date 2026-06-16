@@ -42,6 +42,12 @@ const router = createRouter({
       meta: { title: '장비 모니터링', requiresAuth: true },
     },
     {
+      path: '/monitoring/lot-release-plan',
+      name: ROUTE_NAMES.lotReleasePlan,
+      component: () => import('@/views/LotReleasePlanView.vue'),
+      meta: { title: 'Lot 투입 계획', requiresAuth: true },
+    },
+    {
       path: '/monitoring/fab-3d',
       name: ROUTE_NAMES.fab3d,
       component: () => import('@/views/Fab3dView.vue'),
@@ -71,10 +77,14 @@ const router = createRouter({
       meta: { title: 'AI 챗봇', requiresAuth: true },
     },
     {
+      path: '/admin/labeling-rules',
+      name: 'adminLabelingRules',
+      component: () => import('@/views/AdminLabelingRuleView.vue'),
+      meta: { title: '라벨링 기준 관리', requiresAuth: true, requiresAdmin: true },
+    },
+    {
       path: '/admin/thresholds',
-      name: 'adminThresholds',
-      component: () => import('@/views/AdminThresholdView.vue'),
-      meta: { title: '임계값 관리', requiresAuth: true, requiresAdmin: true },
+      redirect: '/admin/labeling-rules',
     },
     {
       path: '/admin/mlflow',

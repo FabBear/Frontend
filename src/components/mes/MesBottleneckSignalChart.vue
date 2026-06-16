@@ -102,7 +102,7 @@ const chartOption = computed(() => {
 <template>
   <section class="mes-bottleneck-signal-chart">
     <header class="mes-bottleneck-signal-chart__header">
-      <h3>공정별 병목 신호</h3>
+      <h3>공정별 부하 신호</h3>
       <span>가동률 × WIP 비중 × Q-time</span>
     </header>
     <VChart class="mes-bottleneck-signal-chart__chart" :option="chartOption" autoresize />

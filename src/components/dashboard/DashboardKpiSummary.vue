@@ -3,20 +3,24 @@ import { computed } from 'vue';
 
 import type { FabKpiSnapshot, KpiTrendSeries } from '@/types/dashboard';
 import type { DashboardTrendKey } from '@/types/dashboardApi';
+import type { ReleasePlanSummary } from '@/types/productionPlan';
 
 import KpiCard from '@/components/base/KpiCard.vue';
 import KpiSparklineChart from '@/components/dashboard/KpiSparklineChart.vue';
+import ReleaseMiniTrendChart from '@/components/dashboard/ReleaseMiniTrendChart.vue';
 
 import { formatNumber, formatRatioPercent } from '@/utils/format';
 
 interface Props {
   kpi: FabKpiSnapshot;
   trends?: KpiTrendSeries[] | null;
+  releasePlan?: ReleasePlanSummary | null;
 }
 
 const props = defineProps<Props>();
 const emit = defineEmits<{
   selectKpi: [key: DashboardTrendKey];
+  openReleasePlan: [];
 }>();
 
 interface CardDef {
@@ -44,6 +48,13 @@ function formatNullableDecimal(value: number | null, fractionDigits = 1): string
 
 function formatNullableDaysFromMinutes(value: number | null): string {
   return value === null ? '-' : `${formatNullableDecimal(value / 60 / 24, 2)}일`;
+}
+
+function formatNullableDuration(value: number | null): string {
+  if (value === null) return '-';
+  if (value < 60) return `${value.toFixed(0)}분`;
+  if (value < 60 * 24) return `${(value / 60).toFixed(1)}시간`;
+  return `${(value / 60 / 24).toFixed(1)}일`;
 }
 
 function toPercentPointDelta(value: number | null): number | undefined {
@@ -107,13 +118,21 @@ const cards = computed<CardDef[]>(() => [
 function getTrendPeriodLabel(card: CardDef): string {
   return card.key === 'throughput24h' ? '최근 7일' : '최근 24시간';
 }
+
+const releasePlanSubtitle = computed(() => {
+  const releasePlan = props.releasePlan;
+  if (!releasePlan) return 'Release 계획 데이터 없음';
+  return `다음 ${formatNullableDuration(releasePlan.nextReleaseInMin)} · Priority ${formatNumber(
+    releasePlan.priorityLots24h
+  )}건`;
+});
 </script>
 
 <template>
   <section class="dashboard-kpi-summary" aria-label="대시보드 KPI 요약">
     <header class="dashboard-kpi-summary__header">
       <h2>핵심 KPI</h2>
-      <span>전일 동시간 대비</span>
+      <span>전일 동시간 대비 · Release는 현재 기준</span>
     </header>
 
     <div class="dashboard-kpi-summary__grid">
@@ -144,6 +163,26 @@ function getTrendPeriodLabel(card: CardDef): string {
                 :show-axes="false"
               />
               <p v-else class="dashboard-kpi-summary__trend-empty">추이 데이터 부족</p>
+            </div>
+          </div>
+        </template>
+      </KpiCard>
+
+      <KpiCard
+        class="dashboard-kpi-summary__release-card"
+        title="24h Release"
+        :value="releasePlan ? `${formatNumber(releasePlan.plannedLots24h)} lots` : '-'"
+        clickable
+        @click="emit('openReleasePlan')"
+      >
+        <template #meta>
+          <span class="dashboard-kpi-summary__trend-period">Lot 투입 계획</span>
+        </template>
+        <template #trend>
+          <div class="dashboard-kpi-summary__release-trend">
+            <p class="dashboard-kpi-summary__release-sub">{{ releasePlanSubtitle }}</p>
+            <div class="dashboard-kpi-summary__trend-chart">
+              <ReleaseMiniTrendChart />
             </div>
           </div>
         </template>
@@ -181,7 +220,8 @@ function getTrendPeriodLabel(card: CardDef): string {
 
 .dashboard-kpi-summary__grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-auto-rows: 200px;
   gap: var(--space-3);
 }
 
@@ -190,6 +230,24 @@ function getTrendPeriodLabel(card: CardDef): string {
   grid-template-rows: minmax(0, 1fr);
   height: 100%;
   min-width: 0;
+}
+
+.dashboard-kpi-summary__release-trend {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--space-1);
+  height: 100%;
+  min-width: 0;
+}
+
+.dashboard-kpi-summary__release-sub {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dashboard-kpi-summary__trend-chart {
@@ -216,6 +274,12 @@ function getTrendPeriodLabel(card: CardDef): string {
   font-weight: var(--font-weight-semibold);
   line-height: 18px;
   white-space: nowrap;
+}
+
+@media (max-width: 1480px) {
+  .dashboard-kpi-summary__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 1180px) {

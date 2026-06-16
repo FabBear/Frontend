@@ -7,8 +7,11 @@ import {
   createNotificationEventSource,
   fetchNotifications,
   mapNotificationStreamEvent,
+  markAllNotificationsRead,
   markNotificationsRead,
 } from '@/services/notificationService';
+
+import { shouldUseDemoMockData } from '@/constants/mockMode';
 
 import type { AdminDriftAlert } from '@/types/admin';
 import type { NotificationItem, NotificationStreamEvent } from '@/types/notification';
@@ -94,9 +97,9 @@ export function useNotifications() {
 
   // 패널/종에 보여줄 통합 목록 (최신순)
   const notifications = computed(() =>
-    [...serverNotifications.value, ...driftNotifications.value].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    )
+    [...serverNotifications.value, ...driftNotifications.value]
+      .filter((notification) => notification.unread)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
   );
   const driftUnreadCount = computed(
     () => driftNotifications.value.filter((notification) => notification.unread).length
@@ -150,27 +153,56 @@ export function useNotifications() {
       const driftId = notificationId.slice(DRIFT_ID_PREFIX.length);
       driftAckedIds.value = new Set([...driftAckedIds.value, driftId]);
       saveDriftAckedIds(driftAckedIds.value);
-      driftNotifications.value = driftNotifications.value.map((notification) =>
-        notification.id === notificationId ? { ...notification, unread: false } : notification
-      );
+      driftNotifications.value = driftNotifications.value.filter((notification) => notification.id !== notificationId);
       return;
     }
 
     const target = serverNotifications.value.find((notification) => notification.id === notificationId);
     if (!target || !target.unread) return;
 
-    serverNotifications.value = serverNotifications.value.map((notification) =>
-      notification.id === notificationId ? { ...notification, unread: false } : notification
-    );
+    serverNotifications.value = serverNotifications.value.filter((notification) => notification.id !== notificationId);
     serverUnreadCount.value = Math.max(serverUnreadCount.value - 1, 0);
 
     try {
       await markNotificationsRead([notificationId]);
     } catch {
-      serverNotifications.value = serverNotifications.value.map((n) =>
-        n.id === notificationId ? { ...n, unread: true } : n
+      serverNotifications.value = [target, ...serverNotifications.value].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
       serverUnreadCount.value += 1;
+    }
+  }
+
+  async function markAllRead() {
+    if (!authStore.isLoggedIn || unreadCount.value === 0) return;
+
+    const previousServerNotifications = serverNotifications.value;
+    const previousServerUnreadCount = serverUnreadCount.value;
+    const previousDriftNotifications = driftNotifications.value;
+    const previousDriftAckedIds = new Set(driftAckedIds.value);
+
+    const nextDriftAckedIds = new Set(driftAckedIds.value);
+    for (const notification of driftNotifications.value) {
+      if (notification.id.startsWith(DRIFT_ID_PREFIX)) {
+        nextDriftAckedIds.add(notification.id.slice(DRIFT_ID_PREFIX.length));
+      }
+    }
+
+    serverNotifications.value = [];
+    serverUnreadCount.value = 0;
+    driftAckedIds.value = nextDriftAckedIds;
+    saveDriftAckedIds(driftAckedIds.value);
+    driftNotifications.value = [];
+
+    try {
+      await markAllNotificationsRead();
+    } catch {
+      serverNotifications.value = previousServerNotifications;
+      serverUnreadCount.value = previousServerUnreadCount;
+      driftAckedIds.value = previousDriftAckedIds;
+      saveDriftAckedIds(driftAckedIds.value);
+      driftNotifications.value = previousDriftNotifications;
+      errorMessage.value = '알림 전체 읽음 처리에 실패했습니다.';
     }
   }
 
@@ -191,6 +223,7 @@ export function useNotifications() {
   function startDriftPolling() {
     stopDriftPolling();
     void loadDriftAlerts();
+    if (shouldUseDemoMockData()) return;
     driftTimer = setInterval(() => void loadDriftAlerts(), DRIFT_POLL_INTERVAL_MS);
   }
 
@@ -207,6 +240,11 @@ export function useNotifications() {
 
   function connectStream() {
     if (!authStore.isLoggedIn) return;
+    if (shouldUseDemoMockData()) {
+      streamConnected.value = true;
+      streamError.value = false;
+      return;
+    }
 
     eventSource?.close();
     eventSource = createNotificationEventSource();
@@ -276,5 +314,6 @@ export function useNotifications() {
     streamError,
     loadNotifications,
     markRead,
+    markAllRead,
   };
 }

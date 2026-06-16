@@ -33,7 +33,6 @@ const alerts = computed<Alert[]>(() => {
 
   const criticalTgs = props.data.toolGroups.filter((tg) => tg.riskGrade === 'CRITICAL');
   const downTools = props.data.tools.filter((t) => t.status === 'DOWN');
-  const bottleneckTgs = props.data.toolGroups.filter((tg) => tg.bottleneckProb >= 0.5);
   const highTgs = props.data.toolGroups.filter((tg) => tg.riskGrade === 'HIGH');
 
   if (criticalTgs.length > 0) {
@@ -44,7 +43,7 @@ const alerts = computed<Alert[]>(() => {
     const suffix = criticalTgs.length > 3 ? ` 외 ${criticalTgs.length - 3}개` : '';
     result.push({
       level: 'danger',
-      message: `CRITICAL TG ${criticalTgs.length}개 감지 — ${names}${suffix}`,
+      message: `가동률 Critical TG ${criticalTgs.length}개 — ${names}${suffix}`,
       action: 'navigateToCritical',
     });
   }
@@ -57,21 +56,10 @@ const alerts = computed<Alert[]>(() => {
     });
   }
 
-  if (bottleneckTgs.length > 0) {
-    const names = bottleneckTgs
-      .slice(0, 3)
-      .map((tg) => tg.tgName)
-      .join(', ');
-    const suffix = bottleneckTgs.length > 3 ? ` 외 ${bottleneckTgs.length - 3}개` : '';
+  if (highTgs.length > 0) {
     result.push({
       level: 'warning',
-      message: `병목 TG ${bottleneckTgs.length}개 감지 (확률 ≥50%) — ${names}${suffix}`,
-      action: 'navigateToToolGroup',
-    });
-  } else if (highTgs.length > 0) {
-    result.push({
-      level: 'warning',
-      message: `High 위험도 TG ${highTgs.length}개 — 가동률 85~90% 구간`,
+      message: `가동률 High TG ${highTgs.length}개 — 85~90% 구간`,
       action: 'navigateToHigh',
     });
   }

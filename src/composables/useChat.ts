@@ -10,8 +10,6 @@ import {
   fetchChatSessionMessages,
   fetchChatSessions,
   fetchSuggestedQuestions,
-  prepareChatAttachmentsForUpload,
-  requestLocalRagIndexing,
   sendChatMessage,
   streamChatMessage,
 } from '@/services/chatbotService';
@@ -22,13 +20,7 @@ import type { CasePromptPayload } from '@/composables/useChatDrawer';
 import { MOCK_CHAT_QUICK_PROMPTS } from '@/constants/mockData/chatbot';
 
 import type { AgentTaskResponse } from '@/types/agentTask';
-import type {
-  ChatAttachment,
-  ChatMessage,
-  ChatQuickPrompt,
-  ChatReportContextInput,
-  ChatSession,
-} from '@/types/chatbot';
+import type { ChatMessage, ChatQuickPrompt, ChatReportContextInput, ChatSession } from '@/types/chatbot';
 import type { FinalBottleneckReport } from '@/types/report';
 
 const MAX_QUICK_PROMPTS = 4;
@@ -623,13 +615,13 @@ export function useChat() {
     );
   }
 
-  async function sendMessage(content: string, attachments: ChatAttachment[] = []) {
+  async function sendMessage(content: string) {
     const trimmedContent = content.trim();
-    if ((!trimmedContent && attachments.length === 0) || isResponding.value) return;
+    if (!trimmedContent || isResponding.value) return;
     ensureLocalSession(trimmedContent.slice(0, 28) || '새 AI 대화');
     const sessionId = activeSessionId.value!;
 
-    if (attachments.length === 0 && is3dLocationRequest(trimmedContent)) {
+    if (is3dLocationRequest(trimmedContent)) {
       appendMessage({
         sessionId,
         role: 'USER',
@@ -653,15 +645,10 @@ export function useChat() {
       return;
     }
 
-    const preparedAttachments =
-      attachments.length > 0 ? await prepareChatAttachmentsForUpload({ sessionId, attachments }) : [];
-    if (preparedAttachments.length > 0) await requestLocalRagIndexing(preparedAttachments);
-
     appendMessage({
       sessionId,
       role: 'USER',
-      content: trimmedContent || '첨부 파일을 분석해줘.',
-      attachments: preparedAttachments,
+      content: trimmedContent,
     });
 
     isResponding.value = true;
@@ -670,7 +657,7 @@ export function useChat() {
       // 첫 전송 시 null로 보내면 백엔드가 UUID 세션을 만들어 반환하고, 이후 그 UUID로 이어간다.
       const clientSession = isClientSessionId(sessionId);
       const backendSessionId = clientSession ? null : sessionId;
-      const userMessage = trimmedContent || '첨부 파일을 분석해줘.';
+      const userMessage = trimmedContent;
       const scopedAgentContext = shouldUseAgentContextForMessage(userMessage, agentContext.value)
         ? agentContext.value
         : null;
@@ -861,7 +848,6 @@ export function useChat() {
     input: Pick<ChatMessage, 'sessionId' | 'role' | 'content'> & {
       messageId?: string;
       references?: ChatMessage['references'];
-      attachments?: ChatAttachment[];
       agentResult?: ChatMessage['agentResult'];
       sources?: ChatMessage['sources'];
       spokenSummary?: string | null;
@@ -897,7 +883,6 @@ export function useChat() {
             toolsUsed: input.toolsUsed,
             followUps: input.followUps,
             pending: input.pending,
-            attachments: input.attachments,
             agentResult: input.agentResult,
             createdAt,
           },

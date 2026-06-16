@@ -1,5 +1,8 @@
 import api from '@/services/api';
 
+import { MOCK_ACTION_HISTORY_DETAILS, MOCK_ACTION_HISTORY_ITEMS } from '@/constants/mockData/report';
+import { cloneMockData, shouldUseDemoMockData } from '@/constants/mockMode';
+
 import type {
   ActionHistoryDetail,
   ActionHistoryFilters,
@@ -123,6 +126,8 @@ function applyUnsupportedFilters(items: ActionHistoryItem[], params: FetchAction
 export async function fetchActionHistory(params: FetchActionHistoryParams = {}): Promise<ActionHistoryListData> {
   const page = params.page ?? 0;
   const size = params.size ?? DEFAULT_PAGE_SIZE;
+  if (shouldUseDemoMockData()) return getMockActionHistory(params, page, size);
+
   const clientFilterMode = needsClientSideFiltering(params);
   const requestSize = clientFilterMode ? UNSUPPORTED_FILTER_FETCH_SIZE : size;
 
@@ -161,6 +166,46 @@ export async function fetchActionHistory(params: FetchActionHistoryParams = {}):
 }
 
 export async function fetchActionHistoryDetail(caseId: string): Promise<ActionHistoryDetail> {
+  if (shouldUseDemoMockData()) {
+    return cloneMockData(
+      MOCK_ACTION_HISTORY_DETAILS[caseId] ?? MOCK_ACTION_HISTORY_DETAILS[MOCK_ACTION_HISTORY_ITEMS[0].caseId]
+    );
+  }
+
   const { data } = await api.get<BackendHistoryDetail>(`/v1/history/${caseId}`);
   return mapHistoryDetail(data);
+}
+
+function getMockActionHistory(params: FetchActionHistoryParams, page: number, size: number): ActionHistoryListData {
+  let items = cloneMockData(MOCK_ACTION_HISTORY_ITEMS);
+
+  if (params.riskGrade) items = items.filter((item) => item.riskGrade === params.riskGrade);
+  if (params.status) items = items.filter((item) => item.status === params.status);
+  if (params.keyword?.trim()) {
+    const keyword = params.keyword.trim().toLowerCase();
+    items = items.filter((item) =>
+      [item.tgName, item.areaName, item.selectedPlanTitle, item.targetTgText].some((value) =>
+        value.toLowerCase().includes(keyword)
+      )
+    );
+  }
+
+  items = applyUnsupportedFilters(items, params);
+  items.sort((a, b) =>
+    params.sortOrder === 'DECIDED_ASC'
+      ? (a.decidedAt ?? a.detectedAt).localeCompare(b.decidedAt ?? b.detectedAt)
+      : (b.decidedAt ?? b.detectedAt).localeCompare(a.decidedAt ?? a.detectedAt)
+  );
+
+  const start = page * size;
+  return {
+    items: items.slice(start, start + size),
+    pageInfo: {
+      page,
+      size,
+      totalElements: items.length,
+      totalPages: Math.max(1, Math.ceil(items.length / size)),
+      sort: toSort(params.sortOrder),
+    },
+  };
 }

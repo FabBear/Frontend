@@ -3,7 +3,7 @@ import type { FinalBottleneckReport, ReportV1 } from '@/types/report';
 
 export type BncCaseStatus = 'DETECTED' | 'ANALYZING' | 'AWAITING_HITL' | 'RESOLVED';
 export type BncTabId = 'progress' | 'cause' | 'solutions' | 'report';
-export type BncAgentStepStatus = 'WAITING' | 'RUNNING' | 'DONE' | 'FAILED';
+export type BncAgentStepStatus = 'PENDING' | 'IN_PROGRESS' | 'WAITING' | 'RUNNING' | 'DONE' | 'FAILED';
 
 export interface BncPageInfo {
   page: number;
@@ -16,17 +16,17 @@ export interface BncPageInfo {
 /** stage1 병목 알림(bottleneck_detected)의 종합·영향 지표. Critical 케이스 요약 카드에 사용. */
 export interface BncAlertMetrics {
   /** composite_score (0~1) — 종합 */
-  compositeScore: number;
+  compositeScore: number | null;
   /** probability (0~1) — 병목 확률 */
-  probability: number;
+  probability: number | null;
   /** impact_score (0~1) — 영향 */
-  impactScore: number;
+  impactScore: number | null;
   /** affected_count — 후속(연쇄 영향) TG 수 */
-  affectedCount: number;
+  affectedCount: number | null;
   /** ct_increase_min — CT 증가(분) */
-  ctIncreaseMin: number;
+  ctIncreaseMin: number | null;
   /** at_risk_lots — 위험 Lot 수 */
-  atRiskLots: number;
+  atRiskLots: number | null;
 }
 
 export interface BncAlertCase {
@@ -36,6 +36,7 @@ export interface BncAlertCase {
   areaName: string;
   riskGrade: Extract<BottleneckRiskGrade, 'CRITICAL' | 'HIGH' | 'MEDIUM'>;
   bottleneckProb: number;
+  riskScore: number | null;
   utilizationRate: number;
   wipCount: number;
   detectedAt: string;
@@ -265,8 +266,8 @@ export interface BncCauseJudgment {
   primaryReasoning: string;
   secondaryCauses: string[];
   dismissed: string[];
-  dismissedReason: string;
-  causeSummary: string;
+  dismissedReason?: string;
+  causeSummary?: string;
 }
 
 /** 여러 피처를 묶은 원인 카테고리 집계 (CauseCategory). */

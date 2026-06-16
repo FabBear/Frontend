@@ -8,7 +8,7 @@ import type { BncAlertCase } from '@/types/bnc';
 
 import BottleneckCaseCard from '@/components/common/BottleneckCaseCard.vue';
 
-import { formatKoMonthDayTime, formatRatioPercent } from '@/utils/format';
+import { formatKoMonthDayTime, formatNumber, formatRatioPercent, formatRiskScore } from '@/utils/format';
 
 const props = defineProps<{
   item: BncAlertCase;
@@ -29,11 +29,27 @@ const currentStepLabel = computed(() =>
   props.item.currentStepName ? (BNC_STEP_LABELS[props.item.currentStepName] ?? props.item.currentStepName) : null
 );
 const subtitle = computed(() => `${props.item.areaName} · ${formatKoMonthDayTime(props.item.detectedAt)}`);
+const alertMetrics = computed(() => props.item.alertMetrics ?? null);
 const metrics = computed(() => [
-  { label: '병목 확률', value: formatRatioPercent(props.item.bottleneckProb), tone: 'risk' as const },
-  { label: '가동률', value: formatRatioPercent(props.item.utilizationRate) },
-  { label: 'WIP', value: props.item.wipCount.toLocaleString() },
+  {
+    label: '위험 점수',
+    value: formatRiskScore(props.item.riskScore ?? alertMetrics.value?.compositeScore ?? null),
+    tone: 'risk' as const,
+  },
+  { label: '영향', value: formatImpactMetric() },
+  {
+    label: '위험 Lot',
+    value: formatNumber(alertMetrics.value?.atRiskLots ?? null),
+  },
 ]);
+
+function formatImpactMetric(): string {
+  if (!alertMetrics.value) return '-';
+  return alertMetrics.value.impactScore !== null
+    ? formatRatioPercent(alertMetrics.value.impactScore)
+    : `${formatNumber(alertMetrics.value.affectedCount)}개`;
+}
+
 const statusText = computed(() =>
   currentStepLabel.value
     ? `${currentStepLabel.value} · ${props.item.stepProgress}/${props.item.totalSteps}`

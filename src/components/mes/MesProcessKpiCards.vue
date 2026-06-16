@@ -111,7 +111,7 @@ function getOee(process: MesProcessSummary) {
           <dd>{{ formatNumber(process.toolCount) }}대</dd>
         </div>
         <div>
-          <dt>OEE 추정</dt>
+          <dt>OEE</dt>
           <dd>{{ formatRatioPercent(getOee(process)) }}</dd>
         </div>
         <div>
@@ -131,7 +131,7 @@ function getOee(process: MesProcessSummary) {
           <dd>{{ formatRatioPercent(process.avgAvailableToolRatio) }}</dd>
         </div>
         <div v-if="process.bottleneckToolGroupCount > 0">
-          <dt>병목 TG</dt>
+          <dt>고가동 TG</dt>
           <dd class="mes-process-kpi-cards__metric-danger">{{ formatNumber(process.bottleneckToolGroupCount) }}개</dd>
         </div>
       </dl>

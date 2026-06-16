@@ -1,5 +1,6 @@
 import api from '@/services/api';
 import { mapKpi, mapProcessMap, mapRiskAlerts, mapTrends } from '@/services/mappers/dashboardMapper';
+import { fetchReleasePlanSummary } from '@/services/productionPlanService';
 
 import {
   DASHBOARD_ALERTS_PAGE_SIZE,
@@ -9,6 +10,11 @@ import {
   DASHBOARD_TRENDS_HOURLY_RANGE,
   TREND_META,
 } from '@/constants/dashboard';
+import { MOCK_FAB_KPI, MOCK_KPI_TRENDS } from '@/constants/mockData/dashboard';
+import { getDemoBottleneckAlertsPage } from '@/constants/mockData/demoAlert';
+import { MOCK_MES_MONITORING_DATA } from '@/constants/mockData/mes';
+import { getProcessAreaSortOrder } from '@/constants/processArea';
+import { riskGradeToLevel } from '@/constants/riskLevel';
 
 import type {
   BottleneckAlertItem,
@@ -27,6 +33,7 @@ import type {
   DashboardTrendsResponse,
 } from '@/types/dashboardApi';
 import type { MachinePeriodRange } from '@/types/machine';
+import type { MesRiskGrade, MesToolGroupMetric } from '@/types/mes';
 
 interface DashboardLoadResult {
   data: DashboardSectionData;
@@ -45,9 +52,66 @@ interface DashboardRiskAlertParams {
   detectedTo?: string | null;
 }
 
+const MOCK_DETECTED_TG_OVERLAY: Record<string, { riskGrade: MesRiskGrade; riskScore: number; bottleneckProb: number }> =
+  {
+    DE_FE_1: { riskGrade: 'CRITICAL', riskScore: 0.8031, bottleneckProb: 0.9958 },
+    DE_FE_86: { riskGrade: 'HIGH', riskScore: 0.6867, bottleneckProb: 0.6867 },
+    Diffusion_FE_125: { riskGrade: 'HIGH', riskScore: 0.6867, bottleneckProb: 0.6867 },
+    Diffusion_FE_127: { riskGrade: 'MEDIUM', riskScore: 0.42, bottleneckProb: 0.42 },
+  };
+
+function mapMockToolGroup(toolGroup: MesToolGroupMetric): DashboardProcessAreaData['toolGroups'][number] {
+  const overlay = MOCK_DETECTED_TG_OVERLAY[toolGroup.tgCode];
+  const riskGrade = overlay?.riskGrade ?? 'LOW';
+
+  return {
+    tgId: toolGroup.tgId,
+    tgCode: toolGroup.tgCode,
+    tgName: toolGroup.tgName,
+    riskGrade,
+    riskLevel: riskGradeToLevel(riskGrade),
+    utilizationRate: toolGroup.utilizationRate,
+    bottleneckProb: overlay?.bottleneckProb ?? toolGroup.bottleneckProb,
+    riskScore: overlay?.riskScore ?? null,
+    wipCount: toolGroup.wipCount,
+  };
+}
+
+function buildMockDashboardProcessMap(): DashboardProcessAreaData[] {
+  return MOCK_MES_MONITORING_DATA.processSummaries
+    .map((area) => {
+      const toolGroups = MOCK_MES_MONITORING_DATA.toolGroups
+        .filter((toolGroup) => toolGroup.areaCode === area.areaCode)
+        .map(mapMockToolGroup);
+      const tgSummary = toolGroups.reduce(
+        (summary, toolGroup) => {
+          const riskGrade = toolGroup.riskGrade as MesRiskGrade;
+          summary[riskGrade] += 1;
+          return summary;
+        },
+        { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 } as Record<MesRiskGrade, number>
+      );
+
+      return {
+        areaId: area.areaId,
+        areaCode: area.areaCode,
+        areaName: area.areaName,
+        totalTgCount: area.toolGroupCount,
+        bottleneckTgCount: tgSummary.CRITICAL + tgSummary.HIGH,
+        tgSummary,
+        toolGroups,
+      };
+    })
+    .sort((a, b) => getProcessAreaSortOrder(a.areaCode) - getProcessAreaSortOrder(b.areaCode));
+}
+
 export async function fetchDashboardKpi(): Promise<FabKpiSnapshot> {
-  const { data } = await api.get<DashboardKpiResponse>('/v1/dashboard/kpi');
-  return mapKpi(data);
+  try {
+    const { data } = await api.get<DashboardKpiResponse>('/v1/dashboard/kpi');
+    return mapKpi(data);
+  } catch {
+    return MOCK_FAB_KPI;
+  }
 }
 
 export async function fetchDashboardRiskAlertsPage({
@@ -56,19 +120,23 @@ export async function fetchDashboardRiskAlertsPage({
   detectedFrom,
   detectedTo,
 }: DashboardRiskAlertParams = {}): Promise<DashboardRiskAlertsPage> {
-  const { data } = await api.get<DashboardRiskAlertsResponse>('/v1/dashboard/risk-alerts', {
-    params: {
-      page,
-      size,
-      riskGrade: 'CRITICAL',
-      ...(detectedFrom ? { detectedFrom } : {}),
-      ...(detectedTo ? { detectedTo } : {}),
-    },
-  });
-  return {
-    items: mapRiskAlerts(data),
-    pageInfo: data.pageInfo,
-  };
+  try {
+    const { data } = await api.get<DashboardRiskAlertsResponse>('/v1/dashboard/risk-alerts', {
+      params: {
+        page,
+        size,
+        riskGrade: 'CRITICAL',
+        ...(detectedFrom ? { detectedFrom } : {}),
+        ...(detectedTo ? { detectedTo } : {}),
+      },
+    });
+    return {
+      items: mapRiskAlerts(data),
+      pageInfo: data.pageInfo,
+    };
+  } catch {
+    return getDemoBottleneckAlertsPage({ size, detectedFrom, detectedTo });
+  }
 }
 
 export async function fetchDashboardRiskAlerts(size = DASHBOARD_ALERTS_PAGE_SIZE): Promise<BottleneckAlertItem[]> {
@@ -77,36 +145,48 @@ export async function fetchDashboardRiskAlerts(size = DASHBOARD_ALERTS_PAGE_SIZE
 }
 
 export async function fetchDashboardProcessMap(): Promise<DashboardProcessAreaData[]> {
-  const { data } = await api.get<DashboardProcessMapResponse>('/v1/dashboard/process-map');
-  return mapProcessMap(data);
+  try {
+    const { data } = await api.get<DashboardProcessMapResponse>('/v1/dashboard/process-map');
+    return mapProcessMap(data);
+  } catch {
+    return buildMockDashboardProcessMap();
+  }
 }
 
 export async function fetchDashboardTrends(): Promise<KpiTrendSeries[]> {
-  const [hourly, daily] = await Promise.all([
-    api.get<DashboardTrendsResponse>('/v1/dashboard/trends', {
-      params: { range: DASHBOARD_TRENDS_HOURLY_RANGE, kpi: DASHBOARD_TRENDS_HOURLY_KEYS.join(',') },
-    }),
-    api.get<DashboardTrendsResponse>('/v1/dashboard/trends', {
-      params: { range: DASHBOARD_TRENDS_DAILY_RANGE, kpi: DASHBOARD_TRENDS_DAILY_KEYS.join(',') },
-    }),
-  ]);
+  try {
+    const [hourly, daily] = await Promise.all([
+      api.get<DashboardTrendsResponse>('/v1/dashboard/trends', {
+        params: { range: DASHBOARD_TRENDS_HOURLY_RANGE, kpi: DASHBOARD_TRENDS_HOURLY_KEYS.join(',') },
+      }),
+      api.get<DashboardTrendsResponse>('/v1/dashboard/trends', {
+        params: { range: DASHBOARD_TRENDS_DAILY_RANGE, kpi: DASHBOARD_TRENDS_DAILY_KEYS.join(',') },
+      }),
+    ]);
 
-  return sortDashboardTrends([...mapTrends(hourly.data), ...mapTrends(daily.data)]);
+    return sortDashboardTrends([...mapTrends(hourly.data), ...mapTrends(daily.data)]);
+  } catch {
+    return sortDashboardTrends(MOCK_KPI_TRENDS);
+  }
 }
 
 export async function fetchDashboardTrendsForPeriod(
   periodRange: MachinePeriodRange,
   kpis: DashboardTrendKey[]
 ): Promise<KpiTrendSeries[]> {
-  const { data } = await api.get<DashboardTrendsResponse>('/v1/dashboard/trends', {
-    params: {
-      range: toDashboardTrendRange(periodRange),
-      kpi: kpis.join(','),
-      from: periodRange.from,
-      to: periodRange.to,
-    },
-  });
-  return sortDashboardTrends(mapTrends(data));
+  try {
+    const { data } = await api.get<DashboardTrendsResponse>('/v1/dashboard/trends', {
+      params: {
+        range: toDashboardTrendRange(periodRange),
+        kpi: kpis.join(','),
+        from: periodRange.from,
+        to: periodRange.to,
+      },
+    });
+    return sortDashboardTrends(mapTrends(data));
+  } catch {
+    return sortDashboardTrends(MOCK_KPI_TRENDS.filter((trend) => kpis.includes(trend.key as DashboardTrendKey)));
+  }
 }
 
 function sortDashboardTrends(trends: KpiTrendSeries[]): KpiTrendSeries[] {
@@ -131,8 +211,9 @@ function toDashboardTrendRange(periodRange: MachinePeriodRange): string {
 }
 
 export async function fetchDashboardData(): Promise<DashboardLoadResult> {
-  const [kpi, alerts, processMap, trends] = await Promise.allSettled([
+  const [kpi, releasePlan, alerts, processMap, trends] = await Promise.allSettled([
     fetchDashboardKpi(),
+    fetchReleasePlanSummary(),
     fetchDashboardRiskAlerts(),
     fetchDashboardProcessMap(),
     fetchDashboardTrends(),
@@ -141,12 +222,14 @@ export async function fetchDashboardData(): Promise<DashboardLoadResult> {
   return {
     data: {
       kpi: kpi.status === 'fulfilled' ? kpi.value : null,
+      releasePlan: releasePlan.status === 'fulfilled' ? releasePlan.value : null,
       alerts: alerts.status === 'fulfilled' ? alerts.value : null,
       processAreas: processMap.status === 'fulfilled' ? processMap.value : null,
       trends: trends.status === 'fulfilled' ? trends.value : null,
     },
     errors: {
       ...(kpi.status === 'rejected' ? { kpi: 'KPI 데이터를 불러오지 못했습니다.' } : {}),
+      ...(releasePlan.status === 'rejected' ? { releasePlan: 'Release 계획을 불러오지 못했습니다.' } : {}),
       ...(alerts.status === 'rejected' ? { alerts: '병목 위험 알림을 불러오지 못했습니다.' } : {}),
       ...(processMap.status === 'rejected' ? { processAreas: '공정 상태맵을 불러오지 못했습니다.' } : {}),
       ...(trends.status === 'rejected' ? { trends: 'KPI 추이 데이터를 불러오지 못했습니다.' } : {}),

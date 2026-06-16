@@ -5,7 +5,22 @@ import type { ReportV1, ReportV1Kpi } from '@/types/report';
 
 import InsightCallout from '@/components/common/InsightCallout.vue';
 
-import { formatKpiDelta, formatKpiValue, formatNumber, formatPercent, kpiTone } from '@/utils/reportV1Formatters';
+import {
+  deltaTone,
+  formatKpiDelta,
+  formatKpiValue,
+  formatNumber,
+  formatPercent,
+  kpiTone,
+} from '@/utils/reportV1Formatters';
+
+function deltaArrow(key: string, delta: number | null): string {
+  if (delta === null || delta === 0) return '';
+  const tone = deltaTone(key, delta);
+  if (tone === 'good') return delta < 0 ? '↓' : '↑';
+  if (tone === 'bad') return delta > 0 ? '↑' : '↓';
+  return '';
+}
 
 type BannerTone = 'warning' | 'success' | 'info';
 type WarningItem = ReportV1['data_quality']['warnings'][number];
@@ -27,7 +42,7 @@ defineProps<{
       <span class="report-v1__eyebrow">통합 최종 보고서</span>
       <h2>{{ report.meta.process_name }}</h2>
       <p>
-        {{ report.meta.severity }} · Risk {{ formatNumber(report.risk.score, 1) }} · 병목확률
+        {{ report.meta.severity }} · 병목 위험 점수 {{ formatNumber(report.risk.score, 1) }} · ML 확률
         {{ formatPercent(report.risk.probability) }}
       </p>
     </div>
@@ -75,7 +90,10 @@ defineProps<{
     <div v-for="kpi in selectedKpis" :key="kpi.key" :class="`report-v1__kpi report-v1__kpi--${kpiTone(kpi)}`">
       <dt>{{ kpi.label }}</dt>
       <dd>{{ formatKpiValue(kpi) }}</dd>
-      <span>{{ formatKpiDelta(kpi) }}</span>
+      <span :class="`report-v1__kpi-delta report-v1__kpi-delta--${deltaTone(kpi.key, kpi.delta)}`">
+        <span v-if="deltaArrow(kpi.key, kpi.delta)" aria-hidden="true">{{ deltaArrow(kpi.key, kpi.delta) }}</span>
+        {{ formatKpiDelta(kpi) }}
+      </span>
     </div>
   </dl>
 </template>

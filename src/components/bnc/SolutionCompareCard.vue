@@ -25,7 +25,7 @@ function formatConfidence(confidence: BncActionPlan['confidence']) {
     <header class="solution-compare-card__header">
       <div>
         <span class="solution-compare-card__eyebrow">신뢰도 {{ formatConfidence(plan.confidence) }}</span>
-        <h4>{{ plan.title }}</h4>
+        <h4>{{ plan.actionLabel ?? plan.title }}</h4>
       </div>
       <BaseBadge v-if="plan.recommended" variant="success">추천</BaseBadge>
     </header>

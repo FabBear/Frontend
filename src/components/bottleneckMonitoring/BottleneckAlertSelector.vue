@@ -168,10 +168,14 @@ const alertCards = computed(() =>
 <style scoped>
 .bottleneck-alert-selector {
   position: sticky;
-  top: calc(var(--layout-header-height) + var(--spacing-page));
+  top: var(--bottleneck-monitoring-selector-top, var(--space-4));
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
-  max-height: calc(100svh - var(--layout-header-height) - var(--spacing-page) * 2);
+  align-self: start;
+  max-height: var(
+    --bottleneck-monitoring-selector-max-height,
+    calc(100svh - var(--layout-header-height) - var(--space-4) * 2)
+  );
   gap: var(--space-2);
   overflow: hidden;
   border: var(--border-width-default) solid var(--color-border-default);

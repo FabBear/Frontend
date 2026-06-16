@@ -2189,6 +2189,11 @@ defineExpose({ triggerPdfDownload: handlePdfDownload, downloadMarkdown, download
   }
 }
 
+:global(.is-pdf-mode) [data-pdf-ignore],
+:global(.is-pdf-mode)[data-pdf-ignore] {
+  display: none !important;
+}
+
 @media print {
   @page {
     size: A4;

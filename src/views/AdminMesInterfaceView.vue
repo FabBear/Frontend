@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { RouterLink } from 'vue-router';
 
 import { useAuthStore } from '@/stores/auth';
 
@@ -41,7 +40,7 @@ const columns: BaseTableColumn[] = [
   { key: 'action', label: '' },
 ];
 
-const currentFabName = computed(() => authStore.user?.fabName ?? authStore.user?.fabId ?? 'Demo FAB');
+const currentFabName = computed(() => authStore.user?.fabName ?? authStore.user?.fabId ?? 'SK하이닉스 이천 FAB');
 const currentFabId = computed(() => authStore.user?.fabId ?? '');
 const requiredCount = computed(() => mappings.value.filter((m) => m.isRequired).length);
 const activeCount = computed(() => mappings.value.filter((m) => m.isActive).length);
@@ -247,17 +246,6 @@ onMounted(() => {
           <BaseButton variant="ghost" size="sm" @click="startEdit(getMapping(row))">수정</BaseButton>
         </template>
       </BaseTable>
-    </section>
-
-    <section class="admin-mes-view__links">
-      <article class="surface-card">
-        <h2>판정 기준 설정</h2>
-        <RouterLink class="admin-mes-view__link" to="/admin/thresholds">임계값 관리 →</RouterLink>
-      </article>
-      <article class="surface-card">
-        <h2>수집 상태 확인</h2>
-        <RouterLink class="admin-mes-view__link" to="/admin/ingestion">데이터 수집 →</RouterLink>
-      </article>
     </section>
   </div>
 
@@ -485,38 +473,6 @@ code {
   font-weight: var(--font-weight-semibold);
 }
 
-/* Links */
-.admin-mes-view__links {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-3);
-}
-
-.admin-mes-view__links article {
-  display: grid;
-  gap: var(--space-2);
-  padding: var(--space-3);
-}
-
-.admin-mes-view__links h2 {
-  margin: 0;
-  color: var(--color-fg-strong);
-  font-size: var(--font-size-lg);
-}
-
-.admin-mes-view__link {
-  width: fit-content;
-  color: var(--color-action-primary);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  text-decoration: none;
-}
-
-.admin-mes-view__link:hover {
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
 /* Modal */
 .admin-mes-modal {
   display: grid;
@@ -595,8 +551,7 @@ code {
 }
 
 @media (max-width: 900px) {
-  .admin-mes-view__header,
-  .admin-mes-view__links {
+  .admin-mes-view__header {
     grid-template-columns: 1fr;
   }
 

@@ -27,14 +27,17 @@ const progressRate = computed(() => {
 });
 const currentStep = computed(
   () =>
-    orderedSteps.value.find((s) => s.status === 'RUNNING') ??
-    orderedSteps.value.find((s) => s.status === 'WAITING') ??
+    orderedSteps.value.find((s) => s.status === 'FAILED') ??
+    orderedSteps.value.find((s) => s.status === 'RUNNING' || s.status === 'IN_PROGRESS') ??
+    orderedSteps.value.find((s) => s.status === 'WAITING' || s.status === 'PENDING') ??
     null
 );
 const currentStepLabel = computed(() =>
   currentStep.value ? (BNC_STEP_META[currentStep.value.stepName]?.label ?? currentStep.value.stepName) : '완료'
 );
-const isAllDone = computed(() => !currentStep.value);
+const isAllDone = computed(
+  () => orderedSteps.value.length > 0 && orderedSteps.value.every((step) => step.status === 'DONE')
+);
 </script>
 
 <template>
@@ -53,7 +56,15 @@ const isAllDone = computed(() => !currentStep.value);
       <header class="bnc-progress-tab__header">
         <div class="bnc-progress-tab__status">
           <span class="bnc-progress-tab__status-badge" :class="{ 'bnc-progress-tab__status-badge--done': isAllDone }">
-            {{ isAllDone ? '완료' : currentStep?.status === 'RUNNING' ? '실행 중' : '대기' }}
+            {{
+              isAllDone
+                ? '완료'
+                : currentStep?.status === 'FAILED'
+                  ? '실패'
+                  : currentStep?.status === 'RUNNING' || currentStep?.status === 'IN_PROGRESS'
+                    ? '실행 중'
+                    : '대기'
+            }}
           </span>
           <span class="bnc-progress-tab__status-step">{{ currentStepLabel }}</span>
         </div>
@@ -74,10 +85,6 @@ const isAllDone = computed(() => !currentStep.value);
         <div>
           <dt>병목 TG</dt>
           <dd>{{ formatNumber(detail.agentSummary.bottleneckCount) }}</dd>
-        </div>
-        <div>
-          <dt>Critical</dt>
-          <dd>{{ formatNumber(detail.agentSummary.criticalCount) }}</dd>
         </div>
         <div>
           <dt>최대 WIP</dt>
@@ -182,7 +189,7 @@ const isAllDone = computed(() => !currentStep.value);
 
 .bnc-progress-tab__summary {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-3);
   margin: 0;
 }

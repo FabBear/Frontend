@@ -2,8 +2,9 @@ import type { Fab3dArea, Fab3dRisk, Fab3dToolGroup } from '@/types/fab3d';
 
 function risk(u: number): Fab3dRisk {
   if (u >= 0.9) return 'CRITICAL';
-  if (u >= 0.85) return 'WARNING';
-  return 'NORMAL';
+  if (u >= 0.85) return 'HIGH';
+  if (u >= 0.7) return 'MEDIUM';
+  return 'LOW';
 }
 function tg(
   id: string,

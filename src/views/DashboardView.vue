@@ -27,8 +27,16 @@ function handleOpenBottleneckCenter(caseId: string) {
   router.push({ name: ROUTE_NAMES.bottleneckCenter, query: { caseId, tab: 'cause' } });
 }
 
+function handleOpenLotReleasePlan() {
+  router.push({ name: ROUTE_NAMES.lotReleasePlan });
+}
+
 function handleSelectArea(areaCode: string) {
-  router.push({ name: ROUTE_NAMES.mesMonitoring, query: { tab: 'toolGroup', area: areaCode } });
+  router.push({ name: ROUTE_NAMES.bottleneckMonitoring, query: { areaCode } });
+}
+
+function handleSelectToolGroup(tgId: string, areaCode: string) {
+  router.push({ name: ROUTE_NAMES.bottleneckMonitoring, query: { areaCode, tgId } });
 }
 
 function handleSelectKpi(key: DashboardTrendKey) {
@@ -49,10 +57,18 @@ function handleSelectKpi(key: DashboardTrendKey) {
         v-if="dashboardData.kpi"
         :kpi="dashboardData.kpi"
         :trends="dashboardData.trends"
+        :release-plan="dashboardData.releasePlan"
+        @open-release-plan="handleOpenLotReleasePlan"
         @select-kpi="handleSelectKpi"
       />
       <p v-else-if="sectionErrors.kpi" class="dashboard-view__state dashboard-view__state--error">
         {{ sectionErrors.kpi }}
+      </p>
+      <p
+        v-if="sectionErrors.releasePlan && !dashboardData.releasePlan"
+        class="dashboard-view__state dashboard-view__state--error"
+      >
+        {{ sectionErrors.releasePlan }}
       </p>
 
       <div
@@ -75,7 +91,9 @@ function handleSelectKpi(key: DashboardTrendKey) {
           v-if="dashboardData.processAreas"
           class="dashboard-view__process-map"
           :areas="dashboardData.processAreas"
+          metric-mode="bottleneck"
           @select-area="handleSelectArea"
+          @select-tool-group="handleSelectToolGroup"
         />
         <p v-else-if="sectionErrors.processAreas" class="dashboard-view__state dashboard-view__state--error">
           {{ sectionErrors.processAreas }}

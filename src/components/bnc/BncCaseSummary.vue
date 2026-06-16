@@ -3,7 +3,7 @@ import { computed } from 'vue';
 
 import type { BncAlertCase, BncAlertMetrics, BncCaseDetail } from '@/types/bnc';
 
-import { formatKoMonthDayTime, formatNumber, formatRatioPercent } from '@/utils/format';
+import { formatKoMonthDayTime, formatNumber, formatRatioPercent, formatRiskScore } from '@/utils/format';
 
 const props = defineProps<{
   item: BncAlertCase;
@@ -12,12 +12,12 @@ const props = defineProps<{
 
 const metrics = computed<BncAlertMetrics | null>(() => props.item.alertMetrics ?? null);
 
-// stage1 알림 지표 6종 (composite_score·probability·impact_score는 %, 나머지는 수치)
+// 위험 점수(composite) + 확산영향 지표. raw 확률은 노출하지 않는다.
 const metricCells = computed(() => {
   const m = metrics.value;
+  const score = props.item.riskScore ?? m?.compositeScore ?? null;
   return [
-    { label: '종합', value: m ? formatRatioPercent(m.compositeScore) : '-', tone: 'risk' },
-    { label: '확률', value: m ? formatRatioPercent(m.probability) : '-', tone: 'risk' },
+    { label: '위험 점수', value: formatRiskScore(score), tone: 'risk' },
     { label: '영향', value: m ? formatRatioPercent(m.impactScore) : '-', tone: 'risk' },
     { label: '후속 TG', value: m ? `${formatNumber(m.affectedCount)}개` : '-', tone: 'plain' },
     { label: 'CT 증가', value: m ? `${formatNumber(m.ctIncreaseMin)}분` : '-', tone: 'plain' },
@@ -82,7 +82,7 @@ const metricCells = computed(() => {
 
 .bnc-case-summary__metrics {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 1px;
   margin: 0;
   overflow: hidden;

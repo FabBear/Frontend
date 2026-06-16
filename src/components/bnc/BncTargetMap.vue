@@ -32,6 +32,7 @@ const props = withDefaults(
     causeToolGroups?: string[];
     affectedToolGroups?: string[];
     selectedToolGroup?: string | null;
+    caseId?: string | null;
   }>(),
   {
     title: '대상 TG 위치',
@@ -40,6 +41,7 @@ const props = withDefaults(
     causeToolGroups: () => [],
     affectedToolGroups: () => [],
     selectedToolGroup: null,
+    caseId: null,
   }
 );
 
@@ -193,10 +195,13 @@ const selectedPoint = computed(() => {
   );
 });
 
-const fab3dRoute = computed(() => ({
-  name: ROUTE_NAMES.fab3d,
-  query: selectedPoint.value ? { tg: selectedPoint.value.tg.tgName } : {},
-}));
+const fab3dRoute = computed(() => {
+  const selectedTg = selectedPoint.value?.tg.tgName;
+  if (props.caseId) {
+    return { name: ROUTE_NAMES.fab3d, query: { caseId: props.caseId, ...(selectedTg ? { tg: selectedTg } : {}) } };
+  }
+  return { name: ROUTE_NAMES.fab3d, query: selectedTg ? { tg: selectedTg } : {} };
+});
 
 function handleSelect(point: MapPoint) {
   emit('select', point.tg.tgName);

@@ -15,7 +15,7 @@ interface UseBncSolutionsProps {
 
 type DecideEmit = (
   event: 'decide',
-  payload: { decision: 'APPROVED' | 'REJECTED'; selectedPlanId: string; comment?: string | null }
+  payload: { decision: 'APPROVED' | 'REJECTED'; selectedPlanId: string | null; comment?: string | null }
 ) => void;
 
 /**
@@ -514,7 +514,7 @@ export function useBncSolutions(props: UseBncSolutionsProps, emit: DecideEmit) {
   }
 
   function handleRejectStart() {
-    if (!selectedPlanId.value || isCurrentOptionSelected.value) return;
+    if (isCurrentOptionSelected.value) return;
     isPendingReject.value = true;
   }
 
@@ -524,9 +524,9 @@ export function useBncSolutions(props: UseBncSolutionsProps, emit: DecideEmit) {
   }
 
   function handleRejectConfirm() {
-    if (!selectedPlanId.value || isCurrentOptionSelected.value || !rejectionNote.value.trim()) return;
-    decisionPlanId.value = selectedPlanId.value;
-    emit('decide', { decision: 'REJECTED', selectedPlanId: selectedPlanId.value, comment: rejectionNote.value.trim() });
+    if (isCurrentOptionSelected.value || !rejectionNote.value.trim()) return;
+    decisionPlanId.value = null;
+    emit('decide', { decision: 'REJECTED', selectedPlanId: null, comment: rejectionNote.value.trim() });
     isPendingReject.value = false;
   }
 

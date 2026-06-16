@@ -15,7 +15,7 @@ import {
 } from '@/services/mappers/bottleneckMonitoringMapper';
 
 import { getProcessAreaNameKo } from '@/constants/processArea';
-import { RISK_LEVEL_META, riskGradeToLevel } from '@/constants/riskLevel';
+import { riskGradeToLevel } from '@/constants/riskLevel';
 import type { RiskLevel } from '@/constants/riskLevel';
 
 import type {
@@ -27,6 +27,8 @@ import type {
   BottleneckToolGroupItem,
 } from '@/types/bottleneckMonitoring';
 import type { DashboardProcessAreaData } from '@/types/dashboard';
+
+import { compareBottleneckRisk } from '@/utils/bottleneckRisk';
 
 const RISK_GRADES: BottleneckRiskGrade[] = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
 
@@ -72,12 +74,7 @@ function createAreaFilters(processAreas: DashboardProcessAreaData[]): AreaFilter
 function filterToolGroups(toolGroups: BottleneckToolGroupItem[], areaCode: string | null): BottleneckToolGroupItem[] {
   const filtered = areaCode ? toolGroups.filter((toolGroup) => toolGroup.areaCode === areaCode) : toolGroups;
 
-  return [...filtered].sort((a, b) => {
-    const riskDiff =
-      RISK_LEVEL_META[toRiskLevel(a.riskGrade)].sortOrder - RISK_LEVEL_META[toRiskLevel(b.riskGrade)].sortOrder;
-    if (riskDiff !== 0) return riskDiff;
-    return b.bottleneckProb - a.bottleneckProb || b.utilizationRate - a.utilizationRate;
-  });
+  return [...filtered].sort(compareBottleneckRisk);
 }
 
 function mapDetailFromToolGroup(toolGroup: BottleneckToolGroupItem): BottleneckToolGroupDetail {
@@ -94,19 +91,21 @@ function mapDetailFromToolGroup(toolGroup: BottleneckToolGroupItem): BottleneckT
     setupRatio: toolGroup.setupRatio,
     waitRatio: toolGroup.waitRatio,
     bottleneckProb: toolGroup.bottleneckProb,
+    riskScore: toolGroup.riskScore,
     riskGrade: toolGroup.riskGrade,
     relatedCaseId: null,
   };
 }
 
 function mergeDetail(base: BottleneckToolGroupDetail, detail: BottleneckToolGroupDetail): BottleneckToolGroupDetail {
-  const shouldUseDetailRisk = detail.bottleneckProb > 0 || detail.riskGrade !== 'LOW';
+  const shouldUseDetailRisk = detail.riskScore !== null || detail.riskGrade !== 'LOW';
 
   return {
     ...base,
     ...detail,
     relatedCaseId: detail.relatedCaseId ?? base.relatedCaseId,
     bottleneckProb: shouldUseDetailRisk ? detail.bottleneckProb : base.bottleneckProb,
+    riskScore: shouldUseDetailRisk ? detail.riskScore : base.riskScore,
     riskGrade: shouldUseDetailRisk ? detail.riskGrade : base.riskGrade,
   };
 }
@@ -150,8 +149,12 @@ export function useBottleneckMonitoring() {
     detailErrorMessage.value = null;
   }
 
-  function applyToolGroups(nextToolGroups: BottleneckToolGroupItem[], initialAreaCode: string | null) {
-    const nextProcessMapAreas = mapBottleneckToolGroupsToDashboardAreas(nextToolGroups);
+  function applyToolGroups(
+    nextToolGroups: BottleneckToolGroupItem[],
+    initialAreaCode: string | null,
+    processAreas: BottleneckAreaSummary[] = []
+  ) {
+    const nextProcessMapAreas = mapBottleneckToolGroupsToDashboardAreas(nextToolGroups, processAreas);
 
     allToolGroups.value = nextToolGroups;
     processMapAreas.value = nextProcessMapAreas;
@@ -210,7 +213,7 @@ export function useBottleneckMonitoring() {
       }
 
       snapshot.value = snapshotData;
-      applyToolGroups(rankings, initialAreaCode);
+      applyToolGroups(rankings, initialAreaCode, processMapData.areas);
     } catch (error) {
       if (isNoSnapshotError(error)) {
         clearMonitoringData();

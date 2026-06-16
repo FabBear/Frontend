@@ -18,6 +18,7 @@ const props = defineProps<{
   analysis: BncCauseAnalysis | null;
   loading?: boolean;
   errorMessage?: string | null;
+  caseId?: string | null;
 }>();
 
 const judgment = computed(() => props.analysis?.judgment ?? null);
@@ -176,7 +177,11 @@ function simDeltaText(kpi: { kpi: string; pctChange: number }): string {
 
 // 업스트림 의심 공정 클릭 → 3D Fab View에서 해당 TG로 포커싱 (Fab3dView는 ?tg=<이름>으로 선택)
 function goToFab3d(tgName: string) {
-  void router.push({ name: ROUTE_NAMES.fab3d, query: { tg: tgName } });
+  if (props.caseId) {
+    void router.push({ name: ROUTE_NAMES.fab3d, query: { caseId: props.caseId, tg: tgName } });
+  } else {
+    void router.push({ name: ROUTE_NAMES.fab3d, query: { tg: tgName } });
+  }
 }
 </script>
 
@@ -203,22 +208,6 @@ function goToFab3d(tgName: string) {
             <span class="bnc-cause__judgment-feature">대표 피처 · {{ judgment.primaryCause }}</span>
           </div>
           <p class="bnc-cause__judgment-reason">{{ judgment.primaryReasoning }}</p>
-
-          <div class="bnc-cause__judgment-tags">
-            <div v-if="judgment.secondaryCauses.length" class="bnc-cause__judgment-tag-group">
-              <span class="bnc-cause__judgment-tag-label">보조 원인</span>
-              <span v-for="c in judgment.secondaryCauses" :key="c" class="bnc-cause__chip bnc-cause__chip--sub">{{
-                c
-              }}</span>
-            </div>
-            <div v-if="judgment.dismissed.length" class="bnc-cause__judgment-tag-group">
-              <span class="bnc-cause__judgment-tag-label">기각</span>
-              <span v-for="c in judgment.dismissed" :key="c" class="bnc-cause__chip bnc-cause__chip--dismissed">{{
-                c
-              }}</span>
-            </div>
-          </div>
-          <p v-if="judgment.dismissedReason" class="bnc-cause__judgment-dismiss">{{ judgment.dismissedReason }}</p>
         </template>
 
         <!-- 폴백: judgment 없을 때 기존 요약 텍스트 -->

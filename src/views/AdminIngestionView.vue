@@ -21,7 +21,7 @@ const currentFabId = computed(() => authStore.user?.fabId ?? '');
 
 const health = ref<AdminMesHealth | null>(null);
 const jobs = ref<AdminMesCollectJob[]>([]);
-const showHistory = ref(false);
+const showHistory = ref(true);
 const isLoading = ref(false);
 const loadError = ref<string | null>(null);
 

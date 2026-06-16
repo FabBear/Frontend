@@ -7,8 +7,6 @@ test-results
 .husky
 .claude
 .vscode
-.env
-.env.*
 .DS_Store
 README.md
 *.log

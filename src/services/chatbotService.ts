@@ -142,8 +142,9 @@ export async function sendChatMessage(request: ChatSendRequest): Promise<Backend
   return data;
 }
 
-// ── AI 직접 SSE 스트리밍 (P1: 체감속도) ──────────────────────────────────────
-// 프론트 → FastAPI /api/chat/stream (vite 프록시 /ai가 내부 토큰 주입).
+// ── AI SSE 스트리밍 (P1: 체감속도) ──────────────────────────────────────────
+// 프론트 → Spring /api/v1/chatbot/stream(JWT 인증) → FastAPI /api/chat/stream 중계.
+// Spring이 인증 주체에서 fabId/내부 토큰을 주입하므로 dev/Docker 공통 경로다.
 // LLM 호출은 이 한 번뿐 — 완료 후 Spring에는 precomputed로 '저장만' 요청(비용 절감).
 
 interface RawMesCurrent {
@@ -258,9 +259,10 @@ export async function streamChatMessage(
     return meta;
   }
 
-  const res = await fetch('/ai/api/chat/message'.replace('/message', '/stream'), {
+  const res = await fetch('/api/v1/chatbot/stream', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify({
       message: payload.message,
       history: payload.history,

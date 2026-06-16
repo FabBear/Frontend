@@ -6,15 +6,6 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const apiTarget = env.VITE_DEV_API_TARGET || 'http://localhost:8080';
-  const aiTarget = env.VITE_DEV_AI_TARGET || 'http://localhost:8000';
-  // AI 직접 스트리밍용 내부 헤더 — dev 프록시에서 주입(브라우저 번들에 노출되지 않음).
-  const aiInternalHeaders = {
-    'X-Internal-Token': env.VITE_DEV_AI_INTERNAL_TOKEN || 'fabbear-internal-token-2024',
-    'X-User-Id': '00000000-0000-0000-0000-000000000001',
-    'X-User-Role': 'USER',
-    'X-Factory-Id': env.VITE_DEV_FAB_ID || '9db3c0e4-612a-4d84-b6bf-fafed1f44d03',
-    'X-Request-Id': '00000000-0000-0000-0000-000000000002',
-  };
 
   return {
     plugins: [vue()],
@@ -25,17 +16,10 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       proxy: {
+        // 챗 SSE 포함 모든 API는 Spring 경유(/api). Spring이 인증 후 FastAPI로 중계한다.
         '/api': {
           target: apiTarget,
           changeOrigin: true,
-        },
-        // 챗 SSE 스트리밍: 프론트 → FastAPI 직접(/ai/api/chat/stream).
-        // /ai/chatbot은 Vue route라 프록시가 가로채면 안 된다.
-        '/ai/api': {
-          target: aiTarget,
-          changeOrigin: true,
-          rewrite: (path: string) => path.replace(/^\/ai/, ''),
-          headers: aiInternalHeaders,
         },
       },
     },

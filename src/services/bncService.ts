@@ -302,6 +302,54 @@ interface BackendCompareV2Payload {
       suspect_component?: string;
     }>;
   };
+  rag_evidence?: BackendRagEvidence | null;
+}
+
+interface BackendRagHit {
+  case_id?: string;
+  caseId?: string;
+  score?: number;
+  tg_code?: string;
+  tgCode?: string;
+  report_title?: string;
+  reportTitle?: string;
+  cause_summary?: string;
+  summary?: string;
+  text?: string;
+}
+
+interface BackendRagClaim {
+  text?: string;
+}
+
+interface BackendRagCaseSummary {
+  case_id?: string;
+  caseId?: string;
+  summary?: string;
+  relevance?: string;
+  supports_effect?: boolean;
+  shows_risk?: boolean;
+}
+
+interface BackendRagCandidate {
+  label?: string;
+  evidence?: {
+    candidate_summary?: string;
+    risk_level?: string;
+    evidence_strength?: string;
+    effect_outlook?: string;
+    claims?: Array<string | BackendRagClaim>;
+    case_summaries?: BackendRagCaseSummary[];
+  } | null;
+}
+
+interface BackendRagEvidence {
+  common_hits?: BackendRagHit[];
+  candidates?: BackendRagCandidate[] | Record<string, BackendRagCandidate>;
+  comparison?: {
+    rag_summary?: string;
+    overall_comment?: string;
+  } | null;
 }
 
 interface BackendReportPayload {
@@ -918,6 +966,7 @@ function mapCompareV2ActionPlans(data: BackendCompareV2Payload, fallbackCaseId: 
       recommended: option.is_recommended || actionLabel === recommendedActionLabel,
     };
   });
+  const ragEvidence = mapCompareV2RagEvidence(data.rag_evidence, fallbackCaseId, plans);
 
   return {
     caseId: fallbackCaseId,
@@ -1040,7 +1089,95 @@ function mapCompareV2ActionPlans(data: BackendCompareV2Payload, fallbackCaseId: 
       selectedPlanId: recommendedOption ? `${fallbackCaseId}-plan-${recommendedOption.label.toLowerCase()}` : null,
       comment: !isAutoApproved ? (data.approval_info?.comment ?? null) : null,
     },
+    ragEvidence,
   };
+}
+
+function normalizeRagRiskLevel(value: string | undefined): 'high' | 'medium' | 'low' {
+  const normalized = (value ?? '').toLowerCase();
+  if (normalized === 'high') return 'high';
+  if (normalized === 'medium') return 'medium';
+  return 'low';
+}
+
+function normalizeRagEvidenceStrength(value: string | undefined): 'strong' | 'moderate' | 'weak' {
+  const normalized = (value ?? '').toLowerCase();
+  if (normalized === 'strong') return 'strong';
+  if (normalized === 'moderate') return 'moderate';
+  return 'weak';
+}
+
+function normalizeBackendRagCandidates(
+  candidates: BackendRagEvidence['candidates'] | undefined
+): BackendRagCandidate[] {
+  if (!candidates) return [];
+  if (Array.isArray(candidates)) return candidates;
+  return Object.entries(candidates).map(([label, candidate]) => ({ label, ...candidate }));
+}
+
+function mapRagHit(hit: BackendRagHit): NonNullable<BncActionPlansPayload['ragEvidence']>['commonHits'][number] {
+  const caseId = hit.case_id ?? hit.caseId ?? hit.report_title ?? hit.reportTitle ?? 'rag-case';
+  return {
+    caseId,
+    score: typeof hit.score === 'number' ? hit.score : undefined,
+    tgCode: hit.tg_code ?? hit.tgCode,
+    reportTitle: hit.report_title ?? hit.reportTitle ?? caseId,
+    summary: hit.cause_summary ?? hit.summary ?? hit.text ?? '',
+  };
+}
+
+function mapCompareV2RagEvidence(
+  ragEvidence: BackendRagEvidence | null | undefined,
+  caseId: string,
+  plans: BncActionPlansPayload['plans']
+): BncActionPlansPayload['ragEvidence'] | undefined {
+  if (!ragEvidence) return undefined;
+
+  const commonHits = (ragEvidence.common_hits ?? []).map(mapRagHit).filter((hit) => hit.summary || hit.reportTitle);
+  const perPlanEntries = normalizeBackendRagCandidates(ragEvidence.candidates).flatMap((candidate) => {
+    const label = extractActionLabel(candidate.label ?? '');
+    const plan = plans.find((item) => item.actionLabel === label);
+    const evidence = candidate.evidence;
+    if (!plan || !evidence?.candidate_summary) return [];
+
+    return [
+      [
+        plan.planId,
+        {
+          candidateSummary: evidence.candidate_summary,
+          riskLevel: normalizeRagRiskLevel(evidence.risk_level),
+          evidenceStrength: normalizeRagEvidenceStrength(evidence.evidence_strength),
+          effectOutlook: evidence.effect_outlook,
+          claims: (evidence.claims ?? [])
+            .map((claim) => (typeof claim === 'string' ? claim : (claim.text ?? '')))
+            .filter(Boolean),
+          caseSummaries: (evidence.case_summaries ?? [])
+            .map((item) => ({
+              caseId: item.case_id ?? item.caseId ?? `${caseId}-${label}-rag`,
+              summary: item.summary ?? '',
+              relevance: item.relevance,
+              supportsEffect: item.supports_effect,
+              showsRisk: item.shows_risk,
+            }))
+            .filter((item) => item.summary),
+        },
+      ] as const,
+    ];
+  });
+
+  const perPlan = Object.fromEntries(perPlanEntries);
+  const comparison = ragEvidence.comparison
+    ? {
+        ragSummary: ragEvidence.comparison.rag_summary,
+        overallComment: ragEvidence.comparison.overall_comment,
+      }
+    : undefined;
+
+  if (!commonHits.length && !Object.keys(perPlan).length && !comparison?.ragSummary && !comparison?.overallComment) {
+    return undefined;
+  }
+
+  return { commonHits, perPlan, comparison };
 }
 
 function mapReport(data: BackendReportPayload): BncReportPayload {

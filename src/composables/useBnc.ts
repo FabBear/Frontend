@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import {
   decideBncHitl,
@@ -9,9 +9,12 @@ import {
   fetchBncReport,
 } from '@/services/bncService';
 
+import { advanceDemoBncStep, demoBncStep, startDemoBncAnimation } from '@/composables/useDemoTimeline';
+
 import { BNC_STATUS_META, BNC_TAB_OPTIONS } from '@/constants/bnc';
-import { MOCK_BNC_CASE_DETAILS, MOCK_BNC_CASE_LIST } from '@/constants/mockData/bnc';
+import { MOCK_BNC_CASE_DETAILS, MOCK_BNC_CASE_LIST, buildDemoDetail } from '@/constants/mockData/bnc';
 import { MOCK_BNC_ACTION_PLANS, MOCK_BNC_CAUSE_ANALYSIS, MOCK_BNC_REPORTS } from '@/constants/mockData/bncArtifacts';
+import { DEMO_CASE_ID } from '@/constants/mockData/demoAlert';
 import { shouldUseDemoMockData } from '@/constants/mockMode';
 
 import type {
@@ -28,7 +31,7 @@ import type {
 
 const DEFAULT_TAB: BncTabId = 'progress';
 const CASE_PAGE_SIZE = 10;
-const TOTAL_BNC_STEPS = 6;
+const TOTAL_BNC_STEPS = 7;
 const USE_BNC_MOCK_DATA = shouldUseDemoMockData() || import.meta.env.VITE_USE_BNC_MOCK_DATA === 'true';
 const DEFAULT_PAGE_INFO: BncPageInfo = {
   page: 0,
@@ -71,6 +74,19 @@ function getMockCaseArtifacts(caseId: string) {
     cause: cloneMock(MOCK_BNC_CAUSE_ANALYSIS[caseId] ?? null),
     actions: cloneMock(MOCK_BNC_ACTION_PLANS[caseId] ?? null),
     report: cloneMock(MOCK_BNC_REPORTS[caseId] ?? null),
+  };
+}
+
+function toPendingMockActionPlans(actions: BncActionPlansPayload | null): BncActionPlansPayload | null {
+  if (!actions) return null;
+  return {
+    ...actions,
+    hitlStatus: {
+      hasDecision: false,
+      latestDecision: null,
+      selectedPlanId: actions.plans.find((plan) => plan.recommended)?.planId ?? actions.hitlStatus.selectedPlanId,
+      comment: null,
+    },
   };
 }
 
@@ -193,10 +209,6 @@ export function useBnc(initialCaseId?: string | null, initialTab?: string | null
         pageInfo.value = data.pageInfo;
         page.value = data.pageInfo.page;
 
-        if (!selectedCaseId.value) {
-          selectedCaseId.value = sortedCases.value[0]?.caseId ?? null;
-        }
-
         return;
       }
 
@@ -205,21 +217,24 @@ export function useBnc(initialCaseId?: string | null, initialTab?: string | null
       cases.value = data.items;
       pageInfo.value = data.pageInfo;
       page.value = data.pageInfo.page;
-
-      if (!selectedCaseId.value) {
-        selectedCaseId.value = sortedCases.value[0]?.caseId ?? null;
-      }
     } catch {
       const data = getMockCasesPage(nextPage);
       cases.value = data.items;
       pageInfo.value = data.pageInfo;
       page.value = data.pageInfo.page;
-      selectedCaseId.value ??= sortedCases.value[0]?.caseId ?? null;
       errorMessage.value = null;
     } finally {
       isLoading.value = false;
     }
   }
+
+  // 데모 모드: DE_FE_1 선택 시 demoBncStep 변화에 따라 detail 자동 갱신
+  watch(demoBncStep, (step) => {
+    if (USE_BNC_MOCK_DATA && shouldUseDemoMockData() && selectedCaseId.value === DEMO_CASE_ID) {
+      selectedCaseDetail.value = buildDemoDetail(step);
+      ensureCaseInList(selectedCaseDetail.value);
+    }
+  });
 
   async function loadCaseDetail(caseId: string | null = selectedCaseId.value) {
     if (!caseId) {
@@ -233,6 +248,14 @@ export function useBnc(initialCaseId?: string | null, initialTab?: string | null
 
     try {
       if (USE_BNC_MOCK_DATA) {
+        // 데모 모드에서 DE_FE_1은 애니메이션 진행 상태로 로드
+        if (shouldUseDemoMockData() && caseId === DEMO_CASE_ID) {
+          selectedCaseDetail.value = buildDemoDetail(demoBncStep.value);
+          if (selectedCaseDetail.value) ensureCaseInList(selectedCaseDetail.value);
+          detailErrorMessage.value = null;
+          startDemoBncAnimation();
+          return;
+        }
         selectedCaseDetail.value = getMockCaseDetail(caseId);
         if (selectedCaseDetail.value) ensureCaseInList(selectedCaseDetail.value);
         detailErrorMessage.value = selectedCaseDetail.value ? null : 'Agent 진행 상세가 없습니다.';
@@ -266,7 +289,7 @@ export function useBnc(initialCaseId?: string | null, initialTab?: string | null
       if (USE_BNC_MOCK_DATA) {
         const { cause, actions, report } = getMockCaseArtifacts(caseId);
         if (tab === 'cause') selectedCauseAnalysis.value = cause;
-        if (tab === 'solutions') selectedActionPlans.value = actions;
+        if (tab === 'solutions') selectedActionPlans.value = toPendingMockActionPlans(actions);
         if (tab === 'report') selectedReport.value = report;
         artifactErrorMessage.value =
           (tab === 'cause' && cause) || (tab === 'solutions' && actions) || (tab === 'report' && report)
@@ -289,7 +312,8 @@ export function useBnc(initialCaseId?: string | null, initialTab?: string | null
     } catch {
       const { cause, actions, report } = getMockCaseArtifacts(caseId);
       if (tab === 'cause') selectedCauseAnalysis.value = cause;
-      if (tab === 'solutions') selectedActionPlans.value = actions;
+      if (tab === 'solutions')
+        selectedActionPlans.value = USE_BNC_MOCK_DATA ? toPendingMockActionPlans(actions) : actions;
       if (tab === 'report') selectedReport.value = report;
       artifactErrorMessage.value =
         (tab === 'cause' && cause) || (tab === 'solutions' && actions) || (tab === 'report' && report)
@@ -342,14 +366,32 @@ export function useBnc(initialCaseId?: string | null, initialTab?: string | null
           };
         }
 
+        if (shouldUseDemoMockData() && caseId === DEMO_CASE_ID) {
+          advanceDemoBncStep(); // step 5 → 6: HITL_WAITING DONE, REPORT_GEN RUNNING
+        }
+
+        selectedReport.value = null;
+        selectTab('report');
+
+        if (payload.decision === 'APPROVED') {
+          isArtifactLoading.value = true;
+          const approvedCaseId = caseId;
+          setTimeout(() => {
+            selectedReport.value = getMockCaseArtifacts(approvedCaseId).report;
+            isArtifactLoading.value = false;
+          }, 2500);
+        } else {
+          selectedReport.value = getMockCaseArtifacts(caseId).report;
+        }
+
         return;
       }
 
       await decideBncHitl(caseId, payload);
       await Promise.all([loadCaseDetail(caseId), loadCases(page.value)]);
-      // 결정 직후 보고서 탭으로 전환하고 보고서가 생성될 때까지 polling
       selectTab('report');
-      void pollReport(caseId);
+      if (payload.decision === 'APPROVED') void pollReport(caseId);
+      else void loadCaseArtifacts(caseId, 'report');
     } catch {
       artifactErrorMessage.value = '승인/반려 결정을 저장하지 못했습니다.';
     } finally {
@@ -363,11 +405,27 @@ export function useBnc(initialCaseId?: string | null, initialTab?: string | null
 
   function selectTab(tabId: BncTabId) {
     activeTab.value = tabId;
+    if (tabId === 'report' && shouldUseDemoMockData() && selectedCaseId.value === DEMO_CASE_ID) {
+      // HITL 완료(step 6) 상태일 때만 리포트 탭 진입 → 2.5s 후 REPORT_GEN 완료
+      setTimeout(() => {
+        if (demoBncStep.value === 6) advanceDemoBncStep();
+      }, 2500);
+    }
   }
 
   function ensureCaseInList(detail: BncCaseDetail) {
-    if (cases.value.some((item) => item.caseId === detail.caseId)) return;
-    cases.value = [toAlertCase(detail), ...cases.value];
+    const nextCase = toAlertCase(detail);
+    const index = cases.value.findIndex((item) => item.caseId === detail.caseId);
+
+    if (index === -1) {
+      cases.value = [nextCase, ...cases.value];
+      return;
+    }
+
+    const existing = cases.value[index]!;
+    cases.value = cases.value.map((item, itemIndex) =>
+      itemIndex === index ? { ...existing, ...nextCase, alertMetrics: existing.alertMetrics } : item
+    );
   }
 
   function toAlertCase(detail: BncCaseDetail): BncAlertCase {

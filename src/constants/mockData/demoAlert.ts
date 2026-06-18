@@ -1,3 +1,5 @@
+import { demoPhase } from '@/composables/useDemoTimeline';
+
 import { riskGradeToLevel } from '@/constants/riskLevel';
 
 import type { BottleneckAlertItem, DashboardProcessAreaData } from '@/types/dashboard';
@@ -8,6 +10,35 @@ export const DEMO_CASE_ID = 'case-de-fe-1-3780';
 export const DEMO_TG_ID = 'tg-de-fe-1';
 export const DEMO_TG_NAME = 'DE_FE_1';
 export const DEMO_DETECTED_AT = '2026-06-14T14:12:00Z';
+
+export const DEMO_BOTTLENECK_ALERT_2: BottleneckAlertItem = {
+  caseId: 'case-litho-fe-92-3641',
+  tgId: 'tg-litho-fe-92',
+  tgName: 'Litho_FE_92',
+  areaName: 'Litho',
+  riskGrade: 'CRITICAL',
+  riskLevel: riskGradeToLevel('CRITICAL'),
+  bottleneckProb: 0.9712,
+  riskScore: 0.7548,
+  impactScore: 0.6103,
+  alertMetrics: {
+    compositeScore: 0.7548,
+    probability: 0.9712,
+    impactScore: 0.6103,
+    affectedCount: 3,
+    ctIncreaseMin: 1240,
+    atRiskLots: 22,
+  },
+  estDelayHours: 20.7,
+  affectedTgCount: 3,
+  affectedLotCount: 22,
+  mainCause: 'WIP_누적(wip) · 설비_포화(max_util)',
+  status: 'RESOLVED',
+  currentStepName: 'HITL_WAITING',
+  canAnalyzeCause: true,
+  canShowSolutions: true,
+  detectedAt: '2026-06-14T12:30:00Z',
+};
 
 export const DEMO_BOTTLENECK_ALERT: BottleneckAlertItem = {
   caseId: DEMO_CASE_ID,
@@ -31,8 +62,8 @@ export const DEMO_BOTTLENECK_ALERT: BottleneckAlertItem = {
   affectedTgCount: 2,
   affectedLotCount: 12,
   mainCause: '설비_포화(max_util) · WIP_누적',
-  status: 'RESOLVED',
-  currentStepName: 'HITL_WAITING',
+  status: 'ANALYZING',
+  currentStepName: 'DIFFUSION_ANALYSIS',
   canAnalyzeCause: true,
   canShowSolutions: true,
   detectedAt: DEMO_DETECTED_AT,
@@ -63,7 +94,10 @@ export function getDemoBottleneckAlertsPage({
   const inRange =
     (from === null || Number.isNaN(from) || detectedAt >= from) &&
     (to === null || Number.isNaN(to) || detectedAt <= to);
-  const items = inRange ? [DEMO_BOTTLENECK_ALERT].slice(0, size) : [];
+  // Phase 0: Litho_FE_92만 표시. Phase 1: DE_FE_1 추가.
+  const allAlerts =
+    demoPhase.value === 0 ? [DEMO_BOTTLENECK_ALERT_2] : [DEMO_BOTTLENECK_ALERT, DEMO_BOTTLENECK_ALERT_2];
+  const items = inRange ? allAlerts.slice(0, size) : [];
 
   return {
     items,
@@ -170,6 +204,13 @@ export const DEMO_DASHBOARD_PROCESS_AREAS: DashboardProcessAreaData[] = [
     ],
   },
 ];
+
+export function getDemoNotifications(): NotificationListData {
+  if (demoPhase.value === 0) {
+    return { totalUnreadCount: 0, items: [] };
+  }
+  return DEMO_NOTIFICATION_LIST;
+}
 
 export const DEMO_NOTIFICATION_LIST: NotificationListData = {
   totalUnreadCount: 1,

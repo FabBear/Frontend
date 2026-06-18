@@ -88,11 +88,6 @@ function sanitizeReportHtml(html?: string | null): string {
         <header class="bnc-report__header">
           <div class="bnc-report__header-meta">
             <h3 class="bnc-report__title">AI 대응 리포트</h3>
-            <div class="bnc-report__header-sub">
-              <span>생성 {{ report.reportV1.meta.generated_at }}</span>
-              <span>대상 {{ report.reportV1.meta.process_name }}</span>
-              <span v-if="report.qdrantIndexed" class="bnc-report__indexed">유사 사례 색인됨</span>
-            </div>
           </div>
           <div class="bnc-report__actions">
             <BaseButton size="sm" :disabled="isDownloading" @click="handlePdfDownload">
@@ -116,7 +111,6 @@ function sanitizeReportHtml(html?: string | null): string {
             <div class="bnc-report__header-sub">
               <span>생성 {{ report.finalReport.meta.generated_at }}</span>
               <span>대상 {{ report.finalReport.meta.process_name }}</span>
-              <span v-if="report.qdrantIndexed" class="bnc-report__indexed">유사 사례 색인됨</span>
             </div>
           </div>
           <div class="bnc-report__actions">
@@ -144,7 +138,6 @@ function sanitizeReportHtml(html?: string | null): string {
               <span v-if="report.regeneratedCount > 0" class="bnc-report__regen">
                 재생성 {{ report.regeneratedCount }}회
               </span>
-              <span v-if="report.qdrantIndexed" class="bnc-report__indexed">유사 사례 색인됨</span>
             </div>
           </div>
           <div class="bnc-report__actions">
@@ -292,24 +285,6 @@ function sanitizeReportHtml(html?: string | null): string {
   color: var(--color-fg-muted);
   border-radius: var(--radius-pill);
   font-size: var(--font-size-xs);
-}
-
-.bnc-report__indexed {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--color-status-success);
-  font-size: var(--font-size-xs);
-}
-
-.bnc-report__indexed::before {
-  content: '';
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
-  flex-shrink: 0;
 }
 
 .bnc-report__html {

@@ -92,6 +92,8 @@ export interface BncBaselineSnapshotItem {
   label: string;
   value: string;
   caption?: string;
+  pctDelta?: number;
+  tone?: 'positive' | 'negative' | 'neutral';
 }
 
 export interface BncRecommendationSummary {
@@ -126,11 +128,31 @@ export interface BncApprovalInfo {
   rejectionReason: string | null;
 }
 
+export interface BncActionSpecLot {
+  id: string;
+  product: string;
+  t2dueMin: number;
+}
+
+export interface BncActionSpecGroup {
+  zone: string;
+  action: string;
+  lots: BncActionSpecLot[];
+}
+
+export interface BncActionSpec {
+  intervalPct?: number;
+  noLotAdjust?: boolean;
+  noLotReason?: string;
+  lotGroups?: BncActionSpecGroup[];
+}
+
 export interface BncActionPlan {
   planId: string;
   actionLabel?: string;
   actionKind?: string;
   title: string;
+  actionSpec?: BncActionSpec;
   summary: string;
   expectedImpact: string;
   riskText: string;
@@ -258,6 +280,23 @@ export interface BncTrendInsight {
 
 export type BncCauseConfidence = 'HIGH' | 'MEDIUM' | 'LOW';
 
+export interface BncLlmVerdict {
+  mainCategory: string;
+  mainFeature: string;
+  confidence: BncCauseConfidence;
+  summary: string;
+  reasoning: string;
+  evidence: {
+    shapContribPct: number;
+    gStarSignificant: boolean;
+    gStarKpi?: string;
+    gStarPValue?: number;
+    worseningFeatures: string[];
+  };
+  forecast: string;
+  rejected: Array<{ category: string; reason: string }>;
+}
+
 /** LLM 판정 에이전트의 최종 원인 판정 (CauseJudgment). */
 export interface BncCauseJudgment {
   primaryCategory: string;
@@ -334,11 +373,22 @@ export interface BncRagCandidateEvidence {
   evidenceStrength: 'strong' | 'moderate' | 'weak';
   effectOutlook?: string;
   claims?: string[];
+  caseSummaries?: Array<{
+    caseId: string;
+    summary: string;
+    relevance?: string;
+    supportsEffect?: boolean;
+    showsRisk?: boolean;
+  }>;
 }
 
 export interface BncRagEvidence {
   commonHits: BncRagSimilarCase[];
   perPlan?: Record<string, BncRagCandidateEvidence>;
+  comparison?: {
+    ragSummary?: string;
+    overallComment?: string;
+  };
 }
 
 export interface BncModelPerformance {
@@ -363,6 +413,8 @@ export interface BncCauseAnalysis {
   createdAt: string;
   /** LLM 판정(주원인/보조/기각). 신 파이프라인 산출물. */
   judgment?: BncCauseJudgment | null;
+  /** 구조화된 LLM 판정 결과 (verdict card 표시용). */
+  llmVerdict?: BncLlmVerdict | null;
   /** 원인 카테고리 랭킹(설비_포화/WIP_누적 등). */
   causeCategories?: BncCauseCategory[];
   /** 업스트림 의심 공정 TG. */

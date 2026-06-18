@@ -3,13 +3,10 @@ import { provideBncSolutions } from '@/composables/useBncSolutions';
 
 import type { BncActionPlansPayload } from '@/types/bnc';
 
-import BaseBadge from '@/components/base/BaseBadge.vue';
 import BncSolutionsCompareCards from '@/components/bnc/tabs/BncSolutionsCompareCards.vue';
 import BncSolutionsHitl from '@/components/bnc/tabs/BncSolutionsHitl.vue';
-import BncSolutionsImmediateActions from '@/components/bnc/tabs/BncSolutionsImmediateActions.vue';
 import BncSolutionsKpiCharts from '@/components/bnc/tabs/BncSolutionsKpiCharts.vue';
-import BncSolutionsRagEvidence from '@/components/bnc/tabs/BncSolutionsRagEvidence.vue';
-import BncSolutionsSelectedDetail from '@/components/bnc/tabs/BncSolutionsSelectedDetail.vue';
+import BncSolutionsRagInsightSummary from '@/components/bnc/tabs/BncSolutionsRagInsightSummary.vue';
 
 const props = defineProps<{
   payload: BncActionPlansPayload | null;
@@ -24,18 +21,6 @@ const emit = defineEmits<{
 // 부모(탭)는 오케스트레이터 — 자식 컴포넌트에 넘길 값과 직접 쓰는 판단요약/조건값만 destructure.
 // 상세(SelectedDetail) 전용 파생값은 provide된 컨텍스트를 자식이 inject해 직접 사용한다.
 const {
-  // 판단 요약 + 공통 조건
-  decisionSummaryTitle,
-  decisionSummaryDescription,
-  decisionSummaryItems,
-  hasConclusion,
-  conclusionHeadline,
-  compareContext,
-  noActionForecast,
-  hasSimWarning,
-  recommendedPlan,
-  recommendationBadgeLabel,
-  formatDecisionStatus,
   // 차트/카드
   sortedPlans,
   planBadges,
@@ -45,24 +30,12 @@ const {
   baselineTargetToolGroups,
   handleSelectCurrentOption,
   handleSelectPlan,
-  // 상세 렌더 여부
-  selectedPlan,
-  // 즉시 조치
-  showImmediateActions,
-  selectedImmediateActions,
-  selectedMonitoringKpis,
-  selectedRollbackCondition,
-  // RAG
-  ragHits,
-  selectedPlanEvidence,
-  openInArchive,
   // HITL
   selectedPlanId,
   localDecision,
   isPendingReject,
   rejectionNote,
   approvalNote,
-  isSelectionOffRecommendation,
   handleApprove,
   handleRejectStart,
   handleRejectCancel,
@@ -79,64 +52,6 @@ const {
     </p>
 
     <template v-else>
-      <section class="bnc-solutions__baseline bnc-solutions__baseline--summary">
-        <div class="bnc-solutions__baseline-hd">
-          <span class="bnc-solutions__card-label bnc-solutions__card-label--base">판단</span>
-          <div class="bnc-solutions__baseline-title">
-            <h3>{{ decisionSummaryTitle }}</h3>
-            <p>{{ decisionSummaryDescription }}</p>
-          </div>
-        </div>
-
-        <div v-if="hasConclusion" class="bnc-solutions__conclusion-hd">
-          <BaseBadge v-if="payload.decisionInfo" variant="info">
-            {{ formatDecisionStatus(payload.decisionInfo.decisionStatus) }}
-          </BaseBadge>
-          <p v-if="conclusionHeadline" class="bnc-solutions__conclusion-headline">{{ conclusionHeadline }}</p>
-        </div>
-
-        <div class="bnc-solutions__conclusion-meta">
-          <span
-            v-if="compareContext?.severity"
-            class="bnc-solutions__conclusion-chip bnc-solutions__conclusion-chip--danger"
-          >
-            {{ compareContext.severity }} 병목
-          </span>
-          <span
-            v-if="noActionForecast?.getsWorse"
-            class="bnc-solutions__conclusion-chip bnc-solutions__conclusion-chip--warn"
-          >
-            무조치 악화 예상
-          </span>
-          <span v-if="hasSimWarning" class="bnc-solutions__conclusion-chip bnc-solutions__conclusion-chip--warn">
-            시뮬 검증 경고
-          </span>
-          <span v-if="recommendedPlan" class="bnc-solutions__conclusion-chip bnc-solutions__conclusion-chip--rec">
-            {{ recommendationBadgeLabel(recommendedPlan) }} {{ recommendedPlan.actionLabel ?? '-' }}
-          </span>
-        </div>
-
-        <ul class="bnc-solutions__metrics bnc-solutions__metrics--baseline">
-          <li v-for="item in decisionSummaryItems" :key="item.label" class="bnc-solutions__metric-row">
-            <span class="bnc-solutions__metric-name">{{ item.label }}</span>
-            <span class="bnc-solutions__metric-result">
-              <span class="bnc-solutions__metric-val">{{ item.value }}</span>
-              <span v-if="item.caption" class="bnc-solutions__metric-delta">{{ item.caption }}</span>
-            </span>
-          </li>
-        </ul>
-
-        <div class="bnc-solutions__card-warn">
-          <span aria-hidden="true">!</span>
-          <p>
-            숫자 상세는 중복 노출하지 않습니다. 현재 유지 카드를 선택하면 현재 KPI와 무조치 예측을 확인할 수 있습니다.
-          </p>
-        </div>
-      </section>
-
-      <!-- KPI 영향 비교 차트 -->
-      <BncSolutionsKpiCharts v-if="sortedPlans.length" :plans="sortedPlans" />
-
       <BncSolutionsCompareCards
         :plans="sortedPlans"
         :selected-option-id="selectedOptionId"
@@ -149,36 +64,26 @@ const {
         @select-plan="handleSelectPlan"
       />
 
-      <BncSolutionsSelectedDetail v-if="isCurrentOptionSelected || selectedPlan" />
-
-      <!-- 지금 할 것들 -->
-      <BncSolutionsImmediateActions
-        v-if="showImmediateActions"
-        :action-label="selectedPlan?.actionLabel ?? null"
-        :immediate-actions="selectedImmediateActions"
-        :monitoring-kpis="selectedMonitoringKpis"
-        :rollback-condition="selectedRollbackCondition"
+      <!-- KPI 영향 비교 차트 -->
+      <BncSolutionsKpiCharts
+        v-if="sortedPlans.length || currentOptionMetrics.length"
+        :plans="sortedPlans"
+        :current-option-metrics="currentOptionMetrics"
       />
 
-      <!-- RAG 유사사례 근거 -->
-      <BncSolutionsRagEvidence
-        v-if="ragHits.length || selectedPlanEvidence"
-        :rag-hits="ragHits"
-        :plan-evidence="selectedPlanEvidence"
-        @open-archive="openInArchive"
-      />
+      <BncSolutionsRagInsightSummary :plans="sortedPlans" :rag-evidence="payload?.ragEvidence ?? null" />
 
       <!-- HITL 섹션 -->
       <BncSolutionsHitl
         v-if="localDecision === null"
         v-model:rejection-note="rejectionNote"
         v-model:approval-note="approvalNote"
-        :selected-plan-title="selectedPlan?.actionLabel ?? null"
-        :recommended-plan-label="recommendedPlan?.actionLabel ?? null"
+        :plans="sortedPlans"
+        :selected-plan-id="selectedPlanId"
         :is-pending-reject="isPendingReject"
         :is-current-option-selected="isCurrentOptionSelected"
-        :is-selection-off-recommendation="isSelectionOffRecommendation"
         :can-submit="!!selectedPlanId && !isCurrentOptionSelected"
+        @select-plan="handleSelectPlan"
         @approve="handleApprove"
         @reject-start="handleRejectStart"
         @reject-cancel="handleRejectCancel"
@@ -196,9 +101,6 @@ const {
   gap: var(--space-4);
   padding: var(--space-5);
   background: var(--color-bg-surface);
-  border: 1px solid var(--color-border-default);
-  border-top: none;
-  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
 
 .bnc-solutions__state {

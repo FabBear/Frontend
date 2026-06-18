@@ -43,8 +43,13 @@ export function useBncSolutions(props: UseBncSolutionsProps, emit: DecideEmit) {
   const rejectionNote = ref('');
   const approvalNote = ref('');
 
+  const PLAN_ORDER: Record<string, number> = { conservative: 0, standard: 1, aggressive: 2 };
   const sortedPlans = computed(() =>
-    [...(props.payload?.plans ?? [])].sort((a, b) => Number(b.recommended) - Number(a.recommended))
+    [...(props.payload?.plans ?? [])].sort((a, b) => {
+      const oa = PLAN_ORDER[a.actionLabel ?? ''] ?? 99;
+      const ob = PLAN_ORDER[b.actionLabel ?? ''] ?? 99;
+      return oa - ob;
+    })
   );
 
   const selectedPlan = computed<BncActionPlan | null>(

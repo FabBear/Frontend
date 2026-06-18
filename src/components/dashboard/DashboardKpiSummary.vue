@@ -221,7 +221,7 @@ const releasePlanSubtitle = computed(() => {
 .dashboard-kpi-summary__grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  grid-auto-rows: 200px;
+  grid-auto-rows: 160px;
   gap: var(--space-3);
 }
 

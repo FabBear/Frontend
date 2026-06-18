@@ -104,18 +104,6 @@ function getRangeStartDate(range: OverviewRange, endDate: Date): Date {
   return addHours(endDate, -24);
 }
 
-function formatAppliedDateTime(value: string): string {
-  const date = parseDateTimeLocal(value);
-  if (!date) return '-';
-  return date.toLocaleString('ko-KR', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
-}
-
 const initialEndDate = getReferenceEndDate();
 const initialStartDate = getRangeStartDate('24H', initialEndDate);
 
@@ -172,10 +160,6 @@ const selectedRangeLabel = computed(() => {
   if (overviewRange.value === 'CUSTOM') return '직접 설정';
   return rangeOptions.find((option) => option.value === overviewRange.value)?.label ?? '최근 24시간';
 });
-
-const appliedRangeLabel = computed(
-  () => `${formatAppliedDateTime(appliedFrom.value)} ~ ${formatAppliedDateTime(appliedTo.value)}`
-);
 
 function applyQuickRange(range: OverviewRange) {
   const endDate = getReferenceEndDate();
@@ -250,6 +234,12 @@ function riskSortOrder(grade: MesRiskGrade | null | undefined): number {
   return RISK_LEVEL_META[riskGradeToLevel(grade)].sortOrder;
 }
 
+function shouldShowSecondaryName(primary: string, secondary: string | null | undefined): boolean {
+  const normalizedPrimary = primary.trim().toLowerCase();
+  const normalizedSecondary = secondary?.trim().toLowerCase() ?? '';
+  return normalizedSecondary.length > 0 && normalizedSecondary !== normalizedPrimary;
+}
+
 // ── 서버 /equipment/overview 집계 → 행 매핑 ──────────────────────────
 const allToolRows = computed<ToolRow[]>(() =>
   (overviewData.value?.tools ?? []).map((t) => ({
@@ -290,10 +280,10 @@ const overviewSummary = computed(() => {
   const s = overviewData.value?.summary;
   return {
     avgUtilizationRate: n(s?.avgUtilizationRate),
-    avgWipCount: n(s?.avgWipCount),
-    riskToolGroupCount: s?.riskToolGroupCount ?? 0,
   };
 });
+
+const saturatedToolCount = computed(() => allToolRows.value.filter((tool) => tool.avgUtilizationRate >= 0.98).length);
 
 const processRows = computed<ProcessRow[]>(() =>
   (overviewData.value?.processes ?? [])
@@ -348,6 +338,32 @@ function formatProcessLabel(areaCode: string, areaNameKo: string): string {
 
 <template>
   <div class="overview-tab">
+    <!-- KPI 요약 -->
+    <section class="overview-tab__kpi">
+      <KpiCard
+        title="전체 장비"
+        :value="`${formatNumber(summary.toolCount)}대`"
+        :subtitle="`${formatNumber(summary.toolGroupCount)}개 Tool Group`"
+      />
+      <KpiCard
+        title="정비/고장 장비"
+        :value="`${formatNumber(summary.downEquipmentCount)}대`"
+        value-color="var(--color-status-danger)"
+        subtitle="현재 DOWN 상태"
+      />
+      <KpiCard
+        title="평균 가동률"
+        :value="formatRatioPercent(overviewSummary.avgUtilizationRate)"
+        :subtitle="`${selectedRangeLabel} 기간 평균`"
+      />
+      <KpiCard
+        title="가동률 포화"
+        :value="`${formatNumber(saturatedToolCount)}대`"
+        value-color="var(--color-status-danger)"
+        :subtitle="`${selectedRangeLabel} 98% 이상`"
+      />
+    </section>
+
     <section class="overview-tab__range-bar" aria-label="장비 현황 기간">
       <div class="overview-tab__range-copy">
         <strong>운영 현황 기준</strong>
@@ -370,50 +386,21 @@ function formatProcessLabel(areaCode: string, areaNameKo: string): string {
         </div>
         <div class="overview-tab__control-group">
           <div class="overview-tab__custom-range" aria-label="직접 기간 선택">
-            <label>
-              <span>시작일</span>
-              <input v-model="draftFrom" type="datetime-local" :max="fromInputMax" />
-            </label>
-            <label>
-              <span>종료일</span>
-              <input v-model="draftTo" type="datetime-local" :min="draftFrom" :max="maxDateTimeValue" />
-            </label>
+            <input v-model="draftFrom" type="datetime-local" :max="fromInputMax" aria-label="시작 시각" />
+            <span class="overview-tab__range-separator" aria-hidden="true">~</span>
+            <input
+              v-model="draftTo"
+              type="datetime-local"
+              :min="draftFrom"
+              :max="maxDateTimeValue"
+              aria-label="종료 시각"
+            />
             <button type="button" class="overview-tab__apply-btn" @click="applyCustomRange">조회</button>
             <button type="button" class="overview-tab__reset-btn" @click="applyQuickRange('24H')">초기화</button>
           </div>
         </div>
       </div>
-      <div class="overview-tab__range-status">
-        <b>{{ selectedRangeLabel }}</b>
-        <span>{{ appliedRangeLabel }} 적용 중</span>
-        <small>1시간 단위 KPI 기준</small>
-      </div>
       <p v-if="rangeErrorMessage" class="overview-tab__range-error">{{ rangeErrorMessage }}</p>
-    </section>
-
-    <!-- KPI 요약 -->
-    <section class="overview-tab__kpi">
-      <KpiCard
-        title="전체 장비"
-        :value="`${formatNumber(summary.toolCount)}대`"
-        :subtitle="`${formatNumber(summary.toolGroupCount)}개 Tool Group`"
-      />
-      <KpiCard
-        title="평균 가동률"
-        :value="formatRatioPercent(overviewSummary.avgUtilizationRate)"
-        :subtitle="`${selectedRangeLabel} 기간 평균`"
-      />
-      <KpiCard
-        title="평균 WIP"
-        :value="`${formatNumber(Math.round(overviewSummary.avgWipCount))} lot`"
-        :subtitle="`${selectedRangeLabel} TG 평균`"
-      />
-      <KpiCard
-        title="위험 TG"
-        :value="`${formatNumber(overviewSummary.riskToolGroupCount)}개`"
-        value-color="var(--color-status-danger)"
-        :subtitle="`${selectedRangeLabel} 위험등급 TG`"
-      />
     </section>
 
     <!-- 로딩/에러 상태 -->
@@ -532,7 +519,7 @@ function formatProcessLabel(areaCode: string, areaNameKo: string): string {
           >
             <td>
               <strong>{{ tg.tgCode }}</strong>
-              <span>{{ tg.tgName }}</span>
+              <span v-if="shouldShowSecondaryName(tg.tgCode, tg.tgName)">{{ tg.tgName }}</span>
             </td>
             <td>
               <b class="overview-tab__count">{{ formatNumber(tg.toolCount) }}대</b>
@@ -590,7 +577,7 @@ function formatProcessLabel(areaCode: string, areaNameKo: string): string {
           >
             <td>
               <strong>{{ eq.toolCode }}</strong>
-              <span>{{ eq.toolName }}</span>
+              <span v-if="shouldShowSecondaryName(eq.toolCode, eq.toolName)">{{ eq.toolName }}</span>
             </td>
             <td>
               <MesToolStatusBadge :status="eq.status" />
@@ -629,7 +616,7 @@ function formatProcessLabel(areaCode: string, areaNameKo: string): string {
 .overview-tab__range-bar {
   display: grid;
   grid-template-columns: 1fr;
-  gap: var(--space-3);
+  gap: var(--space-2);
   border: var(--border-width-default) solid var(--color-border-default);
   border-radius: var(--radius-lg);
   background: var(--color-bg-card);
@@ -706,21 +693,9 @@ function formatProcessLabel(areaCode: string, areaNameKo: string): string {
 
 .overview-tab__custom-range {
   display: flex;
-  align-items: end;
-  gap: var(--space-2);
+  align-items: center;
+  gap: var(--space-1);
   min-width: 0;
-}
-
-.overview-tab__custom-range label {
-  display: grid;
-  gap: 3px;
-  min-width: 180px;
-}
-
-.overview-tab__custom-range label span {
-  color: var(--color-fg-muted);
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-semibold);
 }
 
 .overview-tab__custom-range input {
@@ -733,11 +708,17 @@ function formatProcessLabel(areaCode: string, areaNameKo: string): string {
   color: var(--color-fg);
   font-size: var(--font-size-base);
   outline: none;
-  min-width: 0;
+  width: 180px;
+  min-width: 150px;
 }
 
 .overview-tab__custom-range input:focus {
   border-color: var(--color-action-primary);
+}
+
+.overview-tab__range-separator {
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-base);
 }
 
 .overview-tab__apply-btn {
@@ -781,33 +762,6 @@ function formatProcessLabel(areaCode: string, areaNameKo: string): string {
   color: var(--color-status-danger);
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-semibold);
-}
-
-.overview-tab__range-status {
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  border-top: var(--border-width-default) solid var(--color-border-subtle);
-  padding-top: var(--space-2);
-  color: var(--color-fg-muted);
-  font-size: var(--font-size-base);
-}
-
-.overview-tab__range-status b {
-  border: var(--border-width-default) solid var(--color-border-default);
-  border-radius: var(--radius-pill);
-  background: var(--color-bg-surface);
-  padding: 2px 10px;
-  color: var(--color-fg);
-  font-weight: var(--font-weight-bold);
-}
-
-.overview-tab__range-status small {
-  margin-left: auto;
-  color: var(--color-fg-muted);
-  font-size: var(--font-size-base);
-  white-space: nowrap;
 }
 
 .overview-tab__kpi {
@@ -1045,25 +999,18 @@ function formatProcessLabel(areaCode: string, areaNameKo: string): string {
 @media (max-width: 640px) {
   .overview-tab__custom-range {
     align-items: stretch;
-    flex-direction: column;
+    flex-wrap: wrap;
   }
 
-  .overview-tab__custom-range label {
+  .overview-tab__custom-range input {
+    flex: 1 1 170px;
+    width: auto;
     min-width: 0;
   }
 
   .overview-tab__apply-btn,
   .overview-tab__reset-btn {
-    width: 100%;
-  }
-
-  .overview-tab__range-status {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .overview-tab__range-status small {
-    margin-left: 0;
+    flex: 1 1 96px;
   }
 
   .overview-tab__kpi {

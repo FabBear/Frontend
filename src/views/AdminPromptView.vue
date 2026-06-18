@@ -255,6 +255,11 @@ onMounted(() => {
   gap: var(--space-4);
 }
 
+.admin-prompt-view__header {
+  border-bottom: var(--border-width-default) solid var(--color-border-default);
+  padding-bottom: var(--space-2);
+}
+
 .admin-prompt-view__header > div {
   display: grid;
   gap: var(--space-1);

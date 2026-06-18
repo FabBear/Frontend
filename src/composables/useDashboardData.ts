@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth';
 import { fetchDashboardData } from '@/services/dashboardService';
 
 import { DASHBOARD_POLL_INTERVAL_MS } from '@/constants/dashboard';
+import { shouldUseDemoMockData } from '@/constants/mockMode';
 
 import type { DashboardSectionData, DashboardSectionErrors } from '@/types/dashboard';
 
@@ -108,11 +109,18 @@ export function useDashboardData() {
     pollTimer = null;
   }
 
+  let demoRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+
   onMounted(() => {
     if (!authStore.isLoggedIn) return;
 
     void loadDashboardData();
     startPolling();
+
+    // 데모 모드: 10.5초 후 DE_FE_1 알림이 나타나도록 즉시 re-fetch
+    if (shouldUseDemoMockData()) {
+      demoRefreshTimer = setTimeout(() => void pollDashboardData(), 10_500);
+    }
   });
 
   watch(
@@ -130,6 +138,7 @@ export function useDashboardData() {
 
   onUnmounted(() => {
     stopPolling();
+    if (demoRefreshTimer !== null) clearTimeout(demoRefreshTimer);
   });
 
   return {

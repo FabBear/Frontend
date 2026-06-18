@@ -50,10 +50,7 @@ const metricCells = computed(() => {
 .bnc-case-summary {
   display: grid;
   gap: var(--space-2);
-  padding: var(--space-3);
-  background: var(--color-bg-surface);
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4);
 }
 
 .bnc-case-summary__top {

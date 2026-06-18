@@ -1,6 +1,6 @@
 import api from '@/services/api';
 
-import { DEMO_NOTIFICATION_LIST } from '@/constants/mockData/demoAlert';
+import { getDemoNotifications } from '@/constants/mockData/demoAlert';
 import { shouldUseDemoMockData } from '@/constants/mockMode';
 
 import type {
@@ -16,7 +16,7 @@ import type {
 const NOTIFICATION_STREAM_PATH = '/v1/notifications/stream';
 
 export async function fetchNotifications(): Promise<NotificationListData> {
-  if (shouldUseDemoMockData()) return DEMO_NOTIFICATION_LIST;
+  if (shouldUseDemoMockData()) return getDemoNotifications();
 
   try {
     const { data } = await api.get<NotificationListResponse>('/v1/notifications', {

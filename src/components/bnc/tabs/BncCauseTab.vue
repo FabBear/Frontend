@@ -22,6 +22,7 @@ const props = defineProps<{
 }>();
 
 const judgment = computed(() => props.analysis?.judgment ?? null);
+const llmVerdict = computed(() => props.analysis?.llmVerdict ?? null);
 const gStar = computed(() => props.analysis?.gStar ?? null);
 const simForecast = computed(() => props.analysis?.simForecast ?? null);
 const upstreamSuspects = computed(() => props.analysis?.upstreamSuspects ?? []);
@@ -153,7 +154,7 @@ const KPI_LABELS: Record<string, string> = {
   utilization_avg: '평균 가동률',
   utilization: '평균 가동률',
   wip: 'WIP',
-  wait_ratio: 'Wait Ratio',
+  wait_ratio: '대기율',
   q_time_min: '평균 대기시간',
   available_tool_ratio: '가용 Tool 비율',
 };
@@ -192,8 +193,31 @@ function goToFab3d(tgName: string) {
     <p v-else-if="!analysis" class="bnc-cause__state">원인 분석 결과가 없습니다. Cause Analyzer 완료 후 표시됩니다.</p>
 
     <template v-else>
-      <!-- 1. LLM 판정 카드 -->
-      <article class="bnc-cause__judgment">
+      <!-- 1. AI 원인 판정 카드 -->
+      <article v-if="llmVerdict" class="bnc-cause__verdict">
+        <!-- 헤더 -->
+        <header class="bnc-cause__verdict-hd">
+          <span class="bnc-cause__card-label">AI 원인 판정</span>
+          <span class="bnc-cause__verdict-time">{{ formatKoMonthDayTime(analysis.createdAt) }}</span>
+        </header>
+
+        <!-- 주원인 -->
+        <div class="bnc-cause__verdict-main">
+          <span class="bnc-cause__verdict-dot" aria-hidden="true" />
+          <div class="bnc-cause__verdict-main-text">
+            <span class="bnc-cause__verdict-category">{{ llmVerdict.mainCategory }}</span>
+            <span class="bnc-cause__verdict-feature">대표 피처 · {{ llmVerdict.mainFeature }}</span>
+          </div>
+        </div>
+
+        <p class="bnc-cause__verdict-summary">{{ llmVerdict.summary }}</p>
+
+        <!-- 추론 근거 -->
+        <p class="bnc-cause__verdict-reasoning">{{ llmVerdict.reasoning }}</p>
+      </article>
+
+      <!-- 1. 판정 카드 폴백 (llmVerdict 없을 때) -->
+      <article v-else class="bnc-cause__judgment">
         <header class="bnc-cause__judgment-hd">
           <span class="bnc-cause__card-label">AI 원인 판정</span>
           <BaseBadge v-if="judgment" :variant="confidenceMeta(judgment.primaryConfidence).variant">
@@ -209,8 +233,6 @@ function goToFab3d(tgName: string) {
           </div>
           <p class="bnc-cause__judgment-reason">{{ judgment.primaryReasoning }}</p>
         </template>
-
-        <!-- 폴백: judgment 없을 때 기존 요약 텍스트 -->
         <p v-else class="bnc-cause__judgment-reason">{{ analysis.forwardForecastText }}</p>
       </article>
 
@@ -409,9 +431,6 @@ function goToFab3d(tgName: string) {
   gap: var(--space-4);
   padding: var(--space-5);
   background: var(--color-bg-surface);
-  border: 1px solid var(--color-border-default);
-  border-top: none;
-  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
 
 .bnc-cause__state {
@@ -858,6 +877,231 @@ function goToFab3d(tgName: string) {
   font-weight: var(--font-weight-semibold);
 }
 
+/* LLM 판정 카드 (verdict) */
+.bnc-cause__verdict {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-bg-page);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.bnc-cause__verdict-hd {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.bnc-cause__verdict-time {
+  margin-left: auto;
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-xs);
+}
+
+.bnc-cause__verdict-main {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.bnc-cause__verdict-dot {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--color-status-success);
+}
+
+.bnc-cause__verdict-main-text {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.bnc-cause__verdict-category {
+  color: var(--color-fg-strong);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+}
+
+.bnc-cause__verdict-feature {
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-sm);
+}
+
+.bnc-cause__verdict-summary {
+  margin: 0;
+  color: var(--color-fg-strong);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* 근거 3열 */
+.bnc-cause__verdict-evidence {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr;
+  align-items: start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.bnc-cause__verdict-ev-div {
+  width: 1px;
+  align-self: stretch;
+  background: var(--color-border-subtle);
+}
+
+.bnc-cause__verdict-ev-cell {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.bnc-cause__verdict-ev-label {
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.bnc-cause__verdict-ev-val {
+  color: var(--color-fg-strong);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+.bnc-cause__verdict-ev-val--ok {
+  color: var(--color-status-success);
+}
+
+.bnc-cause__verdict-ev-val--muted {
+  color: var(--color-fg-muted);
+}
+
+.bnc-cause__verdict-ev-sub {
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-xs);
+}
+
+.bnc-cause__verdict-ev-bar-wrap {
+  height: 6px;
+  overflow: hidden;
+  background: var(--color-border-subtle);
+  border-radius: var(--radius-pill);
+}
+
+.bnc-cause__verdict-ev-bar {
+  height: 100%;
+  background: var(--color-status-success);
+  border-radius: inherit;
+  transition: width 0.4s ease;
+}
+
+.bnc-cause__verdict-ev-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.bnc-cause__verdict-ev-tag {
+  padding: 1px var(--space-2);
+  background: color-mix(in srgb, var(--color-status-danger) 10%, var(--color-bg-card));
+  border: 1px solid color-mix(in srgb, var(--color-status-danger) 22%, var(--color-border-subtle));
+  border-radius: var(--radius-pill);
+  color: var(--color-status-danger);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+}
+
+/* 추론 */
+.bnc-cause__verdict-reasoning {
+  margin: 0;
+  color: var(--color-fg);
+  font-size: var(--font-size-sm);
+  line-height: 1.7;
+}
+
+/* 예측 콜아웃 */
+.bnc-cause__verdict-forecast {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
+  border-left: 3px solid var(--color-status-warning);
+  background: color-mix(in srgb, var(--color-status-warning) 8%, var(--color-bg-card));
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+
+.bnc-cause__verdict-forecast-icon {
+  flex-shrink: 0;
+  color: var(--color-status-warning);
+  font-size: var(--font-size-sm);
+  line-height: 1.7;
+}
+
+.bnc-cause__verdict-forecast-text {
+  margin: 0;
+  color: var(--color-fg);
+  font-size: var(--font-size-sm);
+  line-height: 1.7;
+}
+
+/* 기각 후보 */
+.bnc-cause__verdict-rejected {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.bnc-cause__verdict-rejected-toggle {
+  justify-self: start;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--color-bg-card);
+  color: var(--color-fg-muted);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+.bnc-cause__verdict-rejected-toggle:hover {
+  color: var(--color-fg-strong);
+  border-color: var(--color-border-default);
+}
+
+.bnc-cause__verdict-rejected-list {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.bnc-cause__verdict-rejected-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-bg-page);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  flex-wrap: wrap;
+}
+
+.bnc-cause__verdict-rejected-cat {
+  flex-shrink: 0;
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: line-through;
+  text-decoration-color: var(--color-fg-muted);
+}
+
+.bnc-cause__verdict-rejected-reason {
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-xs);
+}
+
 @media (max-width: 900px) {
   .bnc-cause__shap-row {
     grid-template-columns: 1fr;
@@ -867,6 +1111,12 @@ function goToFab3d(tgName: string) {
   }
   .bnc-cause__cat-meta {
     grid-column: 1 / -1;
+  }
+  .bnc-cause__verdict-evidence {
+    grid-template-columns: 1fr;
+  }
+  .bnc-cause__verdict-ev-div {
+    display: none;
   }
 }
 </style>

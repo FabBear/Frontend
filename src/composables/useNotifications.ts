@@ -276,12 +276,19 @@ export function useNotifications() {
     };
   }
 
+  let demoNotifTimer: ReturnType<typeof setTimeout> | null = null;
+
   onMounted(() => {
     if (!authStore.isLoggedIn) return;
 
     void loadNotifications();
     connectStream();
     startDriftPolling();
+
+    // 데모 모드: 10.5초 후 DE_FE_1 알림 배지가 나타나도록 re-fetch
+    if (shouldUseDemoMockData()) {
+      demoNotifTimer = setTimeout(() => void loadNotifications(), 10_500);
+    }
   });
 
   watch(
@@ -301,6 +308,7 @@ export function useNotifications() {
   onUnmounted(() => {
     closeStream();
     stopDriftPolling();
+    if (demoNotifTimer !== null) clearTimeout(demoNotifTimer);
   });
 
   return {

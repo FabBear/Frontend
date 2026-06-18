@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/auth';
 import { fetchPresentationNow } from '@/services/clockService';
 
 import { useChatDrawer } from '@/composables/useChatDrawer';
+import { initDemoPhase } from '@/composables/useDemoTimeline';
 import { useNotifications } from '@/composables/useNotifications';
 
 import { ROUTE_NAMES } from '@/constants/routes';
@@ -36,14 +37,6 @@ const {
 const pageTitle = computed(() => {
   return typeof route.meta.title === 'string' ? route.meta.title : 'Dashboard';
 });
-const latestToastUnread = computed(
-  () =>
-    notifications.value.find(
-      (notification) =>
-        notification.unread && (notification.level === 'critical' || notification.type === 'MODEL_RETRAIN')
-    ) ?? null
-);
-
 // 헤더에 "현재 데이터 기준 시각"(시뮬 커서)을 하나로 표시. 커서가 흐르므로 주기적으로 갱신.
 const presentationNow = ref<string | null>(null);
 let clockTimer: ReturnType<typeof setInterval> | undefined;
@@ -57,6 +50,7 @@ async function refreshPresentationNow() {
 onMounted(() => {
   void refreshPresentationNow();
   clockTimer = setInterval(() => void refreshPresentationNow(), 10000);
+  initDemoPhase();
 });
 onUnmounted(() => {
   if (clockTimer) clearInterval(clockTimer);
@@ -76,17 +70,6 @@ watch(
 
 function handleToggleNotifications() {
   isNotificationOpen.value = !isNotificationOpen.value;
-}
-
-async function handleOpenToastNotification() {
-  const notification = latestToastUnread.value;
-  if (!notification) return;
-
-  if (notification.type === 'MODEL_RETRAIN') {
-    void handleOpenNotificationMlflow(notification.id);
-    return;
-  }
-  isNotificationOpen.value = true;
 }
 
 function handleOpenNotificationCase(caseId: string) {
@@ -121,7 +104,6 @@ async function handleLogout() {
     <TheSidebar :bottleneck-unread-count="bottleneckUnreadCount" />
     <div class="app-layout__main">
       <TheHeader
-        :title="pageTitle"
         :data-as-of="presentationNow"
         :notification-count="unreadCount"
         :notification-open="isNotificationOpen"
@@ -150,19 +132,6 @@ async function handleLogout() {
       @open-mlflow="handleOpenNotificationMlflow"
     />
     <ChatDrawer :open="isChatOpen" :context-title="pageTitle" @close="closeChat" />
-    <aside
-      v-if="latestToastUnread && !isNotificationOpen"
-      class="app-layout__critical-alert"
-      :class="{ 'app-layout__critical-alert--warning': latestToastUnread.type === 'MODEL_RETRAIN' }"
-      role="alert"
-      aria-live="assertive"
-    >
-      <strong>{{ latestToastUnread.title }}</strong>
-      <p>{{ latestToastUnread.message }}</p>
-      <button type="button" @click="handleOpenToastNotification">
-        {{ latestToastUnread.type === 'MODEL_RETRAIN' ? 'MLflow 확인' : '알림 확인' }}
-      </button>
-    </aside>
   </div>
 </template>
 
@@ -188,57 +157,5 @@ async function handleLogout() {
   flex: 1; /* 헤더 아래 남은 공간을 채우고 이 영역만 스크롤 */
   overflow: auto;
   padding: var(--spacing-page);
-}
-
-.app-layout__critical-alert {
-  position: fixed;
-  right: var(--space-4);
-  bottom: var(--space-4);
-  z-index: var(--z-index-toast);
-  display: grid;
-  width: min(420px, calc(100vw - var(--space-4) * 2));
-  gap: var(--space-2);
-  border: 1px solid var(--color-risk-critical);
-  border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--color-risk-critical) 6%, var(--color-bg-card));
-  padding: var(--space-3);
-  box-shadow: var(--shadow-panel);
-}
-
-.app-layout__critical-alert strong {
-  color: var(--color-risk-critical);
-  font-size: var(--font-size-base);
-}
-
-.app-layout__critical-alert p {
-  color: var(--color-fg);
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-normal);
-}
-
-.app-layout__critical-alert button {
-  justify-self: start;
-  min-height: 30px;
-  border: 0;
-  border-radius: var(--radius-md);
-  background: var(--color-status-danger);
-  padding: 0 12px;
-  color: var(--color-text-inverse);
-  cursor: pointer;
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-}
-
-.app-layout__critical-alert--warning {
-  border-color: var(--color-status-warning);
-  background: color-mix(in srgb, var(--color-status-warning) 8%, var(--color-bg-card));
-}
-
-.app-layout__critical-alert--warning strong {
-  color: var(--color-status-warning);
-}
-
-.app-layout__critical-alert--warning button {
-  background: var(--color-status-warning);
 }
 </style>

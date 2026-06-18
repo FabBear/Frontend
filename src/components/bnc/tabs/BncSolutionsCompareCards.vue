@@ -1,24 +1,5 @@
 <script setup lang="ts">
-import type { BncActionPlan, BncBaselineSnapshotItem, BncRagEvidence } from '@/types/bnc';
-
-import BaseBadge from '@/components/base/BaseBadge.vue';
-import {
-  cardMainChange,
-  deltaArrow,
-  isFlatDelta,
-  isImprovement,
-  isNeutralImpact,
-  kpiCardMetrics,
-  planDisplayLabel,
-  showMetricAfter,
-  targetGroupCount,
-} from '@/components/bnc/bncCardMetrics';
-import {
-  evidenceStrengthLabel,
-  evidenceStrengthVariant,
-  riskLevelLabel,
-  riskLevelVariant,
-} from '@/components/bnc/bncRagHelpers';
+import type { BncActionPlan, BncActionSpecGroup, BncBaselineSnapshotItem, BncRagEvidence } from '@/types/bnc';
 
 interface PlanBadge {
   label: string;
@@ -39,16 +20,41 @@ defineEmits<{
   selectCurrentOption: [];
   selectPlan: [planId: string];
 }>();
+
+function isHotAction(action: string) {
+  return action.toLowerCase().includes('superhot');
+}
+
+function lotBadgeLabel(group: BncActionSpecGroup): string {
+  const n = group.lots.length;
+  if (isHotAction(group.action)) return `SuperHotLot 지정 · ${n}건`;
+  return `우선순위 상향 · ${n} 건`;
+}
+
+function lotBadgeDesc(group: BncActionSpecGroup): string {
+  const n = group.lots.length;
+  if (isHotAction(group.action)) return 'SuperHotLot은 줄을 서지 않고 즉시 최우선으로 진행됩니다.';
+  return `납기가 임박한 lot ${n}건의 처리 순서를 앞당깁니다.`;
+}
+
+function totalLots(plan: BncActionPlan): number {
+  return plan.actionSpec?.lotGroups?.reduce((s, g) => s + g.lots.length, 0) ?? 0;
+}
+
+function lotRowDesc(action: string, t2dueMin: number): string {
+  if (isHotAction(action)) return 'SuperHotLot';
+  return `납기 ${t2dueMin.toLocaleString('ko-KR')}분`;
+}
 </script>
 
 <template>
   <section class="bnc-solutions__compare">
     <div class="bnc-solutions__compare-hd">
-      <h3>대응안 비교</h3>
-      <p>후보별 핵심 변경과 KPI 방향을 먼저 비교합니다.</p>
+      <h3>대응안 후보 추천</h3>
     </div>
 
     <div class="bnc-solutions__cards">
+      <!-- 무대응 -->
       <button
         type="button"
         class="bnc-solutions__card bnc-solutions__card--current"
@@ -56,48 +62,25 @@ defineEmits<{
         @click="$emit('selectCurrentOption')"
       >
         <div class="bnc-solutions__card-hd">
-          <div class="bnc-solutions__card-hd-main">
-            <span
-              class="bnc-solutions__card-label bnc-solutions__card-label--base"
-              :class="{ 'bnc-solutions__card-label--sel': isCurrentOptionSelected }"
-              >현재</span
-            >
-            <span class="bnc-solutions__card-title">현재 유지</span>
-          </div>
-          <div class="bnc-solutions__card-badges">
-            <span class="bnc-solutions__neutral-badge">비교 기준</span>
+          <div class="bnc-solutions__card-hd-top">
+            <span class="bnc-solutions__card-name">무대응</span>
+            <span class="bnc-solutions__type-chip">현재 유지</span>
           </div>
         </div>
 
-        <ul v-if="currentOptionMetrics.length" class="bnc-solutions__metrics">
-          <li class="bnc-solutions__metrics-head">현재 기준</li>
-          <li v-for="m in currentOptionMetrics" :key="m.label" class="bnc-solutions__metric-row">
-            <span class="bnc-solutions__metric-name">{{ m.label }}</span>
-            <span class="bnc-solutions__metric-result">
-              <span class="bnc-solutions__metric-val">{{ m.value }}</span>
-              <span v-if="m.caption" class="bnc-solutions__metric-delta bnc-solutions__metric-delta--flat">{{
-                m.caption
-              }}</span>
-            </span>
-          </li>
-        </ul>
-
-        <div class="bnc-solutions__card-body">
-          <p class="bnc-solutions__card-change">
-            추가 dispatch 변경 없이 현재 운영 조건을 유지하는 기준 시나리오입니다.
-          </p>
-          <p v-if="baselineTargetToolGroups.length" class="bnc-solutions__card-target">
-            대상 Tool Group {{ baselineTargetToolGroups.length.toLocaleString('ko-KR') }}개
-          </p>
+        <div class="bnc-solutions__op-section">
+          <span class="bnc-solutions__op-label">Lot 투입 간격 (Release Interval)</span>
+          <span class="bnc-solutions__op-value">현재 유지</span>
+          <p class="bnc-solutions__op-desc">투입 속도·Lot 우선순위를 바꾸지 않습니다.</p>
         </div>
 
-        <div class="bnc-solutions__card-foot">
-          <span v-if="isCurrentOptionSelected" class="bnc-solutions__card-selected-mark">✓ 선택됨</span>
-          <span v-else class="bnc-solutions__card-hint">클릭하여 기준 확인</span>
+        <div class="bnc-solutions__lot-section">
+          <span class="bnc-solutions__lot-label">Lot 조정</span>
+          <span class="bnc-solutions__lot-none">조정 없음</span>
         </div>
       </button>
 
-      <!-- 후보 대응안 카드 -->
+      <!-- 대응안 A / B / C -->
       <button
         v-for="(plan, i) in plans"
         :key="plan.planId"
@@ -113,72 +96,66 @@ defineEmits<{
         @click="$emit('selectPlan', plan.planId)"
       >
         <div class="bnc-solutions__card-hd">
-          <div class="bnc-solutions__card-hd-main">
-            <span
-              class="bnc-solutions__card-label"
-              :class="{ 'bnc-solutions__card-label--sel': plan.planId === selectedOptionId }"
-              >후보</span
-            >
-            <div class="bnc-solutions__card-title-block">
-              <span class="bnc-solutions__card-title">{{ planDisplayLabel(plan, i) }}</span>
-              <span v-if="plan.actionKind" class="bnc-solutions__card-variant">{{ plan.actionKind }}</span>
-            </div>
-          </div>
-          <div class="bnc-solutions__card-badges">
-            <span v-if="isNeutralImpact(plan)" class="bnc-solutions__neutral-badge">KPI 변화 없음</span>
+          <div class="bnc-solutions__card-hd-top">
+            <span class="bnc-solutions__card-name">대응안 {{ ['A', 'B', 'C'][i] ?? i + 1 }}</span>
+            <span class="bnc-solutions__card-hd-chips">
+              <span v-if="plan.actionLabel" class="bnc-solutions__type-chip">{{ plan.actionLabel }}</span>
+              <span
+                v-if="plan.recommended"
+                class="bnc-solutions__ai-badge"
+                :class="`bnc-solutions__ai-badge--${planBadges[plan.planId]?.tone}`"
+                >AI 추천</span
+              >
+            </span>
           </div>
         </div>
 
-        <ul class="bnc-solutions__metrics">
-          <li class="bnc-solutions__metrics-head">기준선 대비 변화</li>
-          <li v-for="m in kpiCardMetrics(plan)" :key="m.label" class="bnc-solutions__metric-row">
-            <span class="bnc-solutions__metric-name">{{ m.label }}</span>
-            <span class="bnc-solutions__metric-result">
-              <span v-if="showMetricAfter(m)" class="bnc-solutions__metric-val">{{ m.after }}</span>
-              <span v-if="isFlatDelta(m.delta)" class="bnc-solutions__metric-delta bnc-solutions__metric-delta--flat">
-                변동 없음
-              </span>
-              <span
-                v-else
-                class="bnc-solutions__metric-delta"
-                :class="{
-                  'bnc-solutions__metric-delta--good': isImprovement(m.label, m.delta) === true,
-                  'bnc-solutions__metric-delta--bad': isImprovement(m.label, m.delta) === false,
-                }"
-                >{{ deltaArrow(m.delta) }} {{ m.delta }}</span
-              >
-            </span>
-          </li>
-        </ul>
-
-        <div class="bnc-solutions__card-body">
-          <p class="bnc-solutions__card-change">{{ cardMainChange(plan) }}</p>
-          <p v-if="targetGroupCount(plan)" class="bnc-solutions__card-target">
-            대상 Tool Group {{ targetGroupCount(plan).toLocaleString('ko-KR') }}개
+        <div class="bnc-solutions__op-section">
+          <span class="bnc-solutions__op-label">Lot 투입 간격 (Release Interval)</span>
+          <span v-if="plan.actionSpec?.intervalPct" class="bnc-solutions__interval-val">
+            +{{ plan.actionSpec.intervalPct.toFixed(1) }}%
+          </span>
+          <p class="bnc-solutions__op-desc">
+            신규 lot 투입을 {{ plan.actionSpec?.intervalPct }}% 늦춰 혼잡을 완화합니다.
           </p>
         </div>
 
-        <span
-          v-if="plan.recommended"
-          class="bnc-solutions__rec-flag"
-          :class="`bnc-solutions__rec-flag--${planBadges[plan.planId]?.tone}`"
-        >
-          {{ planBadges[plan.planId]?.label }}
-        </span>
+        <div class="bnc-solutions__lot-section">
+          <span class="bnc-solutions__lot-label">
+            Lot 조정{{ plan.actionSpec?.lotGroups?.length ? ` · ${totalLots(plan)}건` : '' }}
+          </span>
 
-        <!-- RAG 근거 뱃지 -->
-        <div v-if="ragEvidence?.perPlan?.[plan.planId]" class="bnc-solutions__card-evidence-badges">
-          <BaseBadge :variant="evidenceStrengthVariant(ragEvidence.perPlan[plan.planId].evidenceStrength)">
-            {{ evidenceStrengthLabel(ragEvidence.perPlan[plan.planId].evidenceStrength) }}
-          </BaseBadge>
-          <BaseBadge :variant="riskLevelVariant(ragEvidence.perPlan[plan.planId].riskLevel)">
-            {{ riskLevelLabel(ragEvidence.perPlan[plan.planId].riskLevel) }}
-          </BaseBadge>
-        </div>
+          <span v-if="plan.actionSpec?.noLotAdjust" class="bnc-solutions__lot-none">
+            조정 없음{{ plan.actionSpec.noLotReason ? ` · ${plan.actionSpec.noLotReason}` : '' }}
+          </span>
 
-        <div class="bnc-solutions__card-foot">
-          <span v-if="plan.planId === selectedOptionId" class="bnc-solutions__card-selected-mark">✓ 선택됨</span>
-          <span v-else class="bnc-solutions__card-hint">클릭하여 선택</span>
+          <template v-else-if="plan.actionSpec?.lotGroups?.length">
+            <div class="bnc-solutions__lot-badges">
+              <span
+                v-for="group in plan.actionSpec.lotGroups"
+                :key="group.zone"
+                class="bnc-solutions__lot-badge"
+                :class="
+                  isHotAction(group.action) ? 'bnc-solutions__lot-badge--hot' : 'bnc-solutions__lot-badge--priority'
+                "
+                >↑ {{ lotBadgeLabel(group) }}</span
+              >
+            </div>
+            <p class="bnc-solutions__op-desc">{{ lotBadgeDesc(plan.actionSpec.lotGroups[0]) }}</p>
+            <div class="bnc-solutions__lot-list">
+              <span class="bnc-solutions__lot-list-hd">대상 lot</span>
+              <div class="bnc-solutions__lot-rows">
+                <template v-for="group in plan.actionSpec.lotGroups" :key="group.zone">
+                  <div v-for="lot in group.lots" :key="lot.id" class="bnc-solutions__lot-row">
+                    <span class="bnc-solutions__lot-row-id">{{ lot.id }}</span>
+                    <span class="bnc-solutions__lot-row-meta"
+                      >{{ lot.product }} · {{ lotRowDesc(group.action, lot.t2dueMin) }}</span
+                    >
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
         </div>
       </button>
     </div>
@@ -207,215 +184,129 @@ defineEmits<{
   font-weight: var(--font-weight-bold);
 }
 
-.bnc-solutions__compare-hd p {
-  margin: 0;
-  color: var(--color-fg-muted);
-  font-size: var(--font-size-xs);
-  line-height: 1.5;
-  text-align: right;
-  word-break: keep-all;
-}
-
 .bnc-solutions__cards {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(200px, 1fr));
   gap: var(--space-3);
-  align-items: stretch; /* 같은 행 카드 높이 통일 */
+  align-items: stretch;
+  overflow-x: auto;
 }
 
+/* ── 카드 공통 ─────────────────────────────────────── */
 .bnc-solutions__card {
-  display: grid;
-  grid-template-rows: auto 1fr auto;
+  position: relative;
+  display: flex;
+  flex-direction: column;
   gap: 0;
   min-width: 0;
   border-radius: var(--radius-lg);
   overflow: visible;
   font: inherit;
   text-align: left;
-}
-
-.bnc-solutions__card--current {
-  position: relative;
-  grid-template-rows: auto auto 1fr auto;
-  border: 1.5px solid color-mix(in srgb, var(--color-status-warning) 30%, var(--color-border-default));
-  background: color-mix(in srgb, var(--color-status-warning) 5%, var(--color-bg-card));
   cursor: pointer;
   transition:
     border-color var(--transition-fast),
     box-shadow var(--transition-fast),
     background var(--transition-fast);
 }
-.bnc-solutions__card--current:hover:not(:disabled) {
+
+.bnc-solutions__card--current {
+  border: 1.5px solid color-mix(in srgb, var(--color-status-warning) 30%, var(--color-border-default));
+  background: color-mix(in srgb, var(--color-status-warning) 5%, var(--color-bg-card));
+}
+.bnc-solutions__card--current:hover {
   border-color: color-mix(in srgb, var(--color-status-warning) 56%, var(--color-border-default));
   box-shadow: 0 2px 8px color-mix(in srgb, var(--color-status-warning) 16%, transparent);
 }
 
 .bnc-solutions__card--plan {
-  position: relative;
-  grid-template-rows: auto auto 1fr auto; /* hd · KPI · 본문(가변) · foot */
   border: 1.5px solid var(--color-border-default);
   background: var(--color-bg-card);
-  cursor: pointer;
-  transition:
-    border-color var(--transition-fast),
-    box-shadow var(--transition-fast),
-    background var(--transition-fast);
 }
-.bnc-solutions__card--plan:hover:not(:disabled) {
+.bnc-solutions__card--plan:hover {
   border-color: var(--color-action-primary-border);
   box-shadow: 0 2px 8px color-mix(in srgb, var(--color-action-primary) 12%, transparent);
-}
-.bnc-solutions__card--plan:disabled {
-  cursor: default;
 }
 
 .bnc-solutions__card--recommended {
   border-color: color-mix(in srgb, var(--color-status-success) 45%, var(--color-border-default));
   background: color-mix(in srgb, var(--color-status-success) 4%, var(--color-bg-card));
 }
-
-.bnc-solutions__card--recommended-success {
-  border-color: color-mix(in srgb, var(--color-status-success) 45%, var(--color-border-default));
-  background: color-mix(in srgb, var(--color-status-success) 4%, var(--color-bg-card));
-}
-
 .bnc-solutions__card--recommended-info {
   border-color: color-mix(in srgb, #2563eb 48%, var(--color-border-default));
   border-top-color: #2563eb;
   background: color-mix(in srgb, #2563eb 5%, var(--color-bg-card));
 }
-
 .bnc-solutions__card--recommended-warning {
   border-color: color-mix(in srgb, var(--color-status-warning) 48%, var(--color-border-default));
   border-top-color: var(--color-status-warning);
   background: color-mix(in srgb, var(--color-status-warning) 6%, var(--color-bg-card));
 }
-
-.bnc-solutions__rec-flag {
-  position: absolute;
-  top: calc(-1 * var(--space-2));
-  right: var(--space-3);
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px var(--space-2);
-  border-radius: var(--radius-pill);
-  background: var(--color-status-success);
-  color: #fff;
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: 0.01em;
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-status-success) 38%, transparent);
-}
-
-.bnc-solutions__rec-flag--success {
-  background: var(--color-status-success);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-status-success) 38%, transparent);
-}
-
-.bnc-solutions__rec-flag--info {
-  background: #2563eb;
-  box-shadow: 0 2px 8px #1d4ed840;
-}
-
-.bnc-solutions__rec-flag--warning {
-  background: var(--color-status-warning);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-status-warning) 36%, transparent);
+.bnc-solutions__card--recommended-success {
+  border-color: color-mix(in srgb, var(--color-status-success) 45%, var(--color-border-default));
+  background: color-mix(in srgb, var(--color-status-success) 4%, var(--color-bg-card));
 }
 
 .bnc-solutions__card--selected {
-  border-color: #2563eb;
-  background: #eff6ff;
+  border-color: #2563eb !important;
+  background: #eff6ff !important;
   box-shadow:
     0 0 0 2px #2563eb,
     0 10px 24px #1d4ed81f;
 }
 
-.bnc-solutions__card-hd {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-  padding: var(--space-3) var(--space-3) var(--space-2);
-  min-height: auto;
-  box-sizing: border-box;
-}
-
-.bnc-solutions__card-hd-main {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-  flex: 1 1 150px;
-}
-
-.bnc-solutions__card-label {
+/* ── AI 추천 배지 (헤더 내 인라인) ─────────────── */
+.bnc-solutions__ai-badge {
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 34px;
-  height: 34px;
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-subtle);
-  border: 1px solid var(--color-border-default);
-  color: var(--color-fg-strong);
-  font-size: var(--font-size-sm);
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--color-status-success);
+  color: #fff;
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold);
 }
-
-.bnc-solutions__card-label--base {
-  font-size: var(--font-size-xs);
-  letter-spacing: 0;
-}
-
-.bnc-solutions__card-label--sel {
+.bnc-solutions__ai-badge--info {
   background: #2563eb;
-  border-color: #2563eb;
-  color: #fff;
+}
+.bnc-solutions__ai-badge--warning {
+  background: var(--color-status-warning);
 }
 
-.bnc-solutions__card-title-block {
+/* ── 카드 헤더 ───────────────────────────────────── */
+.bnc-solutions__card-hd {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  min-width: 0;
+  gap: var(--space-2);
+  padding: var(--space-3);
 }
 
-.bnc-solutions__card-title {
-  color: var(--color-fg-strong);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  line-height: 1.3;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-
-.bnc-solutions__card-variant {
-  color: var(--color-fg-muted);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  line-height: 1.2;
-  overflow-wrap: anywhere;
-}
-
-.bnc-solutions__card-badges {
+.bnc-solutions__card-hd-top {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-  flex: 0 1 120px;
-  max-width: 100%;
+  justify-content: space-between;
+  gap: var(--space-2);
 }
 
-.bnc-solutions__neutral-badge {
+.bnc-solutions__card-hd-chips {
   display: inline-flex;
   align-items: center;
-  min-height: 22px;
-  padding: 0 var(--space-2);
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.bnc-solutions__card-name {
+  color: var(--color-fg-strong);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.2;
+}
+
+.bnc-solutions__type-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-pill);
   background: var(--color-bg-subtle);
@@ -425,147 +316,140 @@ defineEmits<{
   white-space: nowrap;
 }
 
-.bnc-solutions__metrics {
-  list-style: none;
-  margin: 0;
-  padding: var(--space-1) var(--space-3) var(--space-2);
-  border-top: 1px solid var(--color-border-subtle);
-  border-bottom: 1px solid var(--color-border-subtle);
-  display: grid;
-  gap: 1px;
-}
-
-.bnc-solutions__metric-row {
+/* ── 운영 조건 섹션 ──────────────────────────────── */
+.bnc-solutions__op-section {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-  padding: var(--space-1) 0;
-}
-
-.bnc-solutions__metric-name {
-  color: var(--color-fg-muted);
-  font-size: var(--font-size-xs);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.bnc-solutions__metric-result {
-  display: flex;
-  align-items: baseline;
-  justify-content: flex-end;
+  flex-direction: column;
   gap: var(--space-1);
-  min-width: 0;
-  flex: 1 1 140px;
-  flex-wrap: wrap;
-  text-align: right;
-}
-
-.bnc-solutions__metric-val {
-  color: var(--color-fg-strong);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  text-align: right;
-  overflow-wrap: anywhere;
-}
-
-.bnc-solutions__metrics-head {
-  margin-bottom: 2px;
-  color: var(--color-fg-muted);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-}
-
-.bnc-solutions__metric-delta {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-fg-strong);
-  overflow-wrap: anywhere;
-}
-.bnc-solutions__metric-delta--good {
-  color: var(--color-status-success);
-}
-.bnc-solutions__metric-delta--bad {
-  color: var(--color-status-danger);
-}
-.bnc-solutions__metric-delta--flat {
-  color: var(--color-fg-muted);
-  font-size: var(--font-size-xs);
-  font-weight: 400;
-}
-
-.bnc-solutions__card-body {
   padding: var(--space-3);
-  display: grid;
-  gap: var(--space-3);
+  border-top: 1px solid var(--color-border-subtle);
 }
 
-.bnc-solutions__card-change {
-  min-height: 44px;
-  margin: 0;
+.bnc-solutions__op-label {
   color: var(--color-fg-strong);
   font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.4;
+}
+
+.bnc-solutions__op-value {
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
+}
+
+.bnc-solutions__interval-val {
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.4;
+}
+
+.bnc-solutions__op-desc {
+  margin: 0;
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-xs);
   line-height: 1.55;
-  overflow-wrap: anywhere;
   word-break: keep-all;
 }
 
-.bnc-solutions__card-target {
+/* ── Lot 조정 섹션 ───────────────────────────────── */
+.bnc-solutions__lot-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-top: 1px solid var(--color-border-subtle);
+  flex: 1;
+}
+
+.bnc-solutions__lot-label {
+  color: var(--color-fg-strong);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+}
+
+.bnc-solutions__lot-none {
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-sm);
   margin: 0;
-  color: var(--color-fg-muted);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
 }
 
-.bnc-solutions__card-evidence-badges {
+.bnc-solutions__lot-badges {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: var(--space-1);
-  padding: var(--space-2) var(--space-3);
-  border-top: 1px solid var(--color-border-subtle);
 }
 
-.bnc-solutions__card-foot {
-  padding: var(--space-2) var(--space-3);
-  border-top: 1px solid var(--color-border-subtle);
-  min-height: 32px;
-  display: flex;
+.bnc-solutions__lot-badge {
+  display: inline-flex;
   align-items: center;
-}
-
-.bnc-solutions__card-selected-mark {
-  color: #1d4ed8;
+  align-self: flex-start;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
 }
 
-.bnc-solutions__card-hint {
+.bnc-solutions__lot-badge--priority {
+  background: color-mix(in srgb, var(--color-status-warning) 12%, var(--color-bg-subtle));
+  color: var(--color-status-warning);
+  border: 1px solid color-mix(in srgb, var(--color-status-warning) 28%, var(--color-border-subtle));
+}
+
+.bnc-solutions__lot-badge--hot {
+  background: color-mix(in srgb, #f97316 14%, var(--color-bg-subtle));
+  color: #c2410c;
+  border: 1px solid color-mix(in srgb, #f97316 32%, var(--color-border-subtle));
+}
+
+.bnc-solutions__lot-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+
+.bnc-solutions__lot-list-hd {
   color: var(--color-fg-muted);
   font-size: var(--font-size-xs);
-  opacity: 0;
-  transition: opacity var(--transition-fast);
+  font-weight: var(--font-weight-semibold);
 }
 
-.bnc-solutions__card--plan:hover .bnc-solutions__card-hint,
-.bnc-solutions__card--current:hover .bnc-solutions__card-hint {
-  opacity: 1;
+.bnc-solutions__lot-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-/* ── 반응형 ───────────────────────────────────────── */
+.bnc-solutions__lot-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.bnc-solutions__lot-row-id {
+  flex-shrink: 0;
+  color: var(--color-fg-strong);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.bnc-solutions__lot-row-meta {
+  overflow: hidden;
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── 반응형 ──────────────────────────────────────── */
 @media (max-width: 900px) {
   .bnc-solutions__cards {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .bnc-solutions__compare-hd {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .bnc-solutions__compare-hd p {
-    text-align: left;
+    grid-template-columns: repeat(2, minmax(200px, 1fr));
   }
 }
 

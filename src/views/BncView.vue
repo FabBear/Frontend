@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { useBnc } from '@/composables/useBnc';
@@ -20,6 +20,13 @@ import BncSolutionsTab from '@/components/bnc/tabs/BncSolutionsTab.vue';
 const route = useRoute();
 const router = useRouter();
 const { openWithReport, openWithReportContext, open: openChat } = useChatDrawer();
+const tabPanelRef = ref<HTMLElement | null>(null);
+
+type HitlDecisionPayload = {
+  decision: 'APPROVED' | 'REJECTED';
+  selectedPlanId: string | null;
+  comment?: string | null;
+};
 
 function routeCaseId() {
   return typeof route.query.caseId === 'string' ? route.query.caseId : null;
@@ -61,11 +68,16 @@ const {
 
 const disabledTabs = computed<Set<BncTabId>>(() => {
   const steps = selectedCaseDetail.value?.agentProgress ?? [];
-  const isDone = (name: string) => steps.some((step) => step.stepName === name && step.status === 'DONE');
+  const statusOf = (name: string) => steps.find((step) => step.stepName === name)?.status ?? null;
+  const isDone = (name: string) => statusOf(name) === 'DONE';
+  const isRunning = (name: string) => statusOf(name) === 'RUNNING';
+  const hasHitlDecision = selectedActionPlans.value?.hitlStatus.hasDecision ?? false;
+  const canOpenReport =
+    isDone('REPORT_GEN') || isRunning('REPORT_GEN') || hasHitlDecision || selectedReport.value !== null;
   const disabled = new Set<BncTabId>();
   if (!isDone('CAUSE_ANALYSIS')) disabled.add('cause');
   if (!isDone('ACTION_PLAN_COMPARE')) disabled.add('solutions');
-  if (!isDone('REPORT_GEN')) disabled.add('report');
+  if (!canOpenReport) disabled.add('report');
   return disabled;
 });
 
@@ -89,6 +101,18 @@ function handleSelectTab(tabId: BncTabId) {
   if (disabledTabs.value.has(tabId)) return;
   selectTab(tabId);
   void updateRoute(selectedCaseId.value, tabId);
+}
+
+async function scrollToTabPanelTop() {
+  await nextTick();
+  tabPanelRef.value?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+}
+
+async function handleHitlDecision(payload: HitlDecisionPayload) {
+  await submitHitlDecision(payload);
+  if (activeTab.value !== 'report') return;
+  void updateRoute(selectedCaseId.value, 'report');
+  await scrollToTabPanelTop();
 }
 
 function isArtifactTab(tabId: BncTabId) {
@@ -122,7 +146,9 @@ function openCaseChat() {
 onMounted(async () => {
   document.documentElement.classList.add('bnc-fluid');
   await loadCases();
-  await loadCaseDetail();
+  if (selectedCaseId.value) {
+    await loadCaseDetail();
+  }
   if (isArtifactTab(activeTab.value)) {
     void loadCaseArtifacts();
   }
@@ -181,43 +207,49 @@ watch(selectedCaseDetail, (detail) => {
       />
 
       <main class="bnc-view__main">
-        <BncCaseSummary v-if="selectedCase" :item="selectedCase" :detail="selectedCaseDetail" />
+        <div v-if="selectedCase" class="bnc-view__content-card">
+          <BncCaseSummary v-if="selectedCase" :item="selectedCase" :detail="selectedCaseDetail" />
 
-        <div class="bnc-view__tab-panel">
-          <BncTabNav
-            :tabs="tabOptions"
-            :active-tab="activeTab"
-            :disabled-tabs="disabledTabs"
-            @select="handleSelectTab"
-          />
-          <BncProgressTab
-            v-if="activeTab === 'progress'"
-            :detail="selectedCaseDetail"
-            :loading="isDetailLoading"
-            :error-message="detailErrorMessage"
-          />
-          <BncCauseTab
-            v-else-if="activeTab === 'cause'"
-            :analysis="selectedCauseAnalysis"
-            :loading="isArtifactLoading"
-            :error-message="artifactErrorMessage"
-            :case-id="selectedCaseId"
-          />
-          <BncSolutionsTab
-            v-else-if="activeTab === 'solutions'"
-            :payload="selectedActionPlans"
-            :loading="isArtifactLoading || isDecisionSubmitting"
-            :error-message="artifactErrorMessage"
-            @decide="submitHitlDecision"
-          />
-          <BncReportTab
-            v-else-if="activeTab === 'report'"
-            :report="selectedReport"
-            :loading="isArtifactLoading"
-            :error-message="artifactErrorMessage"
-            :ai-busy="false"
-            @ask-ai="openCaseChat()"
-          />
+          <div ref="tabPanelRef" class="bnc-view__tab-panel">
+            <BncTabNav
+              :tabs="tabOptions"
+              :active-tab="activeTab"
+              :disabled-tabs="disabledTabs"
+              @select="handleSelectTab"
+            />
+            <BncProgressTab
+              v-if="activeTab === 'progress'"
+              :detail="selectedCaseDetail"
+              :loading="isDetailLoading"
+              :error-message="detailErrorMessage"
+            />
+            <BncCauseTab
+              v-else-if="activeTab === 'cause'"
+              :analysis="selectedCauseAnalysis"
+              :loading="isArtifactLoading"
+              :error-message="artifactErrorMessage"
+              :case-id="selectedCaseId"
+            />
+            <BncSolutionsTab
+              v-else-if="activeTab === 'solutions'"
+              :payload="selectedActionPlans"
+              :loading="isArtifactLoading || isDecisionSubmitting"
+              :error-message="artifactErrorMessage"
+              @decide="handleHitlDecision"
+            />
+            <BncReportTab
+              v-else-if="activeTab === 'report'"
+              :report="selectedReport"
+              :loading="isArtifactLoading"
+              :error-message="artifactErrorMessage"
+              :ai-busy="false"
+              @ask-ai="openCaseChat()"
+            />
+          </div>
+        </div>
+        <div v-else class="bnc-view__empty-card">
+          <strong>병목 케이스를 선택하세요</strong>
+          <p>왼쪽 목록에서 DE_FE_1 같은 병목 카드를 선택하면 Agent 진행 탭과 분석 결과가 열립니다.</p>
         </div>
       </main>
     </div>
@@ -236,6 +268,8 @@ watch(selectedCaseDetail, (detail) => {
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-4);
+  border-bottom: var(--border-width-default) solid var(--color-border-default);
+  padding-bottom: var(--space-2);
 }
 
 .bnc-view__title {
@@ -302,18 +336,9 @@ watch(selectedCaseDetail, (detail) => {
   gap: var(--space-4);
 }
 
-.bnc-view__workspace > :first-child {
-  position: sticky;
-  top: var(--space-4);
-  max-height: calc(100vh - var(--space-4) * 2);
-  overflow-y: auto;
-}
-
 .bnc-view__main {
   display: grid;
   min-width: 0;
-  align-content: start;
-  gap: var(--space-4);
   /* 오른쪽 패널(요약 카드 + 모든 탭) 글씨를 전체적으로 키운다.
      커스텀 프로퍼티는 하위로 상속되므로 자식 컴포넌트(BncCauseTab 등)에도 적용된다. */
   --font-size-xs: 14px;
@@ -323,9 +348,48 @@ watch(selectedCaseDetail, (detail) => {
   --font-size-xl: 26px;
 }
 
-.bnc-view__tab-panel {
-  display: grid;
+.bnc-view__content-card {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+}
+
+.bnc-view__empty-card {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  min-height: 360px;
+  padding: var(--space-6);
+  border: 1px dashed var(--color-border-default);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-card);
+  text-align: center;
+}
+
+.bnc-view__empty-card strong {
+  color: var(--color-fg-strong);
+  font-size: var(--font-size-lg);
+}
+
+.bnc-view__empty-card p {
+  max-width: 440px;
+  margin: var(--space-2) 0 0;
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+}
+
+.bnc-view__tab-panel {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--color-border-default);
+}
+
+.bnc-view__tab-panel > :nth-child(2) {
+  min-height: 0;
 }
 
 @media (max-width: 1180px) {

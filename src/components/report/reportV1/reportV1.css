@@ -8,16 +8,54 @@
 }
 
 .report-v1__hero {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.report-v1__approval-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: var(--space-3);
+  padding: var(--space-5);
   background: var(--color-bg-card);
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-lg);
 }
 
-.report-v1__hero {
+.report-v1__approval-strip div {
+  min-width: 0;
+}
+
+.report-v1__approval-strip span {
+  display: block;
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.report-v1__approval-strip strong {
+  display: block;
+  margin-top: 2px;
+  color: var(--color-fg-strong);
+  font-size: var(--font-size-sm);
+}
+
+.report-v1__approval-strip em {
+  display: block;
+  margin-top: 2px;
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-xs);
+  font-style: normal;
+}
+
+.report-v1__hero-body {
   display: flex;
   justify-content: space-between;
   gap: var(--space-4);
-  padding: var(--space-5);
+  padding: var(--space-5) var(--space-5) var(--space-6);
+  background: #fff;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
 }
 
 .report-v1__hero-main {
@@ -36,11 +74,31 @@
   font-weight: var(--font-weight-semibold);
 }
 
+.report-v1__hero-title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+
 .report-v1__hero h2 {
-  margin: var(--space-1) 0;
+  margin: 0;
   color: var(--color-fg-strong);
   font-size: var(--font-size-xl);
   letter-spacing: 0;
+}
+
+.report-v1__severity-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-status-danger);
+  border-radius: var(--radius-pill);
+  color: var(--color-status-danger);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
 }
 
 .report-v1__hero p,
@@ -60,7 +118,8 @@
 }
 
 .report-v1__meta {
-  min-width: 230px;
+  min-width: 240px;
+  padding-top: var(--space-1);
 }
 
 .report-v1__meta dd,
@@ -90,15 +149,16 @@
 
 .report-v1__kpis {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 132px), 1fr));
   gap: var(--space-3);
   margin: 0;
 }
 
 .report-v1__kpi {
   min-width: 0;
+  min-height: 106px;
   padding: var(--space-3);
-  background: var(--color-bg-card);
+  background: #fff;
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-md);
 }
@@ -118,11 +178,11 @@
 }
 
 .report-v1__kpi--danger {
-  border-color: color-mix(in srgb, var(--color-status-danger) 35%, var(--color-border-default));
+  border-color: color-mix(in srgb, var(--color-status-danger) 55%, var(--color-border-default));
 }
 
 .report-v1__kpi--warning {
-  border-color: color-mix(in srgb, var(--color-status-warning) 35%, var(--color-border-default));
+  border-color: color-mix(in srgb, var(--color-status-warning) 55%, var(--color-border-default));
 }
 
 .report-v1__panel {
@@ -152,11 +212,12 @@
 
 .report-v1__forecast-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: var(--space-3);
 }
 
 .report-v1__forecast-card,
+.report-v1__effect-card,
 .report-v1__primary-cause,
 .report-v1__action-summary,
 .report-v1__evidence-grid article,
@@ -173,7 +234,43 @@
 
 .report-v1__forecast-card {
   display: grid;
+  gap: var(--space-2);
+}
+
+.report-v1__effect-card {
+  display: grid;
   gap: var(--space-3);
+}
+
+.report-v1__effect-card h4 {
+  margin: 0;
+  color: var(--color-fg-strong);
+}
+
+.report-v1__effect-card dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.report-v1__effect-card dl > div {
+  min-width: 0;
+  padding: var(--space-2);
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.report-v1__effect-card dt {
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.report-v1__effect-card dd {
+  margin: 2px 0 0;
+  font-weight: var(--font-weight-bold);
 }
 
 .report-v1__forecast-card-head {
@@ -189,26 +286,42 @@
 
 .report-v1__bar-compare {
   display: grid;
-  gap: var(--space-2);
+  gap: 7px;
 }
 
 .report-v1__bar-compare div {
   display: grid;
-  grid-template-columns: 72px minmax(0, 1fr) auto;
-  gap: var(--space-2);
+  grid-template-columns: 76px minmax(88px, 1fr) minmax(58px, auto);
+  gap: 8px;
   align-items: center;
   min-width: 0;
   color: var(--color-fg-muted);
   font-size: var(--font-size-xs);
 }
 
+.report-v1__bar-compare div > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.report-v1__bar-compare strong {
+  justify-self: end;
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+}
+
 .report-v1__bar-compare i,
 .report-v1__score-bar i,
 .report-v1__cause-bar i {
   display: block;
-  height: 8px;
+  width: 100%;
+  height: 7px;
   overflow: hidden;
-  background: var(--color-bg-surface);
+  background: var(--color-border-subtle);
   border-radius: var(--radius-pill);
 }
 
@@ -219,6 +332,14 @@
   height: 100%;
   background: var(--color-action-primary);
   border-radius: inherit;
+}
+
+.report-v1__bar-fill--no-action {
+  background: var(--color-status-warning) !important;
+}
+
+.report-v1__bar-fill--action {
+  background: var(--color-status-success) !important;
 }
 
 .report-v1__delta {
@@ -822,6 +943,7 @@
 
 .report-v1__kpi,
 .report-v1__forecast-card,
+.report-v1__effect-card,
 .report-v1__candidate,
 .report-v1__decision-note,
 .report-v1__rag-item,
@@ -917,8 +1039,13 @@
 }
 
 @media (max-width: 720px) {
-  .report-v1__hero {
-    flex-direction: column;
+  .report-v1__approval-strip,
+  .report-v1__hero-body {
+    grid-template-columns: 1fr;
+  }
+
+  .report-v1__hero-body {
+    display: grid;
   }
 
   .report-v1__meta {
@@ -934,10 +1061,10 @@
   }
 
   .report-v1__bar-compare div {
-    grid-template-columns: 60px minmax(0, 1fr);
+    grid-template-columns: 72px minmax(72px, 1fr) minmax(54px, auto);
   }
 
   .report-v1__bar-compare strong {
-    grid-column: 2;
+    grid-column: auto;
   }
 }

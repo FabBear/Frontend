@@ -2,12 +2,10 @@
 import { useBncSolutionsContext } from '@/composables/useBncSolutions';
 
 import BaseBadge from '@/components/base/BaseBadge.vue';
-import BncTargetMap from '@/components/bnc/BncTargetMap.vue';
 
 const {
   selectedPlan,
   recommendedPlan,
-  decisionPlan,
   selectedOperationItems,
   selectedPlanRecommendationText,
   recommendationEvidenceVariant,
@@ -22,18 +20,8 @@ const {
   isSelectionOffRecommendation,
   selectedPlanExclusionReason,
   hasRecommendationRunbook,
-  decisionMeta,
   formatVerdict,
   formatScoreBreakdownMeta,
-  compareContext,
-  hasTargetMapData,
-  targetMapTitle,
-  visibleMapTargetToolGroups,
-  visibleMapCauseToolGroups,
-  visibleMapAffectedToolGroups,
-  payload,
-  selectedMapToolGroup,
-  handleSelectMapToolGroup,
 } = useBncSolutionsContext();
 </script>
 
@@ -62,19 +50,6 @@ const {
           <span>되돌림 {{ selectedPlan.actionMetadata.reversibility ?? '-' }}</span>
         </div>
       </article>
-
-      <BncTargetMap
-        v-if="hasTargetMapData"
-        class="bnc-solutions__detail-card--wide"
-        :title="targetMapTitle"
-        :anchor-tool-group="compareContext?.anchorToolgroup"
-        :target-tool-groups="visibleMapTargetToolGroups"
-        :cause-tool-groups="visibleMapCauseToolGroups"
-        :affected-tool-groups="visibleMapAffectedToolGroups"
-        :selected-tool-group="selectedMapToolGroup"
-        :case-id="payload?.caseId ?? null"
-        @select="handleSelectMapToolGroup"
-      />
     </div>
 
     <!-- 기준 선택안 선택 시: 선택 근거 -->
@@ -161,43 +136,6 @@ const {
           </ul>
         </section>
       </div>
-    </article>
-
-    <article v-if="decisionMeta" class="bnc-solutions__detail-card bnc-solutions__detail-card--approval">
-      <div class="bnc-solutions__detail-card-hd">
-        <span class="bnc-solutions__detail-label">승인 정보</span>
-        <BaseBadge :variant="decisionMeta.status.includes('반려') ? 'danger' : 'success'">
-          {{ decisionMeta.status }}
-        </BaseBadge>
-        <span v-if="decisionMeta.isAuto" class="bnc-solutions__auto-chip">자동 처리</span>
-      </div>
-      <p>
-        <strong>{{ decisionPlan?.actionLabel ?? '-' }} · {{ decisionPlan?.actionKind ?? decisionPlan?.title }}</strong>
-        대응안이 {{ decisionMeta.status }} 처리되었습니다.
-        <span v-if="decisionMeta.isAuto"> 운영 실행 전 현업 확인은 별도로 필요합니다.</span>
-      </p>
-      <dl class="bnc-solutions__detail-facts">
-        <div>
-          <dt>결정자</dt>
-          <dd>{{ decisionMeta.by }}</dd>
-        </div>
-        <div v-if="decisionMeta.role">
-          <dt>역할</dt>
-          <dd>{{ decisionMeta.role }}</dd>
-        </div>
-        <div>
-          <dt>결정시각</dt>
-          <dd>{{ decisionMeta.at }}</dd>
-        </div>
-        <div>
-          <dt>의견</dt>
-          <dd>{{ decisionMeta.comment }}</dd>
-        </div>
-        <div v-if="decisionMeta.status.includes('반려') && decisionMeta.rejectionReason">
-          <dt>반려 사유</dt>
-          <dd>{{ decisionMeta.rejectionReason }}</dd>
-        </div>
-      </dl>
     </article>
 
     <details v-if="selectedPlan.scoreBreakdown?.length" class="bnc-solutions__model-evidence">

@@ -18,12 +18,13 @@ export const BNC_STATUS_META: Record<
 };
 
 export const BNC_AGENT_STEP_NAMES = [
+  'BOTTLENECK_DETECTOR',
   'DIFFUSION_ANALYSIS',
   'CAUSE_ANALYSIS',
   'ACTION_PLAN_GEN',
   'ACTION_PLAN_COMPARE',
-  'REPORT_GEN',
   'HITL_WAITING',
+  'REPORT_GEN',
 ] as const;
 
 export const BNC_STEP_META: Record<string, { label: string; description: string; sourcePath: string }> = {

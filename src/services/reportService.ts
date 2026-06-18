@@ -1,7 +1,7 @@
 import api from '@/services/api';
 
 import { MOCK_ACTION_HISTORY_DETAILS, MOCK_ACTION_HISTORY_ITEMS } from '@/constants/mockData/report';
-import { cloneMockData, shouldUseDemoMockData } from '@/constants/mockMode';
+import { cloneScenarioData, shouldUsePresentationScenario } from '@/constants/scenarioMode';
 
 import type {
   ActionHistoryDetail,
@@ -22,10 +22,19 @@ type BackendHistoryListData = {
 
 type BackendHistoryItem = Omit<
   ActionHistoryItem,
-  'decidedBy' | 'displayDay' | 'reportTypes' | 'riskGrade' | 'targetTgText'
+  | 'decidedBy'
+  | 'displayDay'
+  | 'estAvgWaitDelta'
+  | 'estDeliveryComplianceDelta'
+  | 'reportTypes'
+  | 'riskGrade'
+  | 'targetTgText'
 > & {
   riskGrade: string;
   decidedBy: ActionHistoryItem['decidedBy'] | null;
+  estQTimeDelta: number | null;
+  estAvgWaitDelta?: number | null;
+  estDeliveryComplianceDelta?: number | null;
 };
 
 type BackendHistoryDetail = Omit<
@@ -35,7 +44,14 @@ type BackendHistoryDetail = Omit<
   riskGrade: string;
   hitlDecision: ActionHistoryDetail['hitlDecision'] | null;
   baseline: Partial<ActionHistoryDetail['baseline']> | null;
-  actionPlans: Array<Partial<ActionHistoryDetail['actionPlans'][number]>>;
+  actionPlans: Array<
+    Partial<ActionHistoryDetail['actionPlans'][number]> & {
+      estUtilDelta?: number | null;
+      estQTimeDelta?: number | null;
+      estWipDelta?: number | null;
+      estWaitRatioDelta?: number | null;
+    }
+  >;
 };
 
 const DEFAULT_PAGE_SIZE = 10;
@@ -45,10 +61,14 @@ function toNumber(value: number | null | undefined): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
+function minutesToDays(value: number | null | undefined): number {
+  return toNumber(value) / 1440;
+}
+
 function toDisplayDay(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso.slice(0, 10);
-  return date.toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' });
+  return date.toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit' });
 }
 
 function toDateTimeBoundary(date: string | undefined, endOfDay = false): string | undefined {
@@ -71,6 +91,8 @@ function mapHistoryItem(item: BackendHistoryItem): ActionHistoryItem {
     displayDay: toDisplayDay(item.decidedAt ?? item.detectedAt),
     targetTgText: targetTgText(item.tgName, item.areaName),
     decidedBy: item.decidedBy ?? { userId: 'unknown', userName: '-' },
+    estAvgWaitDelta: item.estAvgWaitDelta ?? minutesToDays(item.estQTimeDelta),
+    estDeliveryComplianceDelta: item.estDeliveryComplianceDelta ?? 0,
     reportTypes: item.hasReport ? ['ACTION'] : [],
   };
 }
@@ -100,10 +122,10 @@ function mapHistoryDetail(detail: BackendHistoryDetail): ActionHistoryDetail {
       planSeq: plan.planSeq ?? index + 1,
       planTitle: plan.planTitle ?? `대응안 ${index + 1}`,
       planType: plan.planType ?? '-',
-      estThroughputDelta: toNumber(plan.estThroughputDelta),
-      estAvgWaitDelta: toNumber(plan.estAvgWaitDelta),
-      estDeliveryComplianceDelta: toNumber(plan.estDeliveryComplianceDelta),
-      estDelayDelta: toNumber(plan.estDelayDelta),
+      estThroughputDelta: toNumber(plan.estThroughputDelta ?? plan.estUtilDelta),
+      estAvgWaitDelta: plan.estAvgWaitDelta ?? minutesToDays(plan.estQTimeDelta),
+      estDeliveryComplianceDelta: toNumber(plan.estDeliveryComplianceDelta ?? plan.estWaitRatioDelta),
+      estDelayDelta: toNumber(plan.estDelayDelta ?? plan.estWipDelta),
       isSelected: Boolean(plan.isSelected),
     })),
   };
@@ -126,7 +148,7 @@ function applyUnsupportedFilters(items: ActionHistoryItem[], params: FetchAction
 export async function fetchActionHistory(params: FetchActionHistoryParams = {}): Promise<ActionHistoryListData> {
   const page = params.page ?? 0;
   const size = params.size ?? DEFAULT_PAGE_SIZE;
-  if (shouldUseDemoMockData()) return getMockActionHistory(params, page, size);
+  if (shouldUsePresentationScenario()) return getMockActionHistory(params, page, size);
 
   const clientFilterMode = needsClientSideFiltering(params);
   const requestSize = clientFilterMode ? UNSUPPORTED_FILTER_FETCH_SIZE : size;
@@ -166,8 +188,8 @@ export async function fetchActionHistory(params: FetchActionHistoryParams = {}):
 }
 
 export async function fetchActionHistoryDetail(caseId: string): Promise<ActionHistoryDetail> {
-  if (shouldUseDemoMockData()) {
-    return cloneMockData(
+  if (shouldUsePresentationScenario()) {
+    return cloneScenarioData(
       MOCK_ACTION_HISTORY_DETAILS[caseId] ?? MOCK_ACTION_HISTORY_DETAILS[MOCK_ACTION_HISTORY_ITEMS[0].caseId]
     );
   }
@@ -177,7 +199,7 @@ export async function fetchActionHistoryDetail(caseId: string): Promise<ActionHi
 }
 
 function getMockActionHistory(params: FetchActionHistoryParams, page: number, size: number): ActionHistoryListData {
-  let items = cloneMockData(MOCK_ACTION_HISTORY_ITEMS);
+  let items = cloneScenarioData(MOCK_ACTION_HISTORY_ITEMS);
 
   if (params.riskGrade) items = items.filter((item) => item.riskGrade === params.riskGrade);
   if (params.status) items = items.filter((item) => item.status === params.status);

@@ -59,6 +59,7 @@ const TOOL_LABELS: Record<string, string> = {
   get_top_toolgroups: 'TG 순위',
   get_tool_status: '설비 현황',
   get_lot_status: 'WIP/대기',
+  get_lot_release_plan: 'Lot 투입계획',
   search_bottleneck_cases: '병목 케이스',
   get_case_detail: '케이스 상세',
   get_tool_activity: '설비 추이',

@@ -312,6 +312,8 @@ onMounted(() => {
   grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
   gap: var(--space-4);
   align-items: end;
+  border-bottom: var(--border-width-default) solid var(--color-border-default);
+  padding-bottom: var(--space-2);
 }
 
 .admin-mes-view__header h1 {

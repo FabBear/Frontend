@@ -50,13 +50,8 @@ const {
   errorMessage: alertListErrorMessage,
   filterStartDate,
   filterEndDate,
-  pageInfo: alertPageInfo,
-  totalPages: alertTotalPages,
-  pageButtons: alertPageButtons,
   loadAlerts,
   applyPresetRange,
-  handleDateFilterChange,
-  handlePageChange: handleAlertPageChange,
 } = useBottleneckAlertList();
 
 const topBottleneck = computed(() => [...toolGroups.value].sort(compareBottleneckRisk)[0] ?? null);
@@ -79,6 +74,7 @@ const selectedRiskScore = computed(
 const selectedCauseText = computed(() => selectedAlert.value?.mainCause ?? null);
 const selectedStatusText = computed(() => {
   if (!selectedAlert.value) return null;
+  if (selectedAlert.value.status === 'AWAITING_HITL') return '승인 대기';
   return selectedAlert.value.canShowSolutions ? '대응안 비교 완료' : null;
 });
 
@@ -181,15 +177,6 @@ async function handleSelectMapToolGroup(tgId: string, areaCode: string) {
   });
 }
 
-function handleOpenCenter(caseId: string) {
-  router.push({ name: ROUTE_NAMES.bottleneckCenter, query: { caseId } });
-}
-
-function handleOpenCurrentCase() {
-  if (!snapshot.value) return;
-  handleOpenCenter(snapshot.value.caseId);
-}
-
 async function refreshMonitoringData(blocking = false) {
   if (blocking) {
     hasMonitoringLoaded.value = false;
@@ -280,18 +267,11 @@ watch(
     <template v-else>
       <div class="bottleneck-monitoring-view__workspace">
         <BottleneckAlertSelector
-          v-model:filter-start-date="filterStartDate"
-          v-model:filter-end-date="filterEndDate"
           :alerts="bottleneckAlerts"
           :selected-case-id="selectedCaseId"
           :loading="isAlertListLoading"
           :error-message="alertListErrorMessage"
-          :page-info="alertPageInfo"
-          :total-pages="alertTotalPages"
-          :page-buttons="alertPageButtons"
-          @apply-preset="applyPresetRange"
-          @date-filter-change="handleDateFilterChange"
-          @page-change="handleAlertPageChange"
+          @retry="handleRefresh"
           @select-alert="handleSelectAlert"
         />
 
@@ -303,8 +283,6 @@ watch(
             :alert-metrics="selectedAlertMetrics"
             :status-text="selectedStatusText"
             :cause-text="selectedCauseText"
-            :disabled="!snapshot"
-            @open-center="handleOpenCurrentCase"
           />
 
           <ProcessMapCard
@@ -347,18 +325,12 @@ watch(
 }
 
 .bottleneck-monitoring-view__header {
-  position: sticky;
-  top: calc(var(--spacing-page) * -1);
-  z-index: var(--z-index-sticky);
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-4);
-  margin: calc(var(--spacing-page) * -1) calc(var(--spacing-page) * -1) 0;
   border-bottom: var(--border-width-default) solid var(--color-border-default);
-  background: color-mix(in srgb, var(--color-bg-surface) 94%, transparent);
-  padding: var(--spacing-page) var(--spacing-page) var(--space-2);
-  backdrop-filter: blur(10px);
+  padding-bottom: var(--space-2);
 }
 
 .bottleneck-monitoring-view__title {

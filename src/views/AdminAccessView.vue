@@ -311,7 +311,15 @@ onMounted(loadUsers);
   display: grid;
   gap: var(--space-4);
 }
-.admin-access-view__header,
+.admin-access-view__header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-4);
+  align-items: end;
+  border-bottom: var(--border-width-default) solid var(--color-border-default);
+  padding-bottom: var(--space-2);
+}
+
 .admin-access-view__section-head {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

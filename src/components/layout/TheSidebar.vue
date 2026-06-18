@@ -25,7 +25,7 @@ import type { NavSection } from '@/types/nav';
 
 const props = withDefaults(
   defineProps<{
-    // 안읽은 병목 위험 알림(BOTTLENECK_HIGH/CRITICAL) 수 — 병목 대응 센터 배지로 표시
+    // 안읽은 병목 알림(BOTTLENECK_CRITICAL) 수 — 병목 대응 센터 배지로 표시
     bottleneckUnreadCount?: number;
   }>(),
   { bottleneckUnreadCount: 0 }

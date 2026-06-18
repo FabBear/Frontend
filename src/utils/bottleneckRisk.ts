@@ -1,20 +1,6 @@
 import { RISK_LEVEL_META } from '@/constants/riskLevel';
 
-import type { BottleneckRiskGrade, BottleneckToolGroupItem } from '@/types/bottleneckMonitoring';
-
-const RISK_SCORE_THRESHOLDS = {
-  critical: 0.8,
-  high: 0.6,
-  medium: 0.4,
-} as const;
-
-export function resolveBottleneckRiskGrade(riskScore: number | null | undefined): BottleneckRiskGrade {
-  if (riskScore === null || riskScore === undefined) return 'LOW';
-  if (riskScore >= RISK_SCORE_THRESHOLDS.critical) return 'CRITICAL';
-  if (riskScore >= RISK_SCORE_THRESHOLDS.high) return 'HIGH';
-  if (riskScore >= RISK_SCORE_THRESHOLDS.medium) return 'MEDIUM';
-  return 'LOW';
-}
+import type { BottleneckToolGroupItem } from '@/types/bottleneckMonitoring';
 
 export function getBottleneckRiskSortValue(toolGroup: Pick<BottleneckToolGroupItem, 'riskScore'>): number {
   return toolGroup.riskScore ?? 0;

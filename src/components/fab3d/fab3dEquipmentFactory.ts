@@ -1,20 +1,28 @@
 import * as THREE from 'three';
 
-// ── Materials ──────────────────────────────────────────────────────────
-function mBody(u: number) {
-  if (u >= 0.9)
+// ── Materials — 병목 위험 등급(sev) 기준 ────────────────────────────────
+// sev: 3=CRITICAL(빨강) 2=HIGH(주황) 1=MEDIUM(노랑) 0=LOW(정상 베이지)
+function mBody(sev: number) {
+  if (sev >= 3)
     return new THREE.MeshPhongMaterial({
       color: 0xc00000,
       specular: 0x880000,
       shininess: 95,
       emissive: new THREE.Color(0x3a0000),
     });
-  if (u >= 0.85)
+  if (sev >= 2)
     return new THREE.MeshPhongMaterial({
       color: 0xed7d31,
       specular: 0x994400,
       shininess: 90,
       emissive: new THREE.Color(0x220c00),
+    });
+  if (sev >= 1)
+    return new THREE.MeshPhongMaterial({
+      color: 0xc8a020,
+      specular: 0x806800,
+      shininess: 80,
+      emissive: new THREE.Color(0x100c00),
     });
   // 정상: 실제 fab 장비의 따뜻한 off-white SEMI 패널 톤(매트하게)
   return new THREE.MeshPhongMaterial({
@@ -24,9 +32,10 @@ function mBody(u: number) {
     emissive: new THREE.Color(0x0a0a08),
   });
 }
-function mPanel(u: number) {
-  if (u >= 0.9) return new THREE.MeshBasicMaterial({ color: 0xff4400, transparent: true, opacity: 0.95 });
-  if (u >= 0.85) return new THREE.MeshBasicMaterial({ color: 0xff8800, transparent: true, opacity: 0.92 });
+function mPanel(sev: number) {
+  if (sev >= 3) return new THREE.MeshBasicMaterial({ color: 0xff4400, transparent: true, opacity: 0.95 });
+  if (sev >= 2) return new THREE.MeshBasicMaterial({ color: 0xff8800, transparent: true, opacity: 0.92 });
+  if (sev >= 1) return new THREE.MeshBasicMaterial({ color: 0xffd700, transparent: true, opacity: 0.92 });
   return new THREE.MeshBasicMaterial({ color: 0x8f8060, transparent: true, opacity: 0.92 });
 }
 const mDark = () => new THREE.MeshPhongMaterial({ color: 0x8f918b, specular: 0x7b7d78, shininess: 70 });
@@ -106,8 +115,8 @@ const mVent = () => new THREE.MeshPhongMaterial({ color: 0x0e0e0e, shininess: 20
 const mLed = (c: number) => new THREE.MeshBasicMaterial({ color: c });
 const mSeam = () => new THREE.MeshPhongMaterial({ color: 0x050810 });
 
-function ledColor(u: number): number {
-  return u >= 0.9 ? 0xff1100 : u >= 0.85 ? 0xff8800 : 0xd8b46a;
+function ledColor(sev: number): number {
+  return sev >= 3 ? 0xff1100 : sev >= 2 ? 0xff8800 : sev >= 1 ? 0xffd700 : 0xd8b46a;
 }
 
 function addFeet(g: THREE.Group, xs: number[], zs: number[]) {
@@ -130,8 +139,8 @@ function addVents(g: THREE.Group, xC: number, topY: number, zC: number, w: numbe
   }
 }
 
-function addLEDs(g: THREE.Group, x0: number, y: number, z: number, n: number, sp: number, u: number) {
-  const c = ledColor(u);
+function addLEDs(g: THREE.Group, x0: number, y: number, z: number, n: number, sp: number, sev: number) {
+  const c = ledColor(sev);
   for (let i = 0; i < n; i++) {
     const l = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 4), mLed(c));
     l.position.set(x0 + i * sp, y, z);
@@ -139,10 +148,6 @@ function addLEDs(g: THREE.Group, x0: number, y: number, z: number, n: number, sp
   }
 }
 
-/** utilization → severity fallback (riskGrade 미제공 시) */
-function sevFromU(u: number): number {
-  return u >= 0.9 ? 3 : u >= 0.85 ? 2 : u >= 0.7 ? 1 : 0;
-}
 
 /**
  * 신호탑(andon stack light) — 실제 모든 fab 장비 상단의 상징적 3색 타워.
@@ -200,7 +205,7 @@ function addSignalTower(g: THREE.Group, x: number, y: number, z: number, sev: nu
  * EFEM FOUP 로드포트 — 도크 + FOUP 포드 + 표시등 2개(상태/통신).
  * facing: 포드가 바라보는 방향(-z 앞면이 기본). 기존 ad-hoc foup를 대체해 외형을 통일.
  */
-function addFoupPort(g: THREE.Group, x: number, z: number, u: number, facing: -1 | 1 = -1) {
+function addFoupPort(g: THREE.Group, x: number, z: number, sev: number, facing: -1 | 1 = -1) {
   // 도크 플레이트
   const dock = new THREE.Mesh(
     new THREE.BoxGeometry(0.9, 0.12, 0.44),
@@ -235,7 +240,7 @@ function addFoupPort(g: THREE.Group, x: number, z: number, u: number, facing: -1
   door.position.set(x, 1.24, z + facing * 0.33);
   g.add(door);
   // 표시등 2개 (상태등=가동률색, 통신등=청색)
-  const statusC = u >= 0.9 ? 0xff2a1a : u >= 0.85 ? 0xffb020 : 0x22dd55;
+  const statusC = sev >= 3 ? 0xff2a1a : sev >= 2 ? 0xffb020 : 0x22dd55;
   [statusC, 0x00aaff].forEach((c, i) => {
     const ind = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 0.03, 8), mLed(c));
     ind.rotation.x = Math.PI / 2;
@@ -247,7 +252,7 @@ function addFoupPort(g: THREE.Group, x: number, z: number, u: number, facing: -1
 // ── Equipment factory functions ────────────────────────────────────────
 
 /** Dry Etch — 4-chamber cluster tool with transfer module */
-function mkEtch(u: number): THREE.Group {
+function mkEtch(sev: number): THREE.Group {
   const g = new THREE.Group();
 
   // Transfer module (octagonal handler)
@@ -297,14 +302,14 @@ function mkEtch(u: number): THREE.Group {
     gv.position.set(px - Math.cos(ang) * 0.6, 0.46, pz - Math.sin(ang) * 0.6);
     g.add(gv);
     // Per-chamber status LED
-    const lc = u >= 0.9 ? 0xff1100 : u >= 0.85 ? 0xff8800 : i % 2 === 0 ? 0x00ee44 : 0x00aaff;
+    const lc = sev >= 3 ? 0xff1100 : sev >= 2 ? 0xff8800 : i % 2 === 0 ? 0x00ee44 : 0x00aaff;
     const led = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 4), mLed(lc));
     led.position.set(px * 1.14, 1.65, pz * 1.14);
     g.add(led);
   });
 
   // Front FOUP load port
-  const lp = cs(new THREE.Mesh(new THREE.BoxGeometry(1.05, 1.1, 0.38), mBody(u)));
+  const lp = cs(new THREE.Mesh(new THREE.BoxGeometry(1.05, 1.1, 0.38), mBody(sev)));
   lp.position.set(0, 0.55, -2.1);
   g.add(lp);
   const foupGlass = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.78, 0.06), mGlass());
@@ -324,13 +329,13 @@ function mkEtch(u: number): THREE.Group {
     sc.position.set(sx, 0.55 + sy, -2.31);
     g.add(sc);
   }
-  const sp = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.28, 0.05), mPanel(u));
+  const sp = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.28, 0.05), mPanel(sev));
   sp.position.set(0, 1.47, -2.12);
   g.add(sp);
-  addLEDs(g, -0.24, 1.39, -2.13, 5, 0.12, u);
+  addLEDs(g, -0.24, 1.39, -2.13, 5, 0.12, sev);
 
   // Side electronics cabinet
-  const cab = cs(new THREE.Mesh(new THREE.BoxGeometry(0.78, 1.78, 1.3), mBody(u)));
+  const cab = cs(new THREE.Mesh(new THREE.BoxGeometry(0.78, 1.78, 1.3), mBody(sev)));
   cab.position.set(2.08, 0.89, 0);
   g.add(cab);
   const cabSeam = new THREE.Mesh(new THREE.BoxGeometry(0.04, 1.8, 0.04), mSeam());
@@ -350,9 +355,9 @@ function mkEtch(u: number): THREE.Group {
 }
 
 /** Lithography — ASML-style scanner */
-function mkLitho(u: number): THREE.Group {
+function mkLitho(sev: number): THREE.Group {
   const g = new THREE.Group();
-  const bodyCol = u >= 0.9 ? 0xc00000 : 0x2a3848;
+  const bodyCol = sev >= 3 ? 0xc00000 : 0x2a3848;
 
   // Main scanner body
   const body = cs(
@@ -418,7 +423,7 @@ function mkLitho(u: number): THREE.Group {
   addVents(g, 0, 3.64, -0.7, 1.2, 0.35, 7);
 
   // Electronics cabinet
-  const cab = cs(new THREE.Mesh(new THREE.BoxGeometry(0.85, 2.6, 2.1), mBody(u)));
+  const cab = cs(new THREE.Mesh(new THREE.BoxGeometry(0.85, 2.6, 2.1), mBody(sev)));
   cab.position.set(1.78, 1.3, 0);
   g.add(cab);
   for (const y of [0.88, 1.76]) {
@@ -426,11 +431,11 @@ function mkLitho(u: number): THREE.Group {
     sH.position.set(1.78, y, 0);
     g.add(sH);
   }
-  const sc = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.36, 0.06), mPanel(u));
+  const sc = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.36, 0.06), mPanel(sev));
   sc.position.set(1.78, 2.25, -0.65);
   sc.rotation.y = Math.PI / 2;
   g.add(sc);
-  addLEDs(g, 1.765, 1.6, -0.58, 4, 0.1, u);
+  addLEDs(g, 1.765, 1.6, -0.58, 4, 0.1, sev);
 
   // Wafer stage (vibration isolated)
   const stage = cs(
@@ -462,9 +467,9 @@ function mkLitho(u: number): THREE.Group {
 }
 
 /** LithoTrack — TEL ACT coater/developer track */
-function mkLithoTrack(u: number): THREE.Group {
+function mkLithoTrack(sev: number): THREE.Group {
   const g = new THREE.Group();
-  const col = u >= 0.9 ? 0xc00000 : 0x1a2838;
+  const col = sev >= 3 ? 0xc00000 : 0x1a2838;
 
   // Main body — 4 modules in-line
   const body = cs(
@@ -512,7 +517,7 @@ function mkLithoTrack(u: number): THREE.Group {
     rim.position.set(sx, 2.32, 0.1);
     g.add(rim);
     // Status LED per cup
-    const lc = u >= 0.9 ? 0xff1100 : u >= 0.85 ? 0xff8800 : 0x00ee44;
+    const lc = sev >= 3 ? 0xff1100 : sev >= 2 ? 0xff8800 : 0x00ee44;
     const led = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 4), mLed(lc));
     led.position.set(sx + 0.22, 2.1, -0.6);
     g.add(led);
@@ -525,22 +530,22 @@ function mkLithoTrack(u: number): THREE.Group {
   addVents(g, 0, 2.3, 0.7, 3.8, 0.25, 12);
 
   // EFEM FOUP 로드포트 (front left, 표준화)
-  addFoupPort(g, -1.8, -1.02, u, -1);
+  addFoupPort(g, -1.8, -1.02, sev, -1);
 
   // Status panel
-  const sp = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.28, 0.05), mPanel(u));
+  const sp = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.28, 0.05), mPanel(sev));
   sp.position.set(0, 1.8, -0.88);
   g.add(sp);
-  addLEDs(g, -0.3, 1.72, -0.89, 6, 0.12, u);
+  addLEDs(g, -0.3, 1.72, -0.89, 6, 0.12, sev);
 
   addFeet(g, [-2.3, 2.3], [-0.75, 0.75]);
   return g;
 }
 
 /** Diffusion Furnace — vertical tube furnace 3-tube stack */
-function mkFurnace(u: number): THREE.Group {
+function mkFurnace(sev: number): THREE.Group {
   const g = new THREE.Group();
-  const tubeCol = u >= 0.9 ? 0xc00000 : 0x607888;
+  const tubeCol = sev >= 3 ? 0xc00000 : 0x607888;
 
   for (let i = -1; i <= 1; i++) {
     const tube = cs(
@@ -578,13 +583,13 @@ function mkFurnace(u: number): THREE.Group {
     rail.position.set(i * 1.05 + 0.5, 1.75, 0.48);
     g.add(rail);
     // Per-tube status LED
-    const lc = u >= 0.9 ? 0xff1100 : u >= 0.85 ? 0xff8800 : 0x00ee44;
+    const lc = sev >= 3 ? 0xff1100 : sev >= 2 ? 0xff8800 : 0x00ee44;
     const led = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 4), mLed(lc));
     led.position.set(i * 1.05, 4.45, 0);
     g.add(led);
   }
 
-  const base = cs(new THREE.Mesh(new THREE.BoxGeometry(3.7, 0.38, 1.7), mBody(u)));
+  const base = cs(new THREE.Mesh(new THREE.BoxGeometry(3.7, 0.38, 1.7), mBody(sev)));
   base.position.set(0, 0.19, 0);
   g.add(base);
   const bSeam = new THREE.Mesh(new THREE.BoxGeometry(3.72, 0.04, 0.04), mSeam());
@@ -592,7 +597,7 @@ function mkFurnace(u: number): THREE.Group {
   g.add(bSeam);
 
   // Gas / control cabinet (rear)
-  const cab = cs(new THREE.Mesh(new THREE.BoxGeometry(3.7, 2.8, 0.6), mBody(u)));
+  const cab = cs(new THREE.Mesh(new THREE.BoxGeometry(3.7, 2.8, 0.6), mBody(sev)));
   cab.position.set(0, 1.4, 0.9);
   g.add(cab);
   for (const cx of [-0.95, 0.95]) {
@@ -602,10 +607,10 @@ function mkFurnace(u: number): THREE.Group {
   }
   addVents(g, 0, 2.8, 0.9, 3.2, 0.4, 10);
 
-  const sc = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.34, 0.06), mPanel(u));
+  const sc = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.34, 0.06), mPanel(sev));
   sc.position.set(-1.2, 2.5, 1.22);
   g.add(sc);
-  addLEDs(g, -1.42, 2.22, 1.24, 3, 0.14, u);
+  addLEDs(g, -1.42, 2.22, 1.24, 3, 0.14, sev);
 
   // E-stop button
   const estop = new THREE.Mesh(
@@ -621,9 +626,9 @@ function mkFurnace(u: number): THREE.Group {
 }
 
 /** EPI epitaxial reactor — barrel dome chamber */
-function mkEpi(u: number): THREE.Group {
+function mkEpi(sev: number): THREE.Group {
   const g = new THREE.Group();
-  const col = u >= 0.9 ? 0xc00000 : 0x3a5060;
+  const col = sev >= 3 ? 0xc00000 : 0x3a5060;
 
   // Reactor barrel
   const barrel = cs(
@@ -664,7 +669,7 @@ function mkEpi(u: number): THREE.Group {
   g.add(dvp);
 
   // Gas manifold (right side)
-  const manifold = cs(new THREE.Mesh(new THREE.BoxGeometry(0.75, 1.3, 0.5), mBody(u)));
+  const manifold = cs(new THREE.Mesh(new THREE.BoxGeometry(0.75, 1.3, 0.5), mBody(sev)));
   manifold.position.set(1.45, 1.4, 0);
   g.add(manifold);
   const mSeamM = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.32, 0.04), mSeam());
@@ -687,10 +692,10 @@ function mkEpi(u: number): THREE.Group {
     valve.position.set(1.32, y, 0.12);
     g.add(valve);
   }
-  addLEDs(g, 1.42, 2.08, 0.27, 2, 0.14, u);
+  addLEDs(g, 1.42, 2.08, 0.27, 2, 0.14, sev);
 
   // Control cabinet (left)
-  const cab = cs(new THREE.Mesh(new THREE.BoxGeometry(0.78, 2.8, 1.6), mBody(u)));
+  const cab = cs(new THREE.Mesh(new THREE.BoxGeometry(0.78, 2.8, 1.6), mBody(sev)));
   cab.position.set(-1.7, 1.4, 0);
   g.add(cab);
   for (const y of [0.95, 1.9]) {
@@ -698,26 +703,26 @@ function mkEpi(u: number): THREE.Group {
     sH.position.set(-1.7, y, 0);
     g.add(sH);
   }
-  const sc = new THREE.Mesh(new THREE.BoxGeometry(0.54, 0.34, 0.06), mPanel(u));
+  const sc = new THREE.Mesh(new THREE.BoxGeometry(0.54, 0.34, 0.06), mPanel(sev));
   sc.position.set(-1.7, 2.48, -0.62);
   sc.rotation.y = Math.PI / 2;
   g.add(sc);
   addVents(g, -1.7, 2.8, 0, 0.58, 1.0, 6);
-  addLEDs(g, -1.72, 1.88, -0.58, 3, 0.12, u);
+  addLEDs(g, -1.72, 1.88, -0.58, 3, 0.12, sev);
 
   addFeet(g, [-1.7, 1.7], [-1.65, 1.65]);
   return g;
 }
 
 /** Implant — L-shaped beamline ion implanter */
-function mkImplant(u: number): THREE.Group {
+function mkImplant(sev: number): THREE.Group {
   const g = new THREE.Group();
 
   // Ion source terminal (large box)
   const terminal = cs(
     new THREE.Mesh(
       new THREE.BoxGeometry(1.85, 2.9, 1.6),
-      new THREE.MeshPhongMaterial({ color: u >= 0.9 ? 0xc00000 : 0x28384a, specular: 0x223344, shininess: 75 })
+      new THREE.MeshPhongMaterial({ color: sev >= 3 ? 0xc00000 : 0x28384a, specular: 0x223344, shininess: 75 })
     )
   );
   terminal.position.set(-1.8, 1.45, 0);
@@ -770,7 +775,7 @@ function mkImplant(u: number): THREE.Group {
   g.add(magnet);
 
   // Process end-station
-  const end = cs(new THREE.Mesh(new THREE.BoxGeometry(1.6, 2.1, 1.6), mBody(u)));
+  const end = cs(new THREE.Mesh(new THREE.BoxGeometry(1.6, 2.1, 1.6), mBody(sev)));
   end.position.set(1.85, 1.05, 0);
   g.add(end);
   // End-station viewport
@@ -784,10 +789,10 @@ function mkImplant(u: number): THREE.Group {
   cup.position.set(1.85, 2.45, 0);
   g.add(cup);
 
-  const sc = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.34, 0.06), mPanel(u));
+  const sc = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.34, 0.06), mPanel(sev));
   sc.position.set(-1.8, 2.65, -0.82);
   g.add(sc);
-  addLEDs(g, -1.88, 2.42, -0.82, 3, 0.12, u);
+  addLEDs(g, -1.88, 2.42, -0.82, 3, 0.12, sev);
 
   // E-stop button
   const estop = new THREE.Mesh(
@@ -803,14 +808,14 @@ function mkImplant(u: number): THREE.Group {
 }
 
 /** CMP Polisher — wide body with 3 platens */
-function mkCMP(u: number): THREE.Group {
+function mkCMP(sev: number): THREE.Group {
   const g = new THREE.Group();
 
   // Main polisher body
   const body = cs(
     new THREE.Mesh(
       new THREE.BoxGeometry(4.4, 1.25, 2.1),
-      new THREE.MeshPhongMaterial({ color: u >= 0.9 ? 0xc00000 : 0x3a5060, shininess: 70 })
+      new THREE.MeshPhongMaterial({ color: sev >= 3 ? 0xc00000 : 0x3a5060, shininess: 70 })
     )
   );
   body.position.set(0, 0.63, 0);
@@ -851,7 +856,7 @@ function mkCMP(u: number): THREE.Group {
     noz.position.set(i * 1.42 + 0.42, 1.44, 0.08 - 0.38);
     g.add(noz);
     // Platen LED
-    const plc = u >= 0.9 ? 0xff1100 : u >= 0.85 ? 0xff8800 : 0x00ee44;
+    const plc = sev >= 3 ? 0xff1100 : sev >= 2 ? 0xff8800 : 0x00ee44;
     const pled = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 4), mLed(plc));
     pled.position.set(i * 1.42, 1.5, -0.5);
     g.add(pled);
@@ -866,7 +871,7 @@ function mkCMP(u: number): THREE.Group {
   g.add(carousel);
 
   // FOUP load port + cabinet
-  const cab = cs(new THREE.Mesh(new THREE.BoxGeometry(0.72, 2.4, 2.1), mBody(u)));
+  const cab = cs(new THREE.Mesh(new THREE.BoxGeometry(0.72, 2.4, 2.1), mBody(sev)));
   cab.position.set(2.55, 1.2, 0);
   g.add(cab);
   const foupGlass = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.7, 1.0), mGlass());
@@ -874,11 +879,11 @@ function mkCMP(u: number): THREE.Group {
   g.add(foupGlass);
   addVents(g, 2.55, 2.4, 0, 0.52, 1.0, 5);
 
-  const sc = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.34, 0.06), mPanel(u));
+  const sc = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.34, 0.06), mPanel(sev));
   sc.position.set(2.55, 2.2, -0.72);
   sc.rotation.y = Math.PI / 2;
   g.add(sc);
-  addLEDs(g, 2.56, 1.92, -0.6, 4, 0.1, u);
+  addLEDs(g, 2.56, 1.92, -0.6, 4, 0.1, sev);
 
   // Drain base panel
   const drain = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.28, 1.6), new THREE.MeshPhongMaterial({ color: 0x2a3848 }));
@@ -890,14 +895,14 @@ function mkCMP(u: number): THREE.Group {
 }
 
 /** CVD/ALD cluster — octagonal handler + 4 process modules */
-function mkCVD(u: number): THREE.Group {
+function mkCVD(sev: number): THREE.Group {
   const g = new THREE.Group();
 
   // Central handler (octagonal)
   const handler = cs(
     new THREE.Mesh(
       new THREE.CylinderGeometry(0.95, 0.95, 0.82, 8),
-      new THREE.MeshPhongMaterial({ color: u >= 0.9 ? 0xc00000 : 0x4a6070, shininess: 80 })
+      new THREE.MeshPhongMaterial({ color: sev >= 3 ? 0xc00000 : 0x4a6070, shininess: 80 })
     )
   );
   handler.position.y = 0.41;
@@ -911,7 +916,7 @@ function mkCVD(u: number): THREE.Group {
 
   // 4 process modules at 45° angles
   [Math.PI / 4, (Math.PI * 3) / 4, (Math.PI * 5) / 4, (Math.PI * 7) / 4].forEach((a, i) => {
-    const mod = cs(new THREE.Mesh(new THREE.BoxGeometry(0.95, 1.3, 0.88), mBody(u)));
+    const mod = cs(new THREE.Mesh(new THREE.BoxGeometry(0.95, 1.3, 0.88), mBody(sev)));
     mod.position.set(Math.cos(a) * 1.65, 0.65, Math.sin(a) * 1.65);
     mod.rotation.y = -a;
     g.add(mod);
@@ -921,7 +926,7 @@ function mkCVD(u: number): THREE.Group {
     vp.rotation.y = -a;
     g.add(vp);
     // Module status panel
-    const sc = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.22, 0.05), mPanel(u));
+    const sc = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.22, 0.05), mPanel(sev));
     sc.position.set(Math.cos(a) * 2.14, 1.22, Math.sin(a) * 2.14);
     sc.rotation.y = -a;
     g.add(sc);
@@ -935,17 +940,17 @@ function mkCVD(u: number): THREE.Group {
     gv.position.set(Math.cos(a) * 1.12, 0.36, Math.sin(a) * 1.12);
     g.add(gv);
     // LED per module
-    const lc = u >= 0.9 ? 0xff1100 : u >= 0.85 ? 0xff8800 : i % 2 === 0 ? 0x00ee44 : 0x00aaff;
+    const lc = sev >= 3 ? 0xff1100 : sev >= 2 ? 0xff8800 : i % 2 === 0 ? 0x00ee44 : 0x00aaff;
     const led = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 4), mLed(lc));
     led.position.set(Math.cos(a) * 2.18, 1.38, Math.sin(a) * 2.18);
     g.add(led);
   });
 
   // EFEM FOUP 로드포트 (front, 표준화)
-  addFoupPort(g, 0, -2.1, u, -1);
+  addFoupPort(g, 0, -2.1, sev, -1);
 
   // Gas supply cabinet (rear)
-  const gasCab = cs(new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.8, 0.7), mBody(u)));
+  const gasCab = cs(new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.8, 0.7), mBody(sev)));
   gasCab.position.set(0, 0.9, 2.2);
   g.add(gasCab);
   addVents(g, 0, 1.8, 2.2, 0.45, 0.5, 5);
@@ -955,14 +960,14 @@ function mkCVD(u: number): THREE.Group {
 }
 
 /** PVD Endura — octagonal handler + 4 cylindrical chambers */
-function mkPVD(u: number): THREE.Group {
+function mkPVD(sev: number): THREE.Group {
   const g = new THREE.Group();
 
   // Handler (octagonal)
   const handler = cs(
     new THREE.Mesh(
       new THREE.CylinderGeometry(0.88, 0.88, 0.88, 8),
-      new THREE.MeshPhongMaterial({ color: u >= 0.9 ? 0xc00000 : 0x3a5060, shininess: 80 })
+      new THREE.MeshPhongMaterial({ color: sev >= 3 ? 0xc00000 : 0x3a5060, shininess: 80 })
     )
   );
   handler.position.y = 0.44;
@@ -988,14 +993,14 @@ function mkPVD(u: number): THREE.Group {
     pwr.position.set(Math.cos(a) * 1.9, 1.1, Math.sin(a) * 1.9);
     g.add(pwr);
     // Chamber status LED
-    const lc = u >= 0.9 ? 0xff1100 : u >= 0.85 ? 0xff8800 : 0x00ee44;
+    const lc = sev >= 3 ? 0xff1100 : sev >= 2 ? 0xff8800 : 0x00ee44;
     const led = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 4), mLed(lc));
     led.position.set(Math.cos(a) * 2.02, 1.42, Math.sin(a) * 2.02);
     g.add(led);
   }
 
   // Electronics cabinet (left)
-  const cab = cs(new THREE.Mesh(new THREE.BoxGeometry(0.7, 2.0, 1.8), mBody(u)));
+  const cab = cs(new THREE.Mesh(new THREE.BoxGeometry(0.7, 2.0, 1.8), mBody(sev)));
   cab.position.set(-2.05, 1.0, 0);
   g.add(cab);
   for (const y of [0.7, 1.4]) {
@@ -1004,14 +1009,14 @@ function mkPVD(u: number): THREE.Group {
     g.add(sH);
   }
   addVents(g, -2.05, 2.0, 0, 0.5, 1.2, 6);
-  const sc = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.32, 0.06), mPanel(u));
+  const sc = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.32, 0.06), mPanel(sev));
   sc.position.set(-2.05, 1.88, -0.68);
   sc.rotation.y = Math.PI / 2;
   g.add(sc);
-  addLEDs(g, -2.06, 1.6, -0.55, 3, 0.11, u);
+  addLEDs(g, -2.06, 1.6, -0.55, 3, 0.11, sev);
 
   // Gas panel (right)
-  const gasPnl = cs(new THREE.Mesh(new THREE.BoxGeometry(0.52, 1.4, 1.0), mBody(u)));
+  const gasPnl = cs(new THREE.Mesh(new THREE.BoxGeometry(0.52, 1.4, 1.0), mBody(sev)));
   gasPnl.position.set(2.05, 0.7, 0);
   g.add(gasPnl);
   for (const [gy, gz] of [
@@ -1034,14 +1039,14 @@ function mkPVD(u: number): THREE.Group {
 }
 
 /** Wet Bench — batch wet station */
-function mkWet(u: number): THREE.Group {
+function mkWet(sev: number): THREE.Group {
   const g = new THREE.Group();
 
   // Main bench body
   const body = cs(
     new THREE.Mesh(
       new THREE.BoxGeometry(4.2, 1.42, 2.0),
-      new THREE.MeshPhongMaterial({ color: u >= 0.9 ? 0xc00000 : 0x3a5060, shininess: 75 })
+      new THREE.MeshPhongMaterial({ color: sev >= 3 ? 0xc00000 : 0x3a5060, shininess: 75 })
     )
   );
   body.position.set(0, 0.71, 0);
@@ -1065,7 +1070,7 @@ function mkWet(u: number): THREE.Group {
     tvp.position.set(i * 0.78, 0.68, -1.03);
     g.add(tvp);
     // Tank status LED
-    const lc = u >= 0.9 ? 0xff1100 : u >= 0.85 ? 0xff8800 : 0x00aaff;
+    const lc = sev >= 3 ? 0xff1100 : sev >= 2 ? 0xff8800 : 0x00aaff;
     const led = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 4), mLed(lc));
     led.position.set(i * 0.78, 1.28, -1.03);
     g.add(led);
@@ -1100,7 +1105,7 @@ function mkWet(u: number): THREE.Group {
   g.add(dcap);
 
   // Chemical / controls cabinet (left)
-  const cab = cs(new THREE.Mesh(new THREE.BoxGeometry(0.68, 2.2, 2.0), mBody(u)));
+  const cab = cs(new THREE.Mesh(new THREE.BoxGeometry(0.68, 2.2, 2.0), mBody(sev)));
   cab.position.set(-2.9, 1.1, 0);
   g.add(cab);
   for (const y of [0.75, 1.5]) {
@@ -1109,20 +1114,20 @@ function mkWet(u: number): THREE.Group {
     g.add(sH);
   }
   addVents(g, -2.9, 2.2, 0, 0.5, 1.2, 6);
-  const sc = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.32, 0.06), mPanel(u));
+  const sc = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.32, 0.06), mPanel(sev));
   sc.position.set(-2.9, 2.05, -0.72);
   sc.rotation.y = Math.PI / 2;
   g.add(sc);
-  addLEDs(g, -2.91, 1.8, -0.6, 3, 0.12, u);
+  addLEDs(g, -2.91, 1.8, -0.6, 3, 0.12, sev);
 
   addFeet(g, [-2.7, 2.4], [-0.85, 0.85]);
   return g;
 }
 
 /** SEM / Metrology — CD-SEM, overlay measurement tool */
-function mkSEM(u: number): THREE.Group {
+function mkSEM(sev: number): THREE.Group {
   const g = new THREE.Group();
-  const col = u >= 0.9 ? 0xc00000 : 0x2a3c50;
+  const col = sev >= 3 ? 0xc00000 : 0x2a3c50;
 
   // Main body (compact enclosure)
   const body = cs(
@@ -1203,12 +1208,12 @@ function mkSEM(u: number): THREE.Group {
     rail.position.set(0, 0.24, gz);
     g.add(rail);
   }
-  const sled = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 4), mLed(ledColor(u)));
+  const sled = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 4), mLed(ledColor(sev)));
   sled.position.set(0.52, 0.26, -0.68);
   g.add(sled);
 
   // Electronics cabinet (right)
-  const cab = cs(new THREE.Mesh(new THREE.BoxGeometry(0.62, 1.8, 1.6), mBody(u)));
+  const cab = cs(new THREE.Mesh(new THREE.BoxGeometry(0.62, 1.8, 1.6), mBody(sev)));
   cab.position.set(1.4, 0.9, 0);
   g.add(cab);
   for (const y of [0.62, 1.24]) {
@@ -1217,11 +1222,11 @@ function mkSEM(u: number): THREE.Group {
     g.add(sH);
   }
   addVents(g, 1.4, 1.8, 0, 0.45, 1.0, 5);
-  const sc = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.32, 0.06), mPanel(u));
+  const sc = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.32, 0.06), mPanel(sev));
   sc.position.set(1.4, 1.62, -0.62);
   sc.rotation.y = Math.PI / 2;
   g.add(sc);
-  addLEDs(g, 1.39, 1.42, -0.55, 3, 0.11, u);
+  addLEDs(g, 1.39, 1.42, -0.55, 3, 0.11, sev);
 
   addFeet(g, [-0.9, 1.4], [-0.7, 0.7]);
   return g;
@@ -1242,46 +1247,26 @@ const TOWER_POS: Record<string, [number, number, number]> = {
   sem: [1.4, 1.8, 0],
 };
 
-function buildBody(type: string, u: number): THREE.Group {
+function buildBody(type: string, sev: number): THREE.Group {
   switch (type) {
-    case 'etch':
-      return mkEtch(u);
-    case 'litho':
-      return mkLitho(u);
-    case 'lithoTrack':
-      return mkLithoTrack(u);
-    case 'furnace':
-      return mkFurnace(u);
-    case 'epi':
-      return mkEpi(u);
-    case 'implant':
-      return mkImplant(u);
-    case 'cmp':
-      return mkCMP(u);
-    case 'cvd':
-      return mkCVD(u);
-    case 'pvd':
-      return mkPVD(u);
-    case 'wet':
-      return mkWet(u);
-    case 'sem':
-      return mkSEM(u);
-    default:
-      return mkCVD(u);
+    case 'etch':      return mkEtch(sev);
+    case 'litho':     return mkLitho(sev);
+    case 'lithoTrack': return mkLithoTrack(sev);
+    case 'furnace':   return mkFurnace(sev);
+    case 'epi':       return mkEpi(sev);
+    case 'implant':   return mkImplant(sev);
+    case 'cmp':       return mkCMP(sev);
+    case 'cvd':       return mkCVD(sev);
+    case 'pvd':       return mkPVD(sev);
+    case 'wet':       return mkWet(sev);
+    case 'sem':       return mkSEM(sev);
+    default:          return mkCVD(sev);
   }
 }
 
-/**
- * @param sev 신호탑 + 본체 색 기준 0=정상 1=경고 2=위험 (tg.risk 기반).
- * 본체 색상도 sev 기반으로 통일: sev=2→0.95(빨강), sev=1→0.87(주황), sev=0→0.5(정상).
- * 가동률(u)은 우측 패널 KPI 표시에만 사용 — 3D 색상 기준 아님.
- */
-export function mkEquipment(type: string, u: number, sev?: number): THREE.Group {
-  const resolvedSev = sev ?? sevFromU(u);
-  // body = 실가동률(u) 기준 → 5분마다 실시간 변함
-  // tower = cascade 병목 등급(sev) 기준 → 감지 주기마다 업데이트
-  const g = buildBody(type, u);
+export function mkEquipment(type: string, sev: number): THREE.Group {
+  const g = buildBody(type, sev);
   const [tx, ty, tz] = TOWER_POS[type] ?? TOWER_POS.cvd;
-  addSignalTower(g, tx, ty, tz, resolvedSev);
+  addSignalTower(g, tx, ty, tz, sev);
   return g;
 }

@@ -1,7 +1,7 @@
 import api from '@/services/api';
 
 import { DEMO_CASE_ID, DEMO_DETECTED_AT } from '@/constants/mockData/demoAlert';
-import { shouldUseDemoMockData } from '@/constants/mockMode';
+import { shouldUsePresentationScenario } from '@/constants/scenarioMode';
 
 import type {
   AgentTaskProgressStep,
@@ -102,7 +102,7 @@ function adaptPeriodReport(p: PeriodReportBackend): AgentTaskResponse {
 }
 
 export async function createAgentTask(request: AgentTaskRequest): Promise<AgentTaskResponse> {
-  if (shouldUseDemoMockData()) return createMockAgentTask(request.taskType, request.sourcePage);
+  if (shouldUsePresentationScenario()) return createMockAgentTask(request.taskType, request.sourcePage);
 
   const body = { context: request.context ?? {}, params: request.params ?? {} };
   if (request.taskType === 'REPORT_PERIOD_SUMMARY') {
@@ -118,7 +118,7 @@ export async function createAgentTask(request: AgentTaskRequest): Promise<AgentT
 }
 
 export async function fetchAgentTask(taskId: string, taskType: AgentTaskType): Promise<AgentTaskResponse> {
-  if (shouldUseDemoMockData())
+  if (shouldUsePresentationScenario())
     return createMockAgentTask(taskType, taskType === 'FAB_SNAPSHOT_BRIEFING' ? 'FAB3D' : 'REPORT_ARCHIVE', taskId);
 
   if (taskType === 'REPORT_PERIOD_SUMMARY') {
@@ -131,20 +131,20 @@ export async function fetchAgentTask(taskId: string, taskType: AgentTaskType): P
 
 /** 챗 재진입 복원: 종류를 모르는 실행 id로 union 조회(결과만 반환). */
 export async function fetchAgentRunResult(runId: string): Promise<AgentTaskResult | null> {
-  if (shouldUseDemoMockData()) return createMockAgentTaskResult(runId);
+  if (shouldUsePresentationScenario()) return createMockAgentTaskResult(runId);
 
   const { data } = await api.get<AgentTaskResult>(`/v1/agent-runs/${runId}`);
   return data ?? null;
 }
 
 export async function deleteFabBriefing(briefingId: string): Promise<void> {
-  if (shouldUseDemoMockData()) return;
+  if (shouldUsePresentationScenario()) return;
 
   await api.delete(`/v1/fab-briefings/${briefingId}`);
 }
 
 export async function listFabBriefings(page = 0, size = 20): Promise<AgentRunListResult> {
-  if (shouldUseDemoMockData()) return createMockAgentRunList('FAB_SNAPSHOT_BRIEFING', page, size);
+  if (shouldUsePresentationScenario()) return createMockAgentRunList('FAB_SNAPSHOT_BRIEFING', page, size);
 
   const { data } = await api.get<{
     items: {
@@ -170,7 +170,7 @@ export async function listFabBriefings(page = 0, size = 20): Promise<AgentRunLis
 }
 
 export async function listPeriodReports(page = 0, size = 20, intent?: string): Promise<AgentRunListResult> {
-  if (shouldUseDemoMockData()) return createMockAgentRunList('REPORT_PERIOD_SUMMARY', page, size, intent);
+  if (shouldUsePresentationScenario()) return createMockAgentRunList('REPORT_PERIOD_SUMMARY', page, size, intent);
 
   const { data } = await api.get<{
     items: {

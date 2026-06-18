@@ -24,7 +24,7 @@ function handleOpenBottleneckMonitoringList() {
 }
 
 function handleOpenBottleneckCenter(caseId: string) {
-  router.push({ name: ROUTE_NAMES.bottleneckCenter, query: { caseId, tab: 'cause' } });
+  router.push({ name: ROUTE_NAMES.bottleneckCenter, query: { caseId, tab: 'progress' } });
 }
 
 function handleOpenLotReleasePlan() {
@@ -49,6 +49,12 @@ function handleSelectKpi(key: DashboardTrendKey) {
 
 <template>
   <div class="dashboard-view">
+    <header class="dashboard-view__header">
+      <div>
+        <h1 class="dashboard-view__title">대시보드</h1>
+        <p class="dashboard-view__subtitle">실시간 FAB 핵심 KPI와 병목 위험 알림을 한눈에 확인합니다.</p>
+      </div>
+    </header>
     <FabBearProgressLoader v-if="isLoading && !hasLoadedAnySection" label="대시보드 데이터를 불러오는 중입니다" />
     <p v-else-if="errorMessage" class="dashboard-view__state dashboard-view__state--error">{{ errorMessage }}</p>
 
@@ -110,10 +116,33 @@ function handleSelectKpi(key: DashboardTrendKey) {
   gap: var(--space-3);
 }
 
+.dashboard-view__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  border-bottom: var(--border-width-default) solid var(--color-border-default);
+  padding-bottom: var(--space-2);
+}
+
+.dashboard-view__title {
+  margin: 0;
+  color: var(--color-fg-strong);
+  font-size: var(--text-page-title-size);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--text-page-title-line-height);
+}
+
+.dashboard-view__subtitle {
+  margin: var(--space-1) 0 0;
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-sm);
+}
+
 .dashboard-view__main {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  grid-auto-rows: 41rem;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-auto-rows: clamp(22rem, calc(100svh - var(--layout-header-height) - 260px), 36rem);
   align-items: stretch;
   gap: var(--space-3);
   min-width: 0;
@@ -125,7 +154,7 @@ function handleSelectKpi(key: DashboardTrendKey) {
 }
 
 .dashboard-view__process-map {
-  grid-column: span 3;
+  grid-column: span 4;
   min-height: 0;
 }
 
@@ -143,7 +172,7 @@ function handleSelectKpi(key: DashboardTrendKey) {
   color: var(--color-status-danger);
 }
 
-@media (max-width: 1440px) {
+@media (max-width: 900px) {
   .dashboard-view__main {
     grid-template-columns: 1fr;
   }

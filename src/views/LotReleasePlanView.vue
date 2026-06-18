@@ -11,7 +11,7 @@ import KpiCard from '@/components/base/KpiCard.vue';
 import ProductionPlanMixPanels from '@/components/productionPlan/ProductionPlanMixPanels.vue';
 import ProductionPlanReleaseChart from '@/components/productionPlan/ProductionPlanReleaseChart.vue';
 
-import { formatKoMonthDayTime, formatNumber } from '@/utils/format';
+import { formatNumber } from '@/utils/format';
 
 const rangeOptions: Array<{ value: ReleasePlanRange; label: string }> = [
   { value: '24h', label: '일' },
@@ -95,16 +95,6 @@ const summaryCards = computed<SummaryCard[]>(() => {
       subtitle: '선택 기간 기준',
     },
   ];
-});
-
-const currentReleaseBadge = computed(() => {
-  const nextReleaseInMin = releasePlan.value?.summary.nextReleaseInMin;
-  return nextReleaseInMin === undefined ? '-' : formatDuration(nextReleaseInMin);
-});
-
-const dueLots7dBadge = computed(() => {
-  const dueLots = sevenDayReleasePlan.value?.summary.dueLots;
-  return dueLots === undefined ? '-' : `${formatNumber(dueLots)}건`;
 });
 
 const releasePlanInsight = computed(() => {
@@ -221,18 +211,9 @@ async function goHotLotPage(direction: -1 | 1) {
   <div class="lot-release-plan-view">
     <header class="lot-release-plan-view__header">
       <div>
-        <p class="lot-release-plan-view__eyebrow">Fab 운영</p>
-        <h1>Lot 투입 계획</h1>
-        <p class="lot-release-plan-view__description">
-          예정 투입 볼륨과 핫랏, 납기 여유를 한눈에 확인합니다.
-          <span v-if="releasePlan"> · {{ formatKoMonthDayTime(releasePlan.anchorMeasuredAt) }} 기준</span>
-        </p>
-        <div v-if="releasePlan" class="lot-release-plan-view__fixed-badges" aria-label="현재 기준 고정 지표">
-          <BaseBadge variant="info">다음 Release {{ currentReleaseBadge }}</BaseBadge>
-          <BaseBadge variant="warning">7일 내 납기 {{ dueLots7dBadge }}</BaseBadge>
-        </div>
+        <h1 class="lot-release-plan-view__title">Lot 투입 계획</h1>
+        <p class="lot-release-plan-view__subtitle">예정 투입 볼륨과 핫랏, 납기 여유를 한눈에 확인합니다.</p>
       </div>
-
       <div class="lot-release-plan-view__ranges" aria-label="조회 기간">
         <BaseButton
           v-for="option in rangeOptions"
@@ -353,30 +334,26 @@ async function goHotLotPage(direction: -1 | 1) {
 
 .lot-release-plan-view__header {
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: var(--space-3);
+  gap: var(--space-4);
   min-width: 0;
+  border-bottom: var(--border-width-default) solid var(--color-border-default);
+  padding-bottom: var(--space-2);
 }
 
-.lot-release-plan-view__eyebrow {
-  color: var(--color-fg-muted);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-bold);
-}
-
-.lot-release-plan-view__header h1 {
+.lot-release-plan-view__title {
+  margin: 0;
   color: var(--color-fg-strong);
-  font-size: var(--font-size-2xl);
-  font-weight: var(--font-weight-extrabold);
-  letter-spacing: 0;
+  font-size: var(--text-page-title-size);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--text-page-title-line-height);
 }
 
-.lot-release-plan-view__description {
-  margin-top: 2px;
+.lot-release-plan-view__subtitle {
+  margin: var(--space-1) 0 0;
   color: var(--color-fg-muted);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-base);
 }
 
 .lot-release-plan-view__fixed-badges {

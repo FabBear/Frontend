@@ -39,6 +39,8 @@ export interface BottleneckAlertItem {
   canAnalyzeCause: boolean;
   canShowSolutions: boolean;
   detectedAt: string;
+  batchCriticalCount: number;
+  batchAreaCount: number;
 }
 
 export interface ProcessAreaStatus {

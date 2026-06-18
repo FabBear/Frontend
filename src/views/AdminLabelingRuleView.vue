@@ -137,69 +137,129 @@ async function doSave() {
       <section class="labeling-view__card surface-card">
         <div class="labeling-view__title">
           <h2>기준 편집</h2>
-          <span class="labeling-view__muted">분위수를 조절하면 환산 절대 cutoff가 계산됩니다</span>
+          <span class="labeling-view__muted">분위수 값을 입력하면 환산 절대 cutoff가 계산됩니다</span>
         </div>
 
         <div class="labeling-view__groups">
-          <!-- 대기/큐 그룹 -->
-          <div class="labeling-view__group">
-            <div class="labeling-view__group-label">대기 / 큐</div>
-            <div class="labeling-view__knob-row">
-              <label>Q (q_time_min 상위)</label>
-              <input v-model.number="draft.qQuantile" type="range" min="0.80" max="0.999" step="0.005" />
-              <span class="labeling-view__pct">{{ fmtPct(draft.qQuantile) }}</span>
-              <span class="labeling-view__cut">→ {{ fmt(preview?.qCut ?? activeRule?.qCut, 2) }}분</span>
+          <div class="labeling-view__group-column">
+            <!-- 대기/큐 그룹 -->
+            <div class="labeling-view__group">
+              <div class="labeling-view__group-label">대기 / 큐</div>
+              <div class="labeling-view__knob-row">
+                <label>Q (q_time_min 상위)</label>
+                <input
+                  v-model.number="draft.qQuantile"
+                  class="labeling-view__value-input"
+                  type="number"
+                  min="0.8"
+                  max="0.999"
+                  step="0.005"
+                />
+                <span class="labeling-view__cut"
+                  >{{ fmtPct(draft.qQuantile) }} → {{ fmt(preview?.qCut ?? activeRule?.qCut, 2) }}분</span
+                >
+              </div>
+              <div class="labeling-view__knob-row">
+                <label>W (wait_ratio 상위)</label>
+                <input
+                  v-model.number="draft.wQuantile"
+                  class="labeling-view__value-input"
+                  type="number"
+                  min="0.8"
+                  max="0.999"
+                  step="0.005"
+                />
+                <span class="labeling-view__cut"
+                  >{{ fmtPct(draft.wQuantile) }} → {{ fmt(preview?.wCut ?? activeRule?.wCut, 3) }}</span
+                >
+              </div>
+              <div class="labeling-view__knob-row">
+                <label>WIP (wip 상위)</label>
+                <input
+                  v-model.number="draft.wipQuantile"
+                  class="labeling-view__value-input"
+                  type="number"
+                  min="0.8"
+                  max="0.999"
+                  step="0.005"
+                />
+                <span class="labeling-view__cut"
+                  >{{ fmtPct(draft.wipQuantile) }} → {{ fmt(preview?.wipCut ?? activeRule?.wipCut, 1) }}</span
+                >
+              </div>
             </div>
-            <div class="labeling-view__knob-row">
-              <label>W (wait_ratio 상위)</label>
-              <input v-model.number="draft.wQuantile" type="range" min="0.80" max="0.999" step="0.005" />
-              <span class="labeling-view__pct">{{ fmtPct(draft.wQuantile) }}</span>
-              <span class="labeling-view__cut">→ {{ fmt(preview?.wCut ?? activeRule?.wCut, 3) }}</span>
-            </div>
-            <div class="labeling-view__knob-row">
-              <label>WIP (wip 상위)</label>
-              <input v-model.number="draft.wipQuantile" type="range" min="0.80" max="0.999" step="0.005" />
-              <span class="labeling-view__pct">{{ fmtPct(draft.wipQuantile) }}</span>
-              <span class="labeling-view__cut">→ {{ fmt(preview?.wipCut ?? activeRule?.wipCut, 1) }}</span>
+
+            <!-- 가동 불균형 그룹 -->
+            <div class="labeling-view__group">
+              <div class="labeling-view__group-label">가동 불균형</div>
+              <div class="labeling-view__knob-row">
+                <label>U_HI (max_util 상위)</label>
+                <input
+                  v-model.number="draft.uHiQuantile"
+                  class="labeling-view__value-input"
+                  type="number"
+                  min="0.5"
+                  max="0.999"
+                  step="0.005"
+                />
+                <span class="labeling-view__cut"
+                  >{{ fmtPct(draft.uHiQuantile) }} → {{ fmt(preview?.uHiCut ?? activeRule?.uHiCut, 3) }}</span
+                >
+              </div>
+              <div class="labeling-view__knob-row">
+                <label>U_LO (utilization_avg 하위)</label>
+                <input
+                  v-model.number="draft.uLoQuantile"
+                  class="labeling-view__value-input"
+                  type="number"
+                  min="0.5"
+                  max="0.999"
+                  step="0.005"
+                />
+                <span class="labeling-view__cut"
+                  >{{ fmtPct(draft.uLoQuantile) }} → {{ fmt(preview?.uLoCut ?? activeRule?.uLoCut, 3) }}</span
+                >
+              </div>
             </div>
           </div>
 
-          <!-- 가용 부족 그룹 -->
-          <div class="labeling-view__group">
-            <div class="labeling-view__group-label">가용 부족</div>
-            <div class="labeling-view__knob-row">
-              <label>A (available_tool_ratio 하위)</label>
-              <input v-model.number="draft.aQuantile" type="range" min="0.001" max="0.10" step="0.001" />
-              <span class="labeling-view__pct">{{ fmtPct(draft.aQuantile) }}</span>
-              <span class="labeling-view__cut">→ {{ fmt(preview?.aCut ?? activeRule?.aCut, 3) }}</span>
+          <div class="labeling-view__group-column">
+            <!-- 가용 부족 그룹 -->
+            <div class="labeling-view__group">
+              <div class="labeling-view__group-label">가용 부족</div>
+              <div class="labeling-view__knob-row">
+                <label>A (available_tool_ratio 하위)</label>
+                <input
+                  v-model.number="draft.aQuantile"
+                  class="labeling-view__value-input"
+                  type="number"
+                  min="0.001"
+                  max="0.1"
+                  step="0.001"
+                />
+                <span class="labeling-view__cut"
+                  >{{ fmtPct(draft.aQuantile) }} → {{ fmt(preview?.aCut ?? activeRule?.aCut, 3) }}</span
+                >
+              </div>
             </div>
-          </div>
 
-          <!-- 가동 불균형 그룹 -->
-          <div class="labeling-view__group">
-            <div class="labeling-view__group-label">가동 불균형</div>
-            <div class="labeling-view__knob-row">
-              <label>U_HI (max_util 상위)</label>
-              <input v-model.number="draft.uHiQuantile" type="range" min="0.50" max="0.999" step="0.005" />
-              <span class="labeling-view__pct">{{ fmtPct(draft.uHiQuantile) }}</span>
-              <span class="labeling-view__cut">→ {{ fmt(preview?.uHiCut ?? activeRule?.uHiCut, 3) }}</span>
-            </div>
-            <div class="labeling-view__knob-row">
-              <label>U_LO (utilization_avg 하위)</label>
-              <input v-model.number="draft.uLoQuantile" type="range" min="0.50" max="0.999" step="0.005" />
-              <span class="labeling-view__pct">{{ fmtPct(draft.uLoQuantile) }}</span>
-              <span class="labeling-view__cut">→ {{ fmt(preview?.uLoCut ?? activeRule?.uLoCut, 3) }}</span>
-            </div>
-          </div>
-
-          <!-- 최대 큐 그룹 -->
-          <div class="labeling-view__group">
-            <div class="labeling-view__group-label">최대 큐</div>
-            <div class="labeling-view__knob-row">
-              <label>Q_MAX (max_avg_q_time 상위)</label>
-              <input v-model.number="draft.qMaxQuantile" type="range" min="0.80" max="0.999" step="0.005" />
-              <span class="labeling-view__pct">{{ fmtPct(draft.qMaxQuantile) }}</span>
-              <span class="labeling-view__cut">→ {{ fmt(preview?.qMaxCut ?? activeRule?.qMaxCut, 2) }}분</span>
+            <!-- 최대 큐 그룹 -->
+            <div class="labeling-view__group">
+              <div class="labeling-view__group-label">최대 큐</div>
+              <div class="labeling-view__knob-row">
+                <label>Q_MAX (max_avg_q_time 상위)</label>
+                <input
+                  v-model.number="draft.qMaxQuantile"
+                  class="labeling-view__value-input"
+                  type="number"
+                  min="0.8"
+                  max="0.999"
+                  step="0.005"
+                />
+                <span class="labeling-view__cut"
+                  >{{ fmtPct(draft.qMaxQuantile) }} → {{ fmt(preview?.qMaxCut ?? activeRule?.qMaxCut, 2) }}분</span
+                >
+              </div>
             </div>
           </div>
         </div>
@@ -329,6 +389,8 @@ p {
   align-items: end;
   justify-content: space-between;
   gap: var(--space-3);
+  border-bottom: var(--border-width-default) solid var(--color-border-default);
+  padding-bottom: var(--space-2);
 }
 
 .labeling-view__header h1 {
@@ -359,7 +421,8 @@ p {
 
 .labeling-view__title h2 {
   color: var(--color-fg-strong);
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-tight);
 }
 
 .labeling-view__muted {
@@ -370,49 +433,76 @@ p {
 /* 편집 그룹 */
 .labeling-view__groups {
   display: grid;
-  gap: var(--space-4);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--space-3);
+}
+
+.labeling-view__group-column {
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+  min-width: 0;
 }
 
 .labeling-view__group {
   display: grid;
   gap: var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-page);
+  padding: var(--space-3);
 }
 
 .labeling-view__group-label {
   color: var(--color-fg-strong);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  padding-bottom: var(--space-1);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--color-border-default);
 }
 
 .labeling-view__knob-row {
   display: grid;
-  grid-template-columns: 14rem 1fr 4rem 7rem;
+  grid-template-columns: minmax(180px, 1fr) 120px minmax(145px, auto);
   align-items: center;
-  gap: var(--space-3);
-  font-size: var(--font-size-sm);
+  gap: var(--space-2);
+  min-height: 40px;
+  font-size: var(--font-size-base);
   color: var(--color-fg);
 }
 
 .labeling-view__knob-row label {
-  color: var(--color-fg-muted);
-}
-
-.labeling-view__knob-row input[type='range'] {
-  width: 100%;
-  accent-color: var(--color-action-primary);
-}
-
-.labeling-view__pct {
-  text-align: right;
+  color: var(--color-fg-strong);
   font-weight: var(--font-weight-semibold);
-  color: var(--color-action-primary);
+}
+
+.labeling-view__value-input {
+  width: 100%;
+  min-height: 36px;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-card);
+  color: var(--color-fg-strong);
+  font: inherit;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  padding: 0 var(--space-3);
+  text-align: right;
+}
+
+.labeling-view__value-input:focus {
+  border-color: var(--color-action-primary-border);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--color-action-primary-soft);
 }
 
 .labeling-view__cut {
-  color: var(--color-fg-muted);
-  font-size: var(--font-size-xs);
+  justify-self: end;
+  color: var(--color-fg);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
 }
 
 .labeling-view__cut-hist {
@@ -611,5 +701,27 @@ p {
 
 .labeling-view__error {
   color: #dc2626;
+}
+
+@media (max-width: 1180px) {
+  .labeling-view__groups {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .labeling-view__title,
+  .labeling-view__header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .labeling-view__knob-row {
+    grid-template-columns: 1fr;
+  }
+
+  .labeling-view__cut {
+    justify-self: start;
+  }
 }
 </style>

@@ -322,6 +322,7 @@ export interface ReportV1 {
   meta: {
     toolgroup: string;
     process_name: string;
+    area_name?: string;
     severity: string;
     severity_token: string;
     severity_priority: number;
@@ -436,9 +437,9 @@ export interface ReportV1 {
         n_total: number;
         n_alarm: number;
         alarm_ratio_pct: number;
-      };
+      } | null;
       upstream_confirmed_toolgroups: string[];
-      significant_kpis: string[];
+      significant_kpis: Array<{ kpi: string; delta_mean?: number; t_p_adj?: number; significant?: boolean }>;
     };
   };
   diffusion: {
@@ -467,6 +468,9 @@ export interface ReportV1 {
     line_stop_expected_min: number;
     risk_level: string;
     risk_level_token: string;
+    at_risk_lots?: number;
+    impact_pct?: number;
+    affected_toolgroups?: string[];
   };
   actions: {
     available: boolean;
@@ -487,6 +491,9 @@ export interface ReportV1 {
       caveats: string[];
       tiebreaker_chain: string[];
       selected_by: string;
+      plan_description?: string;
+      effect_and_risk?: string;
+      approval_reason?: string;
     };
     playbook: {
       available: boolean;

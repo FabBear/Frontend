@@ -122,5 +122,5 @@ export const MOCK_CHAT_QUICK_PROMPTS: ChatQuickPrompt[] = [
 export const MOCK_CHAT_RESPONSES = [
   'DE_FE_1 기준으로 병목 위험 점수 80.3, 주원인 설비_포화, 확산 경로 DE_FE_1 → Diffusion_FE_125가 핵심입니다. 승인된 standard 대응안은 Release Interval 22% 조정과 Product_3/Product_4 우선순위 상향입니다.',
   '현재 리포트 기준 후속 확인 대상은 DE_FE_1, Diffusion_FE_125, 업스트림 DE_FE_86입니다. 조치 후 30분에는 Q-time, WIP, wait_ratio가 목표 범위로 내려오는지 확인해야 합니다.',
-  '챗봇 mock은 최신 도구 기준으로 get_case_detail, get_kpi_trend, get_top_toolgroups, get_tool_status, compare_periods를 사용한 응답 형태로 구성되어 있습니다.',
+  '현재 분석 응답은 최신 도구 기준으로 get_case_detail, get_kpi_trend, get_top_toolgroups, get_tool_status, compare_periods를 사용한 형태로 구성되어 있습니다.',
 ];

@@ -433,7 +433,16 @@ export function useChat() {
   }
 
   function initWithReportContext(context: ChatReportContextInput) {
-    ensureLocalSession(`${context.processName} 리포트 분석`);
+    // 리포트의 "대화에서 더 물어보기"는 항상 새 대화로 시작한다(기존 세션 재사용 금지).
+    // 단, 현재 세션이 비어 있고(메시지 없음) 이미 같은 케이스에 그라운딩돼 있으면 중복 빈 세션 생성을 막기 위해 재사용.
+    const current = activeSession.value;
+    const reuseEmptySameCase =
+      current != null &&
+      current.messages.length === 0 &&
+      (current.reportContext?.caseId ?? null) === (context.caseId ?? null);
+    if (!reuseEmptySameCase) {
+      createSession();
+    }
     const nextContext: ReportContext = {
       ...context,
       quickPrompts: buildReportQuickPrompts(context),
@@ -443,6 +452,7 @@ export function useChat() {
       session.sessionId === activeSessionId.value
         ? {
             ...session,
+            sessionTitle: `${nextContext.processName} 리포트 분석`,
             reportContext: {
               caseId: nextContext.caseId ?? null,
               reportId: nextContext.reportId ?? null,

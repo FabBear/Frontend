@@ -57,7 +57,7 @@ export function kpiCardMetrics(plan: BncActionPlan) {
   return (plan.metrics ?? []).filter((metric) => !metric.label.includes('종합'));
 }
 
-export function planLabel(index: number): string {
+function planLabel(index: number): string {
   return String.fromCharCode(65 + index);
 }
 

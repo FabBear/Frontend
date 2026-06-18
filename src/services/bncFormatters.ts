@@ -48,7 +48,7 @@ export function featureLabel(feature: string): string {
   return FEATURE_LABELS[feature] ?? feature.replaceAll('_', ' ');
 }
 
-const ACTION_LABELS = ['standard', 'conservative', 'aggressive'] as const;
+const ACTION_LABELS = ['conservative', 'standard', 'aggressive'] as const;
 
 export function actionLabelFromIndex(index: number): string {
   return ACTION_LABELS[index] ?? `option-${index + 1}`;
@@ -76,7 +76,8 @@ export function normalizeActionLabelRecord(
   return Object.fromEntries(Object.entries(record).map(([key, value]) => [extractActionLabel(key), value]));
 }
 
-export function formatNeutralDelta(value: number, suffix = '', digits = 1): string {
+export function formatNeutralDelta(value: number | null | undefined, suffix = '', digits = 1): string {
+  if (value === null || value === undefined || Number.isNaN(value)) return '-';
   if (value === 0) return `0${suffix}`;
   return formatDelta(value, suffix, digits);
 }

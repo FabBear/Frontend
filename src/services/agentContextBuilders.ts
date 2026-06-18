@@ -8,18 +8,29 @@ import type {
 import type { Fab3dArea, Fab3dToolDetail, Fab3dToolGroup, TgRouteStep } from '@/types/fab3d';
 import type { ActionHistoryDetail, ActionHistoryFilters, ActionHistoryItem } from '@/types/report';
 
-function compactToolGroup(tg: Fab3dToolGroup) {
+function compactToolGroup(tg: Fab3dToolGroup, areaName?: string) {
   return {
     tgId: tg.tgId,
     tgName: tg.tgName,
     areaCode: tg.areaCode,
+    areaName: areaName ?? tg.areaCode,
+    riskGrade: tg.risk,
     utilizationRate: tg.utilizationRate,
     wipCount: tg.wipCount,
     waitingLots: tg.waitingLots,
-    bottleneckProb: tg.bottleneckProb,
     toolCount: tg.toolCount,
     measuredAt: tg.measuredAt,
   };
+}
+
+export interface RecentBottleneckCase {
+  tgName: string;
+  areaName: string;
+  riskGrade: string;
+  compositeScore: number | null;
+  affectedCount: number | null;
+  ctIncreaseMin: number | null;
+  detectedAt: string;
 }
 
 function compactTool(tool: Fab3dToolDetail) {
@@ -42,9 +53,12 @@ export function buildFabSnapshotContext(input: {
   areas: Fab3dArea[];
   tools: Fab3dToolDetail[];
   measuredAt: string | null;
-  source: 'current' | 'mock';
+  source: 'current' | 'scenario';
+  recentCases?: RecentBottleneckCase[];
 }) {
-  const toolGroups = input.areas.flatMap((area) => area.toolGroups.map(compactToolGroup));
+  const toolGroups = input.areas.flatMap((area) =>
+    area.toolGroups.map((tg) => compactToolGroup(tg, area.areaName)),
+  );
   return {
     measuredAt: input.measuredAt,
     dataSource: input.source,
@@ -52,10 +66,13 @@ export function buildFabSnapshotContext(input: {
       areaId: area.areaId,
       areaCode: area.areaCode,
       areaName: area.areaName,
-      toolGroups: area.toolGroups.map(compactToolGroup),
+      toolGroups: area.toolGroups.map((tg) => compactToolGroup(tg, area.areaName)),
     })),
     toolGroups,
     tools: input.tools.slice(0, 300).map(compactTool),
+    latestBottleneckAnalysis: (input.recentCases?.length ?? 0) > 0
+      ? { cases: input.recentCases }
+      : null,
   };
 }
 
@@ -65,7 +82,7 @@ export function buildFabTgContext(input: {
   routeSteps: TgRouteStep[];
   tools: Fab3dToolDetail[];
   measuredAt: string | null;
-  source: 'current' | 'mock';
+  source: 'current' | 'scenario';
 }) {
   return {
     measuredAt: input.measuredAt,
@@ -108,7 +125,6 @@ export function buildReportPeriodContext(input: {
           tgName: input.selectedDetail.tgName,
           areaName: input.selectedDetail.areaName,
           riskGrade: input.selectedDetail.riskGrade,
-          bottleneckProb: input.selectedDetail.bottleneckProb,
           selectedPlanTitle: input.selectedDetail.hitlDecision.selectedPlanTitle,
           reportId: input.selectedDetail.reportId,
         }
@@ -135,7 +151,7 @@ export function buildBncCaseContext(input: {
           tgName: input.selectedCase.tgName,
           areaName: input.selectedCase.areaName,
           riskGrade: input.selectedCase.riskGrade,
-          bottleneckProb: input.selectedCase.bottleneckProb,
+          riskScore: input.selectedCase.riskScore,
           utilizationRate: input.selectedCase.utilizationRate,
           wipCount: input.selectedCase.wipCount,
           status: input.selectedCase.status,

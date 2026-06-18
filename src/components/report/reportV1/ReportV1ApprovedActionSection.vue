@@ -1,25 +1,33 @@
 <script setup lang="ts">
+import { computed } from 'vue';
+
 import { ClipboardCheck } from '@lucide/vue';
 
 import type { ReportV1 } from '@/types/report';
 
-import ReportV1TgForecastPanel from '@/components/report/reportV1/ReportV1TgForecastPanel.vue';
+import type { ReportV1CandidateDisplay } from '@/utils/reportV1DisplayAdapter';
 
-import type { ReportV1CandidateDisplay, ReportV1TgForecastRow } from '@/utils/reportV1DisplayAdapter';
-import {
-  cleanStepText,
-  deltaTone,
-  impactDeltaText,
-  monitoringTargetText,
-  visibleImpacts,
-} from '@/utils/reportV1Formatters';
-
-defineProps<{
+const props = defineProps<{
   report: ReportV1;
   approvedLabel: string;
   approvedCandidate: ReportV1CandidateDisplay | null;
-  forecastGroups: Array<{ toolgroup: string; rows: ReportV1TgForecastRow[] }>;
 }>();
+
+const rec = computed(() => props.report.actions.recommendation);
+
+const planDescription = computed(
+  () => rec.value.plan_description ?? props.approvedCandidate?.description ?? rec.value.headline
+);
+
+const effectAndRisk = computed(() => rec.value.effect_and_risk ?? rec.value.primary_reason);
+
+const approvalReason = computed(() => {
+  if (rec.value.approval_reason) return rec.value.approval_reason;
+  if (rec.value.why_not_others.length) {
+    return rec.value.why_not_others.map((w) => `${w.label}: ${w.reason}`).join(' ');
+  }
+  return null;
+});
 </script>
 
 <template>
@@ -27,48 +35,87 @@ defineProps<{
     <div class="report-v1__panel-head">
       <h3>승인된 대응안</h3>
     </div>
-    <div class="report-v1__action-summary">
-      <ClipboardCheck :size="22" aria-hidden="true" />
-      <div>
-        <span>{{ approvedLabel }}</span>
-        <strong>{{ approvedCandidate?.description ?? report.actions.recommendation.headline }}</strong>
-        <p>{{ report.actions.recommendation.primary_reason }}</p>
-      </div>
-    </div>
-    <div class="report-v1__action-grid">
-      <article v-if="report.actions.playbook.immediate_actions.length">
-        <h4>즉시 실행</h4>
-        <ol>
-          <li v-for="item in report.actions.playbook.immediate_actions" :key="item.order">
-            {{ cleanStepText(item.text) }}
-          </li>
-        </ol>
-      </article>
-      <article v-if="report.actions.playbook.monitoring.length">
-        <h4>모니터링</h4>
-        <ul>
-          <li v-for="item in report.actions.playbook.monitoring" :key="`${item.kpi}-${item.check_after_min}`">
-            <strong>T+{{ item.check_after_min }}분 · {{ item.kpi }}</strong>
-            <span v-if="monitoringTargetText(item)">{{ monitoringTargetText(item) }}</span>
-          </li>
-        </ul>
-      </article>
-      <article v-if="approvedCandidate">
-        <h4>승인안 KPI 변화</h4>
-        <dl>
-          <div v-for="impact in visibleImpacts(approvedCandidate)" :key="impact.kpi">
-            <dt>{{ impact.kpi }}</dt>
-            <dd :class="`report-v1__delta--${deltaTone(impact.kpi, impact.delta)}`">
-              {{ impactDeltaText(impact) }}
-            </dd>
-          </div>
-        </dl>
-      </article>
+
+    <div class="approved-action__header">
+      <ClipboardCheck :size="20" aria-hidden="true" class="approved-action__icon" />
+      <span class="approved-action__label">{{ approvedLabel }}</span>
     </div>
 
-    <div v-if="forecastGroups.length" class="report-v1__tg-forecast">
-      <h4>TG별 전망</h4>
-      <ReportV1TgForecastPanel :groups="forecastGroups" />
+    <div class="approved-action__sections">
+      <!-- 1. 대응안 -->
+      <div class="approved-action__section">
+        <h4 class="approved-action__section-title">대응안</h4>
+        <p class="approved-action__section-body">{{ planDescription }}</p>
+      </div>
+
+      <!-- 2. 효과 및 리스크 -->
+      <div class="approved-action__section">
+        <h4 class="approved-action__section-title">효과 및 리스크</h4>
+        <p class="approved-action__section-body">{{ effectAndRisk }}</p>
+      </div>
+
+      <!-- 3. 승인 사유 -->
+      <div v-if="approvalReason" class="approved-action__section approved-action__section--reason">
+        <h4 class="approved-action__section-title">승인 사유</h4>
+        <p class="approved-action__section-body">{{ approvalReason }}</p>
+      </div>
     </div>
   </section>
 </template>
+
+<style scoped>
+.approved-action__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.approved-action__icon {
+  color: var(--color-status-success);
+  flex-shrink: 0;
+}
+
+.approved-action__label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-status-success);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.approved-action__sections {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.approved-action__section {
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg-page);
+  border: 1px solid var(--color-border-subtle);
+  border-left: 3px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+}
+
+.approved-action__section--reason {
+  border-left-color: color-mix(in srgb, var(--color-status-success) 50%, var(--color-border-default));
+  background: color-mix(in srgb, var(--color-status-success) 3%, var(--color-bg-page));
+}
+
+.approved-action__section-title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.approved-action__section-body {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: 1.65;
+  color: var(--color-fg);
+  word-break: keep-all;
+}
+</style>

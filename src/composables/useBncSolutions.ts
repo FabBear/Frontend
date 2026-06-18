@@ -43,8 +43,13 @@ export function useBncSolutions(props: UseBncSolutionsProps, emit: DecideEmit) {
   const rejectionNote = ref('');
   const approvalNote = ref('');
 
+  const PLAN_ORDER: Record<string, number> = { conservative: 0, standard: 1, aggressive: 2 };
   const sortedPlans = computed(() =>
-    [...(props.payload?.plans ?? [])].sort((a, b) => Number(b.recommended) - Number(a.recommended))
+    [...(props.payload?.plans ?? [])].sort((a, b) => {
+      const oa = PLAN_ORDER[a.actionLabel ?? ''] ?? 99;
+      const ob = PLAN_ORDER[b.actionLabel ?? ''] ?? 99;
+      return oa - ob;
+    })
   );
 
   const selectedPlan = computed<BncActionPlan | null>(
@@ -473,16 +478,22 @@ export function useBncSolutions(props: UseBncSolutionsProps, emit: DecideEmit) {
 
   watch(
     () => props.payload,
-    (payload) => {
+    (payload, prevPayload) => {
+      const isCaseChange = payload?.caseId !== prevPayload?.caseId;
       selectedPlanId.value =
         payload?.hitlStatus.selectedPlanId ?? payload?.plans.find((p) => p.recommended)?.planId ?? null;
       selectedOptionId.value = selectedPlanId.value ?? CURRENT_OPTION_ID;
       decisionPlanId.value = payload?.hitlStatus.selectedPlanId ?? selectedPlanId.value;
       selectedMapToolGroup.value = payload?.compareContext?.anchorToolgroup ?? null;
       localDecision.value = payload?.hitlStatus.latestDecision ?? null;
-      rejectionNote.value = payload?.hitlStatus.comment ?? '';
-      approvalNote.value = '';
-      isPendingReject.value = false;
+      // SSE 갱신(동일 케이스)에서는 타이핑 중인 내용 보호 — 케이스 전환 시에만 초기화
+      if (isCaseChange) {
+        rejectionNote.value = payload?.hitlStatus.comment ?? '';
+        approvalNote.value = '';
+        isPendingReject.value = false;
+      } else if (!isPendingReject.value) {
+        rejectionNote.value = payload?.hitlStatus.comment ?? '';
+      }
     },
     { immediate: true }
   );
@@ -524,9 +535,9 @@ export function useBncSolutions(props: UseBncSolutionsProps, emit: DecideEmit) {
   }
 
   function handleRejectConfirm() {
-    if (isCurrentOptionSelected.value || !rejectionNote.value.trim()) return;
+    if (isCurrentOptionSelected.value) return;
     decisionPlanId.value = null;
-    emit('decide', { decision: 'REJECTED', selectedPlanId: null, comment: rejectionNote.value.trim() });
+    emit('decide', { decision: 'REJECTED', selectedPlanId: null, comment: rejectionNote.value.trim() || null });
     isPendingReject.value = false;
   }
 

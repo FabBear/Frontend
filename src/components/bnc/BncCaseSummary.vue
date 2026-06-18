@@ -10,12 +10,13 @@ const props = defineProps<{
   detail?: BncCaseDetail | null;
 }>();
 
-const metrics = computed<BncAlertMetrics | null>(() => props.item.alertMetrics ?? null);
+// 목록 케이스(item)에 지표가 없어도 상세(detail)에 있으면 그걸 쓴다 — 알림/직접진입 등 item이 비는 경로 대비.
+const metrics = computed<BncAlertMetrics | null>(() => props.detail?.alertMetrics ?? props.item.alertMetrics ?? null);
 
 // 위험 점수(composite) + 확산영향 지표. raw 확률은 노출하지 않는다.
 const metricCells = computed(() => {
   const m = metrics.value;
-  const score = props.item.riskScore ?? m?.compositeScore ?? null;
+  const score = props.item.riskScore ?? props.detail?.riskScore ?? m?.compositeScore ?? null;
   return [
     { label: '위험 점수', value: formatRiskScore(score), tone: 'risk' },
     { label: '영향', value: m ? formatRatioPercent(m.impactScore) : '-', tone: 'risk' },
@@ -50,10 +51,7 @@ const metricCells = computed(() => {
 .bnc-case-summary {
   display: grid;
   gap: var(--space-2);
-  padding: var(--space-3);
-  background: var(--color-bg-surface);
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4);
 }
 
 .bnc-case-summary__top {

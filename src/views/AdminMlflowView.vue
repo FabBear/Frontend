@@ -757,6 +757,8 @@ watch(
   grid-template-columns: minmax(0, 1fr) minmax(280px, 380px);
   align-items: end;
   gap: var(--space-4);
+  border-bottom: var(--border-width-default) solid var(--color-border-default);
+  padding-bottom: var(--space-2);
 }
 
 .admin-mlflow-view__header h1,

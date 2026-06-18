@@ -1,13 +1,39 @@
 <script setup lang="ts">
-import type { BncActionPlan } from '@/types/bnc';
+import type { BncActionPlan, BncBaselineSnapshotItem } from '@/types/bnc';
 
-import BaseBadge from '@/components/base/BaseBadge.vue';
 import BncStatBarChart from '@/components/bnc/BncStatBarChart.vue';
 import type { StatBarItem } from '@/components/bnc/BncStatBarChart.vue';
 
 defineProps<{
   plans: BncActionPlan[];
+  currentOptionMetrics: BncBaselineSnapshotItem[];
 }>();
+
+function planDesc(plan: BncActionPlan): string[] {
+  return [plan.expectedImpact, plan.riskText, ...(plan.tradeoffs ?? [])]
+    .map((line) => (typeof line === 'string' ? line.trim() : null))
+    .filter((line): line is string => Boolean(line));
+}
+
+function currentDesc(metrics: BncBaselineSnapshotItem[]): string[] {
+  return metrics.map((metric) => `${metric.label}: ${metric.caption ?? metric.value}`).filter(Boolean);
+}
+
+function currentKpiChartItems(metrics: BncBaselineSnapshotItem[]): StatBarItem[] {
+  return metrics
+    .filter((m) => !m.label.includes('종합'))
+    .map((m): StatBarItem => {
+      const pct = m.pctDelta ?? 0;
+      const tone = pct === 0 ? 'muted' : m.tone === 'negative' ? 'danger' : m.tone === 'positive' ? 'success' : 'muted';
+      return {
+        label: m.label,
+        value: pct,
+        tone,
+        valueText: pct === 0 ? '변화 없음' : `${pct > 0 ? '+' : ''}${pct.toFixed(1)}%`,
+        subText: m.value,
+      };
+    });
+}
 
 function planKpiChartItems(plan: BncActionPlan): StatBarItem[] {
   return plan.metrics
@@ -30,10 +56,20 @@ function planKpiChartItems(plan: BncActionPlan): StatBarItem[] {
 <template>
   <section class="bnc-solutions__section">
     <div class="bnc-solutions__section-hd">
-      <h3>KPI 영향 비교</h3>
-      <span>현재 기준 대비 변화율 (%) · 개선 방향 = 음수</span>
+      <h3>향후 KPI 영향 비교</h3>
+      <span>현재 기준 대비 변화율 (%) · 초록=개선 · 빨강=악화</span>
     </div>
     <div class="bnc-solutions__chart-grid">
+      <div class="bnc-solutions__chart-plan bnc-solutions__chart-plan--current">
+        <div class="bnc-solutions__chart-plan-hd">
+          <span class="bnc-solutions__chart-plan-name">현재 유지 (무대응)</span>
+        </div>
+        <BncStatBarChart :items="currentKpiChartItems(currentOptionMetrics)" :height="160" />
+        <div v-if="currentDesc(currentOptionMetrics).length" class="bnc-solutions__chart-desc">
+          <p v-for="line in currentDesc(currentOptionMetrics)" :key="line">{{ line }}</p>
+        </div>
+      </div>
+
       <div
         v-for="plan in plans"
         :key="plan.planId"
@@ -42,12 +78,11 @@ function planKpiChartItems(plan: BncActionPlan): StatBarItem[] {
       >
         <div class="bnc-solutions__chart-plan-hd">
           <span class="bnc-solutions__chart-plan-name">{{ plan.actionLabel ?? plan.title }}</span>
-          <BaseBadge v-if="plan.recommended" variant="success">AI 추천</BaseBadge>
-          <span v-if="plan.confidence !== null" class="bnc-solutions__chart-plan-conf">
-            신뢰도 {{ Math.round((plan.confidence ?? 0) * 100) }}%
-          </span>
         </div>
         <BncStatBarChart :items="planKpiChartItems(plan)" :height="160" />
+        <div v-if="planDesc(plan).length" class="bnc-solutions__chart-desc">
+          <p v-for="line in planDesc(plan)" :key="line">{{ line }}</p>
+        </div>
       </div>
     </div>
   </section>
@@ -103,6 +138,11 @@ function planKpiChartItems(plan: BncActionPlan): StatBarItem[] {
   background: color-mix(in srgb, var(--color-status-success) 4%, var(--color-bg-page));
 }
 
+.bnc-solutions__chart-plan--current {
+  border-color: color-mix(in srgb, var(--color-status-warning) 30%, var(--color-border-subtle));
+  background: color-mix(in srgb, var(--color-status-warning) 5%, var(--color-bg-page));
+}
+
 .bnc-solutions__chart-plan-hd {
   display: flex;
   align-items: center;
@@ -120,5 +160,19 @@ function planKpiChartItems(plan: BncActionPlan): StatBarItem[] {
   margin-left: auto;
   color: var(--color-fg-muted);
   font-size: var(--font-size-xs);
+}
+
+.bnc-solutions__chart-desc {
+  display: grid;
+  gap: var(--space-1);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.bnc-solutions__chart-desc p {
+  margin: 0;
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-xs);
+  line-height: 1.6;
 }
 </style>

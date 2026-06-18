@@ -30,6 +30,8 @@ export interface BottleneckAlertResponseItem {
   mainCause: string | null;
   status: string | null;
   currentStepName: string | null;
+  batchCriticalCount?: number;
+  batchAreaCount?: number;
 }
 
 export interface BottleneckProcessMapResponse {
@@ -77,6 +79,7 @@ export interface BottleneckRankingItemResponse {
   areaName: string;
   bottleneckProb: number | null;
   riskScore: number | null;
+  compositeScore?: number | null;
   utilizationRate: number | null;
   wipCount: number | null;
   riskGrade: BottleneckRiskGrade | null;

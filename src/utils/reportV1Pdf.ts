@@ -2,6 +2,8 @@ import html2pdf from 'html2pdf.js';
 
 import type { ReportV1 } from '@/types/report';
 
+import { formatKoMonthDayTime } from '@/utils/format';
+
 type ReportV1ActionCandidate = ReportV1['actions']['candidates'][number];
 type ReportV1KpiImpact = ReportV1ActionCandidate['kpi_impact'][number];
 
@@ -47,8 +49,13 @@ function formatDelta(value: number | null | undefined, unit?: string): string {
   return `${sign}${formatMetricValue(value, unit)}`;
 }
 
+function formatDateTime(value: string | null | undefined): string {
+  if (!value) return '-';
+  return Number.isNaN(new Date(value).getTime()) ? value : formatKoMonthDayTime(value);
+}
+
 function approvedCandidate(report: ReportV1): ReportV1ActionCandidate | null {
-  const selected = (report.actions.approved_label ?? report.approval.selected_label ?? '').toLowerCase();
+  const selected = (report.actions.approved_label ?? report.approval?.selected_label ?? '').toLowerCase();
   return (
     report.actions.candidates.find((candidate) => candidate.is_approved) ??
     report.actions.candidates.find((candidate) => candidate.label.toLowerCase() === selected) ??
@@ -59,6 +66,55 @@ function approvedCandidate(report: ReportV1): ReportV1ActionCandidate | null {
 function renderList(items: string[]): string {
   if (items.length === 0) return '<p class="muted">-</p>';
   return `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`;
+}
+
+function normalizeSummaryMarkdown(value: string): string {
+  return value
+    .replaceAll('\r\n', '\n')
+    .replaceAll('\r', '\n')
+    .replace(/(#{1,6}\s*\d*\.?\s*요약)\s*>/g, '$1\n> ')
+    .replace(/\*\*\s*>\s*\*\*/g, '**\n> **')
+    .replace(/\s+>\s+/g, '\n> ')
+    .replace(/\s+\|\s*지표\s*\|/g, '\n| 지표 |')
+    .replace(/\s+---+\s*/g, '\n---\n');
+}
+
+function cleanMarkdownLine(line: string): string {
+  return line
+    .trim()
+    .replace(/^>\s*/, '')
+    .replace(/^#{1,6}\s*/, '')
+    .replace(/^\d+\.\s*/, '')
+    .replace(/^[-*]\s+/, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function summarySentences(value: string): string[] {
+  const normalized = normalizeSummaryMarkdown(value);
+  const summaryOnly = normalized
+    .replace(/^\s*#{1,6}\s*\d*\.?\s*요약\s*/i, '')
+    .split(/\n\s*---+\s*\n|\n\s*#{1,6}\s+\d+\.|\n\s*\|\s*지표\s*\|/)[0];
+
+  const seen = new Set<string>();
+  return summaryOnly
+    .split('\n')
+    .map(cleanMarkdownLine)
+    .filter((line) => line && !line.startsWith('|') && !/^[|:\-\s]+$/.test(line))
+    .filter((line) => {
+      if (seen.has(line)) return false;
+      seen.add(line);
+      return true;
+    })
+    .slice(0, 4);
+}
+
+function renderSummary(summary: string): string {
+  const sentences = summarySentences(summary);
+  if (sentences.length === 0) return `<p>${escapeHtml(cleanMarkdownLine(summary) || '-')}</p>`;
+  return `<ul class="summary-list">${sentences.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ul>`;
 }
 
 function renderKpiTable(report: ReportV1): string {
@@ -225,7 +281,7 @@ function buildReportHtml(report: ReportV1, caseId?: string | null): string {
       <header class="cover">
         <p class="eyebrow">FAB 병목 대응 보고서 · Report v1</p>
         <h1>${escapeHtml(reportTitle)}</h1>
-        <p class="summary">${escapeHtml(report.sections.summary)}</p>
+        <div class="summary">${renderSummary(report.sections.summary)}</div>
         <dl class="meta">
           <div><dt>문서 종류</dt><dd>AI 병목 대응 리포트</dd></div>
           <div><dt>Case ID</dt><dd>${escapeHtml(caseId ?? '-')}</dd></div>
@@ -233,8 +289,8 @@ function buildReportHtml(report: ReportV1, caseId?: string | null): string {
           <div><dt>심각도</dt><dd>${escapeHtml(report.meta.severity)}</dd></div>
           <div><dt>탐지 시각</dt><dd>${escapeHtml(report.meta.detected_at)}</dd></div>
           <div><dt>보고서 생성</dt><dd>${escapeHtml(report.meta.generated_at)}</dd></div>
-          <div><dt>승인 상태</dt><dd>${escapeHtml(report.approval.status)} · ${escapeHtml(report.approval.selected_label ?? '-')}</dd></div>
-          <div><dt>승인자</dt><dd>${escapeHtml(report.approval.approver_name)} · ${escapeHtml(report.approval.approved_at)}</dd></div>
+          <div><dt>승인 상태</dt><dd>${escapeHtml(report.approval?.status ?? '-')} · ${escapeHtml(report.approval?.selected_label ?? '-')}</dd></div>
+          <div><dt>승인자</dt><dd>${escapeHtml(report.approval?.approver_name ?? '-')} · ${escapeHtml(formatDateTime(report.approval?.approved_at))}</dd></div>
         </dl>
       </header>
 
@@ -323,6 +379,11 @@ function buildPdfContainer(report: ReportV1, caseId?: string | null): HTMLElemen
       h2 { margin-bottom: 10px; color: #111827; font-size: 17px; }
       h3 { margin: 12px 0 6px; color: #1f2937; font-size: 13px; }
       .summary { margin-top: 12px; color: #344054; font-size: 13px; }
+      .summary-list {
+        margin: 0;
+        padding-left: 17px;
+      }
+      .summary-list li + li { margin-top: 5px; }
       .meta {
         display: grid;
         grid-template-columns: repeat(4, 1fr);

@@ -55,8 +55,8 @@ const option = computed(() => {
   const hasAxes = props.showAxes && hasLabels;
   const hasTarget = typeof targetValue === 'number' && Number.isFinite(targetValue);
   const axisValues = hasTarget && hasAxes ? [...values, targetValue] : values;
-  const axisMin = Math.min(...axisValues);
-  const axisMax = Math.max(...axisValues);
+  const axisMin = axisValues.length ? Math.min(...axisValues) : 0;
+  const axisMax = axisValues.length ? Math.max(...axisValues) : 1;
   const axisPadding = Math.max((axisMax - axisMin) * 0.08, Math.abs(axisMax) * 0.004, 0.2);
   const color = resolveCssVar(colorToken);
   const borderColor = resolveCssVar('--color-border-default');

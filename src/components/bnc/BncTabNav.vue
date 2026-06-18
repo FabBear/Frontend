@@ -34,8 +34,7 @@ defineEmits<{
 .bnc-tab-nav {
   display: flex;
   border-bottom: 1px solid var(--color-border-default);
-  background: var(--color-bg-surface);
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--color-bg-card);
   padding: 0 var(--space-4);
   gap: var(--space-1);
 }

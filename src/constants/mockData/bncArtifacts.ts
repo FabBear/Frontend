@@ -185,15 +185,16 @@ const DE_FE_1_CAUSE: BncCauseAnalysis = {
   ],
   upstreamSuspects: ['DE_FE_86'],
   gStar: {
-    confirmed: false,
+    confirmed: true,
     proba: 0.6867,
     nTotal: 106,
     nAlarm: 4,
     toolgroups: [],
     sigKpis: [
-      { kpi: 'utilization_avg', deltaMean: 0.006, pAdjusted: 1, significant: false },
-      { kpi: 'wip', deltaMean: 2, pAdjusted: 1, significant: false },
-      { kpi: 'wait_ratio', deltaMean: 0.25, pAdjusted: 1, significant: false },
+      { kpi: 'utilization_avg', deltaMean: 0.399, pAdjusted: 0.0001, significant: true },
+      { kpi: 'q_time_min', deltaMean: 18.5, pAdjusted: 0.028, significant: true },
+      { kpi: 'wip', deltaMean: 2, pAdjusted: 0.45, significant: false },
+      { kpi: 'wait_ratio', deltaMean: 0.25, pAdjusted: 0.63, significant: false },
     ],
     upstreamConfirmed: ['DE_FE_86'],
   },
@@ -202,15 +203,37 @@ const DE_FE_1_CAUSE: BncCauseAnalysis = {
     tFuture: 120,
     getsWorse: true,
     kpiDeltas: [
+      { kpi: 'utilization_avg', now: 0.9943, future: 1, delta: 0.0057, pctChange: 0.6, reliability: 'MED' },
       { kpi: 'q_time_min', now: 62.96, future: 96.39, delta: 33.43, pctChange: 53.1, reliability: 'HIGH' },
       { kpi: 'wip', now: 10, future: 12, delta: 2, pctChange: 20, reliability: 'HIGH' },
       { kpi: 'wait_ratio', now: 0.25, future: 0.5, delta: 0.25, pctChange: 100, reliability: 'HIGH' },
-      { kpi: 'utilization_avg', now: 0.9943, future: 1, delta: 0.0057, pctChange: 0.6, reliability: 'MED' },
     ],
   },
   forwardForecastText:
     '무대응 120분 후 DE_FE_1 q_time_min 96.39분, WIP 12 Lot, wait_ratio 0.50으로 악화되고 Diffusion_FE_125도 WIP 18 Lot까지 누적될 것으로 예측됩니다.',
   createdAt: '2026-06-14T14:12:10Z',
+  llmVerdict: {
+    mainCategory: '설비_포화',
+    mainFeature: 'max_util_delta_120',
+    confidence: 'HIGH',
+    summary: '설비 가동률 급등이 병목의 직접 원인입니다.',
+    reasoning:
+      '설비_포화가 SHAP 기여 86.5%로 압도적 1위입니다. 최대 가동률(max_util)과 120분 변화율(max_util_delta_120) 모두 병목 방향으로 작용 중이며, G* 검정에서 평균 가동률(utilization_avg)이 Δ+0.399, p<0.001로 통계적으로 유의하게 확인되어 설비 과부하가 병목을 유발하고 있음이 뒷받침됩니다.',
+    evidence: {
+      shapContribPct: 86.5,
+      gStarSignificant: true,
+      gStarKpi: 'utilization_avg',
+      gStarPValue: 0.0001,
+      worseningFeatures: ['최대 가동률', '가동률 120분 변화', '평균 가동률'],
+    },
+    forecast:
+      '조치 없이 2시간 경과 시 대기시간 +53%, WIP +20%, 대기율 +100%로 연쇄 악화될 가능성이 높습니다. Diffusion_FE_125까지 WIP 18 Lot 수준으로 후행 누적이 예상됩니다.',
+    rejected: [
+      { category: '대기_누적', reason: 'SHAP 기여 0.0% · G* 비유의 → 설비 포화의 후행 현상으로 판단' },
+      { category: 'WIP_누적', reason: 'SHAP 13.5%로 일부 기여하나 설비 포화의 결과이지 주원인이 아님' },
+      { category: '공급_부족', reason: 'SHAP 기여 0.0% · score 최하위(0.08) → 근거 부족' },
+    ],
+  },
 };
 
 function buildActionPlans(caseId: string): BncActionPlansPayload {
@@ -235,11 +258,11 @@ function buildActionPlans(caseId: string): BncActionPlansPayload {
       compositeScore: 0,
       scoreVerdict: 'no_action',
       metrics: [
-        { label: '평균 대기', value: '62.96분', caption: '현재' },
-        { label: 'WIP', value: '10 Lot', caption: '현재' },
-        { label: 'Wait Ratio', value: '0.25', caption: '현재' },
-        { label: '평균 가동률', value: '99.4%', caption: '현재' },
-        { label: '가용 Tool 비율', value: '100.0%', caption: '현재' },
+        { label: '평균 대기', value: '96.39분', caption: '▲ +53%', pctDelta: 53.1, tone: 'negative' },
+        { label: 'WIP', value: '12 Lot', caption: '▲ +20%', pctDelta: 20.0, tone: 'negative' },
+        { label: '대기율', value: '0.50', caption: '▲ +100%', pctDelta: 100.0, tone: 'negative' },
+        { label: '평균 가동률', value: '~100%', caption: '▲ +0.6%', pctDelta: 0.6, tone: 'negative' },
+        { label: '가용 Tool 비율', value: '100.0%', caption: '변화 없음', pctDelta: 0, tone: 'neutral' },
       ],
     },
     compareContext: {
@@ -273,6 +296,21 @@ function buildActionPlans(caseId: string): BncActionPlansPayload {
         actionLabel: 'standard',
         actionKind: 'DISPATCH_RULE_OVERRIDE',
         title: 'standard',
+        actionSpec: {
+          intervalPct: 22.0,
+          lotGroups: [
+            {
+              zone: '경고하단',
+              action: 'priority 20',
+              lots: [
+                { id: 'Regular_Lot_3_1', product: 'Product_3', t2dueMin: 74357 },
+                { id: 'Regular_Lot_4_1', product: 'Product_4', t2dueMin: 42580 },
+                { id: 'Regular_Lot_3_2', product: 'Product_3', t2dueMin: 74346 },
+                { id: 'Regular_Lot_4_2', product: 'Product_4', t2dueMin: 42568 },
+              ],
+            },
+          ],
+        },
         summary:
           'fab-wide로 Release Interval을 22% 조정하고 Product_3/Product_4 우선순위를 20으로 올려 DE_FE_1부터 Diffusion_FE_125까지 동일 룰을 전파합니다.',
         expectedImpact: 'q_time -16.26분, WIP -4.0, wait_ratio -0.32, utilization_avg -0.12',
@@ -318,6 +356,11 @@ function buildActionPlans(caseId: string): BncActionPlansPayload {
         actionLabel: 'conservative',
         actionKind: 'INTERVAL',
         title: 'conservative',
+        actionSpec: {
+          intervalPct: 15.0,
+          noLotAdjust: true,
+          noLotReason: '납기 위험 없음',
+        },
         summary: 'Release Interval을 15%만 조정합니다. 운영 리스크는 낮지만 복합 병목을 꺾기에는 개선 폭이 작습니다.',
         expectedImpact: '무대응 대비 q_time -5.26분, WIP -1.0, wait_ratio -0.08',
         riskText: '현재 기준으로는 DE_FE_1 대기와 WIP가 남아 재발 가능성이 큽니다.',
@@ -350,6 +393,27 @@ function buildActionPlans(caseId: string): BncActionPlansPayload {
         actionLabel: 'aggressive',
         actionKind: 'DISPATCH_RULE_OVERRIDE',
         title: 'aggressive',
+        actionSpec: {
+          intervalPct: 28.0,
+          lotGroups: [
+            {
+              zone: '위험구간',
+              action: 'SuperHotLot (priority 30)',
+              lots: [
+                { id: 'Regular_Lot_4_1', product: 'Product_4', t2dueMin: 42577 },
+                { id: 'Regular_Lot_4_2', product: 'Product_4', t2dueMin: 42562 },
+              ],
+            },
+            {
+              zone: '경고하단',
+              action: 'priority 20',
+              lots: [
+                { id: 'Regular_Lot_3_1', product: 'Product_3', t2dueMin: 74354 },
+                { id: 'Regular_Lot_3_2', product: 'Product_3', t2dueMin: 74340 },
+              ],
+            },
+          ],
+        },
         summary:
           'Release Interval 28% 조정과 Product_4 SuperHotLot 2건을 함께 적용합니다. DE_FE_1 개선은 크지만 Diffusion_FE_125 WIP 편중 위험이 있습니다.',
         expectedImpact: 'q_time -22.26분, WIP +2.0, wait_ratio -0.40, available_tool_ratio -0.14',
@@ -549,6 +613,7 @@ export const DE_FE_1_REPORT_V1: ReportV1 = {
   meta: {
     toolgroup: 'DE_FE_1',
     process_name: 'DE_FE_1',
+    area_name: 'Dry Etch',
     severity: 'Critical',
     severity_token: 'danger',
     severity_priority: 0,
@@ -612,6 +677,15 @@ export const DE_FE_1_REPORT_V1: ReportV1 = {
         after: 1,
         delta: 0.006,
         pct_change: 0.6,
+        reliability_token: 'MED',
+      },
+      {
+        kpi: 'available_tool_ratio',
+        unit: 'ratio',
+        now: 1.0,
+        after: 1.0,
+        delta: 0,
+        pct_change: 0,
         reliability_token: 'MED',
       },
     ],
@@ -783,6 +857,9 @@ export const DE_FE_1_REPORT_V1: ReportV1 = {
     line_stop_expected_min: 1670,
     risk_level: 'Critical',
     risk_level_token: 'danger',
+    at_risk_lots: 12,
+    impact_pct: 68.7,
+    affected_toolgroups: ['Diffusion_FE_125'],
   },
   actions: {
     available: true,
@@ -1187,6 +1264,12 @@ export const DE_FE_1_REPORT_V1: ReportV1 = {
       headline: 'DISPATCH_RULE_OVERRIDE 추천 — CT/WIP 완화',
       primary_reason:
         '설비_포화(max_util 중심)와 utilization_avg 상승 추세(+0.138/h), WIP 증가 추세(+1.714/h)에 대응하는 조치입니다. 기준은 무대응 2시간 후이며, 적용 시 q_time_min은 96.39분/46.26분 대비 58.0분/30.0분으로, WIP는 12.0개/18.0개 대비 8.0개/8.0개로 완화되는 시뮬레이션 예측값입니다.',
+      plan_description:
+        'Standard 대응안은 Release Interval을 22.0% 조정하고 납기 위험 Lot 4건의 우선순위를 상향하여, 현재 DE_FE_1 구간의 유입 과부하와 대기 확산을 동시에 완화하는 안입니다.',
+      effect_and_risk:
+        '시뮬레이션 결과, 무대응 대비 평균 대기 시간은 7.9% 감소, WIP는 20.0% 감소, Wait Ratio는 18.0% 감소하여 주요 병목 KPI가 모두 개선되는 것으로 확인되었습니다. 또한 가용 Tool 비율의 추가 악화가 없어, 설비 부담을 크게 늘리지 않으면서 병목 완화 효과를 기대할 수 있습니다.',
+      approval_reason:
+        'Conservative 대응안은 운영 리스크는 낮지만 평균 대기와 WIP가 여전히 증가하여 병목 해소 효과가 부족하고, Aggressive 대응안은 개선 폭은 크지만 가용 Tool 비율 감소와 과도한 우선순위 개입으로 운영 변동성이 커질 수 있습니다. 따라서 현재 상황에서는 개선 효과와 운영 안정성의 균형이 가장 적절한 Standard 대응안을 승인합니다.',
       confidence_level: 'high',
       confidence_token: 'high',
       tradeoffs: [

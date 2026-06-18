@@ -67,6 +67,8 @@ export interface DashboardRiskAlertItem {
   mainCause: string | null;
   status: string | null;
   currentStepName: string | null;
+  batchCriticalCount?: number | null;
+  batchAreaCount?: number | null;
 }
 
 export interface DashboardProcessMapResponse {

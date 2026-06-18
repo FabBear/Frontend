@@ -58,7 +58,7 @@ const isHeatmapCollapsed = ref(false);
 const showLegendInfo = ref(false);
 const areas = ref<Fab3dArea[]>([]);
 const toolDetails = ref<Fab3dToolDetail[]>([]);
-const dataSource = ref<'current' | 'case_snapshot' | 'mock'>('current');
+const dataSource = ref<'current' | 'case_snapshot' | 'scenario'>('current');
 const measuredAt = ref<string | null>(null);
 const isLoadingCurrent = ref(false);
 // 케이스 스냅샷 모드 컨텍스트
@@ -507,7 +507,8 @@ function handleZoomToArea(areaCode: string) {
 async function handleFabBriefing() {
   if (isSnapshotMode.value) return;
   briefingBasisAt.value = measuredAt.value; // 요청 시점 sim 시각 동결
-  agentPanelTab.value = 'ai';
+  // 방금 요청한 브리핑 결과는 'Fab 현황' 탭에 바로 표시. '지난 현황 브리핑'(ai) 탭은 과거 이력만 남긴다.
+  agentPanelTab.value = 'site';
   const task = await runAgentTask({
     taskType: 'FAB_SNAPSHOT_BRIEFING',
     sourcePage: 'FAB3D',
@@ -658,644 +659,675 @@ watch(requestedCaseId, () => {
 </script>
 
 <template>
-  <div class="fab3d" :class="{ 'fab3d--dark': isDark }">
-    <div class="fab3d__canvas">
-      <Fab3dScene
-        :key="sceneKey"
-        ref="sceneRef"
-        :areas="areas"
-        @select-tg="handleSelectTg"
-        @select-asset="handleSelectAsset"
-      />
+  <div class="fab3d-page">
+    <header class="fab3d-page__header">
+      <div>
+        <h1 class="fab3d-page__title">3D FAB 뷰</h1>
+        <p class="fab3d-page__subtitle">공정 구역별 설비 가동 현황과 병목 위험도를 3D로 확인합니다.</p>
+      </div>
+    </header>
+    <div class="fab3d" :class="{ 'fab3d--dark': isDark }">
+      <div class="fab3d__canvas">
+        <Fab3dScene
+          :key="sceneKey"
+          ref="sceneRef"
+          :areas="areas"
+          @select-tg="handleSelectTg"
+          @select-asset="handleSelectAsset"
+        />
 
-      <!-- 설비 상태 보드 (tool fleet grid) -->
-      <Transition name="hm">
-        <div
-          v-if="selectedTg && selectedTgAllTools.length"
-          class="fab3d__board"
-          :class="{ 'fab3d__board--collapsed': isHeatmapCollapsed }"
-        >
-          <div class="fab3d__hm-hd">
-            <div>
-              <div class="fab3d__hm-name">{{ selectedTg.tgName }} · 설비 {{ selectedTgAllTools.length }}대</div>
-              <div class="fab3d__hm-sub">
-                {{ isSnapshotMode ? '감지 당시' : '실시간' }} · 셀 클릭 시 우측 패널에 상세 표시
+        <!-- 설비 상태 보드 (tool fleet grid) -->
+        <Transition name="hm">
+          <div
+            v-if="selectedTg && selectedTgAllTools.length"
+            class="fab3d__board"
+            :class="{ 'fab3d__board--collapsed': isHeatmapCollapsed }"
+          >
+            <div class="fab3d__hm-hd">
+              <div>
+                <div class="fab3d__hm-name">{{ selectedTg.tgName }} · 설비 {{ selectedTgAllTools.length }}대</div>
+                <div class="fab3d__hm-sub">
+                  {{ isSnapshotMode ? '감지 당시' : '실시간' }} · 셀 클릭 시 우측 패널에 상세 표시
+                </div>
+              </div>
+              <div class="fab3d__hm-actions">
+                <button
+                  class="fab3d__hm-close"
+                  :title="isHeatmapCollapsed ? '펼치기' : '접기'"
+                  @click="isHeatmapCollapsed = !isHeatmapCollapsed"
+                >
+                  {{ isHeatmapCollapsed ? '+' : '−' }}
+                </button>
+                <button class="fab3d__hm-close" title="닫기" @click="closeDetail">✕</button>
               </div>
             </div>
-            <div class="fab3d__hm-actions">
+
+            <!-- 상태 필터칩 -->
+            <div v-show="!isHeatmapCollapsed" class="fab3d__board-filters">
               <button
-                class="fab3d__hm-close"
-                :title="isHeatmapCollapsed ? '펼치기' : '접기'"
-                @click="isHeatmapCollapsed = !isHeatmapCollapsed"
+                v-for="status in visibleToolStatuses"
+                :key="status"
+                type="button"
+                class="fab3d__board-chip"
+                :class="{ 'fab3d__board-chip--active': toolStatusFilter === status }"
+                @click="handleToolStatusFilter(status)"
               >
-                {{ isHeatmapCollapsed ? '+' : '−' }}
+                <span class="fab3d__board-chip-ic">{{ statusIcon(status) }}</span>
+                <span>{{ statusLabel(status) }}</span>
+                <strong>{{ selectedToolStatusSummary[status] }}</strong>
               </button>
-              <button class="fab3d__hm-close" title="닫기" @click="closeDetail">✕</button>
+            </div>
+
+            <div v-show="!isHeatmapCollapsed" class="fab3d__board-grid">
+              <button
+                v-for="t in selectedTgHeatmapTools"
+                :key="t.toolId"
+                class="fab3d__hm-cell"
+                :class="{ 'fab3d__hm-cell--active': selectedTool?.toolId === t.toolId }"
+                type="button"
+                :style="{ background: cellColor(t) }"
+                :title="`${t.toolCode} · ${statusLabel(t.status)} · 가동률 ${(t.utilizationRate * 100).toFixed(0)}%`"
+                @click="handleSelectTool(t)"
+              >
+                <span class="fab3d__hm-cell-top">
+                  <span class="fab3d__hm-cell-st">{{ statusIcon(t.status) }}</span>
+                  <span class="fab3d__hm-cell-id">{{ t.toolCode.split('#').at(-1) ?? t.toolCode }}</span>
+                </span>
+                <span class="fab3d__hm-cell-pct">{{ (t.utilizationRate * 100).toFixed(0) }}%</span>
+              </button>
+              <p v-if="!selectedTgHeatmapTools.length" class="fab3d__board-empty">
+                <strong>{{ statusLabel(toolStatusFilter as Fab3dToolDetail['status']) }}</strong> 상태 설비가 없습니다
+              </p>
+            </div>
+
+            <div v-show="!isHeatmapCollapsed" class="fab3d__board-note">
+              셀 색 = 가동률(초록 낮음 → 빨강 높음, 구역별 현황과 동일 기준) · 아이콘 = 상태 · 숫자 = 가동률%
             </div>
           </div>
+        </Transition>
 
-          <!-- 상태 필터칩 -->
-          <div v-show="!isHeatmapCollapsed" class="fab3d__board-filters">
-            <button
-              v-for="status in visibleToolStatuses"
-              :key="status"
-              type="button"
-              class="fab3d__board-chip"
-              :class="{ 'fab3d__board-chip--active': toolStatusFilter === status }"
-              @click="handleToolStatusFilter(status)"
+        <!-- Top-left overlay -->
+        <div class="fab3d__ov fab3d__ov--tl">
+          <span class="fab3d__ov-title">3D FAB 뷰</span>
+
+          <!-- 스냅샷 모드 배지 -->
+          <div v-if="isSnapshotMode" class="fab3d__snapshot-badge">
+            <span class="fab3d__snapshot-badge-label">감지 당시 스냅샷</span>
+            <span v-if="snapshotAnchorTgName" class="fab3d__snapshot-badge-tg">{{ snapshotAnchorTgName }}</span>
+            <span v-if="snapshotDiffusionPathText" class="fab3d__snapshot-badge-path"
+              >확산 경로: {{ snapshotDiffusionPathText }}</span
             >
-              <span class="fab3d__board-chip-ic">{{ statusIcon(status) }}</span>
-              <span>{{ statusLabel(status) }}</span>
-              <strong>{{ selectedToolStatusSummary[status] }}</strong>
-            </button>
-          </div>
-
-          <div v-show="!isHeatmapCollapsed" class="fab3d__board-grid">
-            <button
-              v-for="t in selectedTgHeatmapTools"
-              :key="t.toolId"
-              class="fab3d__hm-cell"
-              :class="{ 'fab3d__hm-cell--active': selectedTool?.toolId === t.toolId }"
-              type="button"
-              :style="{ background: cellColor(t) }"
-              :title="`${t.toolCode} · ${statusLabel(t.status)} · 가동률 ${(t.utilizationRate * 100).toFixed(0)}%`"
-              @click="handleSelectTool(t)"
+            <span v-if="measuredAt" class="fab3d__snapshot-badge-time"
+              >기준 시각: {{ formatEventTime(measuredAt) }}</span
             >
-              <span class="fab3d__hm-cell-top">
-                <span class="fab3d__hm-cell-st">{{ statusIcon(t.status) }}</span>
-                <span class="fab3d__hm-cell-id">{{ t.toolCode.split('#').at(-1) ?? t.toolCode }}</span>
-              </span>
-              <span class="fab3d__hm-cell-pct">{{ (t.utilizationRate * 100).toFixed(0) }}%</span>
-            </button>
-            <p v-if="!selectedTgHeatmapTools.length" class="fab3d__board-empty">
-              <strong>{{ statusLabel(toolStatusFilter as Fab3dToolDetail['status']) }}</strong> 상태 설비가 없습니다
-            </p>
+            <span class="fab3d__snapshot-badge-warn">현재 MES가 아닙니다</span>
           </div>
 
-          <div v-show="!isHeatmapCollapsed" class="fab3d__board-note">
-            셀 색 = 가동률(초록 낮음 → 빨강 높음, 구역별 현황과 동일 기준) · 아이콘 = 상태 · 숫자 = 가동률%
-          </div>
-        </div>
-      </Transition>
-
-      <!-- Top-left overlay -->
-      <div class="fab3d__ov fab3d__ov--tl">
-        <span class="fab3d__ov-title">3D FAB 뷰</span>
-
-        <!-- 스냅샷 모드 배지 -->
-        <div v-if="isSnapshotMode" class="fab3d__snapshot-badge">
-          <span class="fab3d__snapshot-badge-label">감지 당시 스냅샷</span>
-          <span v-if="snapshotAnchorTgName" class="fab3d__snapshot-badge-tg">{{ snapshotAnchorTgName }}</span>
-          <span v-if="snapshotDiffusionPathText" class="fab3d__snapshot-badge-path"
-            >확산 경로: {{ snapshotDiffusionPathText }}</span
-          >
-          <span v-if="measuredAt" class="fab3d__snapshot-badge-time">기준 시각: {{ formatEventTime(measuredAt) }}</span>
-          <span class="fab3d__snapshot-badge-warn">현재 MES가 아닙니다</span>
-        </div>
-
-        <button class="fab3d__btn" @click="sceneRef?.resetCamera()">카메라 초기화</button>
-        <button
-          class="fab3d__btn fab3d__btn--agent"
-          :disabled="isAgentTaskRunning || isSnapshotMode"
-          :title="
-            isSnapshotMode
-              ? '과거 스냅샷에서는 브리핑을 실행하지 않습니다. AI 분석 결과는 병목 대응센터에서 확인하세요.'
-              : undefined
-          "
-          @click="handleFabBriefing"
-        >
-          <Sparkles :size="14" aria-hidden="true" />
-          {{ isAgentTaskRunning ? 'AI 분석 중…' : 'AI 현황 브리핑' }}
-        </button>
-        <span
-          class="fab3d__source"
-          :class="{ 'fab3d__source--live': !isSnapshotMode, 'fab3d__source--snapshot': isSnapshotMode }"
-        >
-          {{ isLoadingCurrent ? '연결 중…' : isSnapshotMode ? '스냅샷' : '실시간' }}
-        </span>
-        <button
-          class="fab3d__info-btn"
-          type="button"
-          :aria-expanded="showLegendInfo"
-          aria-label="가동률 기준 보기"
-          @click="showLegendInfo = !showLegendInfo"
-        >
-          i
-        </button>
-        <div v-if="showLegendInfo" class="fab3d__legend-popover">
-          <div class="fab3d__legend-hd">병목 위험 점수 기준</div>
-          <div class="fab3d__legend-row">
-            <span class="fab3d__dot" style="background: var(--color-risk-critical)" />Critical — 케이스 선언·전체 분석
-          </div>
-          <div class="fab3d__legend-row">
-            <span class="fab3d__dot" style="background: var(--color-risk-high)" />High — 위험 후보·cascade 감시
-          </div>
-          <div class="fab3d__legend-row">
-            <span class="fab3d__dot" style="background: var(--color-risk-medium)" />Medium — 관심 대상
-          </div>
-          <div class="fab3d__legend-row">
-            <span class="fab3d__dot" style="background: var(--color-risk-low)" />Low — 정상
-          </div>
-          <div class="fab3d__legend-hd fab3d__legend-hd--spaced">구역 바닥색</div>
-          <div v-for="band in zoneBandLegend" :key="band.type" class="fab3d__legend-row">
-            <span class="fab3d__dot fab3d__dot--sq" :style="{ background: band.color }" />{{ band.label }}
-          </div>
-          <div class="fab3d__legend-hd fab3d__legend-hd--spaced">조작</div>
-          <div class="fab3d__legend-hint">드래그: 회전 · 스크롤: 줌 · 화살표: 이동 · 클릭: 선택</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Right panel -->
-    <aside class="fab3d__panel">
-      <div class="fab3d__panel-tabs" role="tablist">
-        <button
-          type="button"
-          role="tab"
-          :aria-selected="agentPanelTab === 'site'"
-          class="fab3d__panel-tab"
-          :class="{ 'fab3d__panel-tab--active': agentPanelTab === 'site' }"
-          @click="agentPanelTab = 'site'"
-        >
-          Fab 현황
-        </button>
-        <button
-          type="button"
-          role="tab"
-          :aria-selected="agentPanelTab === 'ai'"
-          class="fab3d__panel-tab"
-          :class="{ 'fab3d__panel-tab--active': agentPanelTab === 'ai' }"
-          @click="agentPanelTab = 'ai'"
-        >
-          지난 현황 브리핑
-        </button>
-      </div>
-
-      <!-- Selected object -->
-      <div
-        v-show="agentPanelTab === 'site'"
-        class="fab3d__ps"
-        :class="{ 'fab3d__ps--selected-tg': selectedTg }"
-        :style="
-          selectedTg
-            ? { borderLeftColor: riskHex(selectedTg.risk) }
-            : selectedAsset
-              ? { borderLeft: '3px solid var(--color-action-primary)' }
-              : undefined
-        "
-      >
-        <div class="fab3d__ps-title fab3d__ps-title--row">
-          <span>선택된 객체</span>
+          <button class="fab3d__btn" @click="sceneRef?.resetCamera()">카메라 초기화</button>
           <button
-            v-if="selectedTg || selectedAsset || selectedTool"
-            type="button"
-            class="fab3d__deselect-btn"
-            @click="closeDetail"
+            class="fab3d__btn fab3d__btn--agent"
+            :disabled="isAgentTaskRunning || isSnapshotMode"
+            :title="
+              isSnapshotMode
+                ? '과거 스냅샷에서는 브리핑을 실행하지 않습니다. AI 분석 결과는 병목 대응센터에서 확인하세요.'
+                : undefined
+            "
+            @click="handleFabBriefing"
           >
-            선택 해제
+            <Sparkles :size="14" aria-hidden="true" />
+            {{ isAgentTaskRunning ? 'AI 분석 중…' : 'AI 현황 브리핑' }}
+          </button>
+          <span
+            class="fab3d__source"
+            :class="{ 'fab3d__source--live': !isSnapshotMode, 'fab3d__source--snapshot': isSnapshotMode }"
+          >
+            {{ isLoadingCurrent ? '연결 중…' : isSnapshotMode ? '스냅샷' : '실시간' }}
+          </span>
+          <button
+            class="fab3d__info-btn"
+            type="button"
+            :aria-expanded="showLegendInfo"
+            aria-label="가동률 기준 보기"
+            @click="showLegendInfo = !showLegendInfo"
+          >
+            i
+          </button>
+          <div v-if="showLegendInfo" class="fab3d__legend-popover">
+            <div class="fab3d__legend-hd">기기·신호탑 색 · 가동률 기준</div>
+            <div class="fab3d__legend-row">
+              <span class="fab3d__dot" style="background: var(--color-risk-critical)" />Critical — 가동률 ≥ 90%
+            </div>
+            <div class="fab3d__legend-row">
+              <span class="fab3d__dot" style="background: var(--color-risk-high)" />High — 85~90%
+            </div>
+            <div class="fab3d__legend-row">
+              <span class="fab3d__dot" style="background: var(--color-risk-medium)" />Medium — 70~85%
+            </div>
+            <div class="fab3d__legend-row">
+              <span class="fab3d__dot" style="background: var(--color-risk-low)" />Low — &lt; 70%
+            </div>
+            <div class="fab3d__legend-hd fab3d__legend-hd--spaced">상단 구체</div>
+            <div class="fab3d__legend-row">
+              <span class="fab3d__dot" style="background: var(--color-risk-critical)" />병목 TG 표시
+            </div>
+            <div class="fab3d__legend-hd fab3d__legend-hd--spaced">구역 바닥색</div>
+            <div v-for="band in zoneBandLegend" :key="band.type" class="fab3d__legend-row">
+              <span class="fab3d__dot fab3d__dot--sq" :style="{ background: band.color }" />{{ band.label }}
+            </div>
+            <div class="fab3d__legend-hd fab3d__legend-hd--spaced">조작</div>
+            <div class="fab3d__legend-hint">드래그: 회전 · 스크롤: 줌 · 화살표: 이동 · 클릭: 선택</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right panel -->
+      <aside class="fab3d__panel">
+        <div class="fab3d__panel-tabs" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            :aria-selected="agentPanelTab === 'site'"
+            class="fab3d__panel-tab"
+            :class="{ 'fab3d__panel-tab--active': agentPanelTab === 'site' }"
+            @click="agentPanelTab = 'site'"
+          >
+            Fab 현황
+          </button>
+          <button
+            type="button"
+            role="tab"
+            :aria-selected="agentPanelTab === 'ai'"
+            class="fab3d__panel-tab"
+            :class="{ 'fab3d__panel-tab--active': agentPanelTab === 'ai' }"
+            @click="agentPanelTab = 'ai'"
+          >
+            지난 현황 브리핑
           </button>
         </div>
-        <template v-if="selectedAsset">
-          <div class="fab3d__ps-name">{{ selectedAsset.assetName }}</div>
-          <div class="fab3d__ps-area">{{ assetTypeLabel(selectedAsset.assetType) }} · {{ selectedAsset.location }}</div>
-          <div class="fab3d__ps-risk" style="color: var(--color-action-primary)">● {{ selectedAsset.status }}</div>
-          <dl class="fab3d__ps-kpis">
-            <div>
-              <dt>분류</dt>
-              <dd>{{ assetTypeLabel(selectedAsset.assetType) }}</dd>
-            </div>
-            <div>
-              <dt>적재</dt>
-              <dd>{{ selectedAsset.load }}</dd>
-            </div>
-            <div>
-              <dt>ETA</dt>
-              <dd>{{ selectedAsset.eta }}</dd>
-            </div>
-            <div>
-              <dt>경로</dt>
-              <dd>{{ selectedAsset.route }}</dd>
-            </div>
-          </dl>
-          <p class="fab3d__ps-desc">{{ selectedAsset.description }}</p>
-        </template>
-        <template v-else-if="selectedTg">
-          <div class="fab3d__ps-name">{{ selectedTg.tgName }}</div>
-          <div class="fab3d__ps-area">{{ formatAreaDisplay(selectedTg.areaCode) }}</div>
-          <div class="fab3d__ps-risk" :style="{ color: riskHex(selectedTg.risk) }">
-            ● {{ riskLabel(selectedTg.risk) }}
-          </div>
-          <dl class="fab3d__ps-kpis">
-            <div>
-              <dt>병목 위험 점수</dt>
-              <dd>{{ selectedTg.compositeScore != null ? `${(selectedTg.compositeScore * 100).toFixed(0)}` : '—' }}</dd>
-            </div>
-            <div>
-              <dt>가동률 (MES)</dt>
-              <dd>{{ formatRatioPercent(selectedTg.utilizationRate) }}</dd>
-            </div>
-            <div>
-              <dt>WIP</dt>
-              <dd>{{ formatFabNumber(selectedTg.wipCount) }} Lot</dd>
-            </div>
-            <div>
-              <dt>대기 Lot</dt>
-              <dd>{{ formatFabNumber(selectedTg.waitingLots) }}</dd>
-            </div>
-          </dl>
-          <div class="fab3d__bar-lbl">
-            <span>병목 위험 점수</span
-            ><span>{{
-              selectedTg.compositeScore != null ? `${(selectedTg.compositeScore * 100).toFixed(0)}` : '—'
-            }}</span>
-          </div>
-          <div class="fab3d__bar-track">
-            <div
-              class="fab3d__bar-fill"
-              :style="{
-                width: selectedTg.compositeScore != null ? `${(selectedTg.compositeScore * 100).toFixed(1)}%` : '0%',
-                background: riskHex(selectedTg.risk),
-              }"
-            />
-          </div>
 
-          <!-- 스냅샷 모드: 병목 탐지 정보 -->
-          <section v-if="selectedTgIsAnchor" class="fab3d__bnc-info fab3d__bnc-info--anchor">
-            <div class="fab3d__bnc-info-label">병목 탐지 TG</div>
+        <!-- Selected object — 선택 객체 없이 브리핑 결과만 있을 땐 숨겨 결과 카드를 상단에 노출 -->
+        <div
+          v-show="
+            agentPanelTab === 'site' &&
+            !(
+              (isAgentTaskRunning || fabAgentTask || agentTaskError) &&
+              !selectedTg &&
+              !selectedAsset &&
+              !selectedTool
+            )
+          "
+          class="fab3d__ps"
+          :class="{ 'fab3d__ps--selected-tg': selectedTg }"
+          :style="
+            selectedTg
+              ? { borderLeftColor: riskHex(selectedTg.risk) }
+              : selectedAsset
+                ? { borderLeft: '3px solid var(--color-action-primary)' }
+                : undefined
+          "
+        >
+          <div class="fab3d__ps-title fab3d__ps-title--row">
+            <span>선택된 객체</span>
+            <button
+              v-if="selectedTg || selectedAsset || selectedTool"
+              type="button"
+              class="fab3d__deselect-btn"
+              @click="closeDetail"
+            >
+              선택 해제
+            </button>
+          </div>
+          <template v-if="selectedAsset">
+            <div class="fab3d__ps-name">{{ selectedAsset.assetName }}</div>
+            <div class="fab3d__ps-area">
+              {{ assetTypeLabel(selectedAsset.assetType) }} · {{ selectedAsset.location }}
+            </div>
+            <div class="fab3d__ps-risk" style="color: var(--color-action-primary)">● {{ selectedAsset.status }}</div>
             <dl class="fab3d__ps-kpis">
-              <div v-if="snapshotCompositeScore !== null">
-                <dt>위험 점수</dt>
-                <dd>{{ (snapshotCompositeScore * 100).toFixed(0) }}</dd>
+              <div>
+                <dt>분류</dt>
+                <dd>{{ assetTypeLabel(selectedAsset.assetType) }}</dd>
               </div>
-              <div v-if="snapshotImpactScore !== null">
-                <dt>확산 영향</dt>
-                <dd>{{ (snapshotImpactScore * 100).toFixed(0) }}</dd>
+              <div>
+                <dt>적재</dt>
+                <dd>{{ selectedAsset.load }}</dd>
               </div>
-              <div v-if="snapshotAffectedCount !== null">
-                <dt>영향 TG</dt>
-                <dd>{{ snapshotAffectedCount }}개</dd>
+              <div>
+                <dt>ETA</dt>
+                <dd>{{ selectedAsset.eta }}</dd>
               </div>
-              <div v-if="snapshotCtIncreaseMin !== null">
-                <dt>CT 증가</dt>
-                <dd>+{{ snapshotCtIncreaseMin }}분</dd>
+              <div>
+                <dt>경로</dt>
+                <dd>{{ selectedAsset.route }}</dd>
               </div>
             </dl>
-            <RouterLink
-              v-if="snapshotCaseId"
-              :to="{ name: 'bottleneckCenter', query: { caseId: snapshotCaseId } }"
-              class="fab3d__bnc-info-link"
-              >AI 분석 보기 →</RouterLink
-            >
-          </section>
-          <section v-else-if="selectedTgIsAffected" class="fab3d__bnc-info fab3d__bnc-info--affected">
-            <div class="fab3d__bnc-info-label">확산 영향 TG</div>
-            <div v-if="selectedTgDiffusionHop !== null" class="fab3d__bnc-info-hop">
-              병목 TG로부터 {{ selectedTgDiffusionHop }}홉
+            <p class="fab3d__ps-desc">{{ selectedAsset.description }}</p>
+          </template>
+          <template v-else-if="selectedTg">
+            <div class="fab3d__ps-name">{{ selectedTg.tgName }}</div>
+            <div class="fab3d__ps-area">{{ formatAreaDisplay(selectedTg.areaCode) }}</div>
+            <div class="fab3d__ps-risk" :style="{ color: riskHex(selectedTg.risk) }">
+              ● {{ riskLabel(selectedTg.risk) }}
             </div>
-            <div class="fab3d__bnc-info-anchor-name">병목: {{ snapshotAnchorTgName }}</div>
-          </section>
-
-          <!-- 공정 흐름: 이전/다음 공정으로 카메라 이동 -->
-          <section v-if="!selectedTgIsBuffer" class="fab3d__flow-ctx">
-            <div class="fab3d__ps-title">공정 흐름</div>
-            <div v-if="isLoadingRouteSteps" class="fab3d__flow-loading">조회 중…</div>
-            <template v-else>
-              <div v-if="prevProcessAreas.length" class="fab3d__flow-row">
-                <span class="fab3d__flow-label fab3d__flow-label--prev">이전</span>
-                <span class="fab3d__flow-chips">
-                  <span v-for="a in prevProcessAreas" :key="a" class="fab3d__flow-chip fab3d__flow-chip--prev">
-                    {{ formatAreaDisplay(a) }}
-                  </span>
-                </span>
-              </div>
-              <div class="fab3d__flow-row">
-                <span class="fab3d__flow-label fab3d__flow-label--cur">현재</span>
-                <span class="fab3d__flow-chips">
-                  <span class="fab3d__flow-chip fab3d__flow-chip--cur">{{
-                    formatAreaDisplay(selectedTg.areaCode)
-                  }}</span>
-                </span>
-              </div>
-              <div v-if="nextProcessAreas.length" class="fab3d__flow-row">
-                <span class="fab3d__flow-label fab3d__flow-label--next">다음</span>
-                <span class="fab3d__flow-chips">
-                  <span v-for="a in nextProcessAreas" :key="a" class="fab3d__flow-chip fab3d__flow-chip--next">
-                    {{ formatAreaDisplay(a) }}
-                  </span>
-                </span>
-              </div>
-              <button v-if="hasProcessFlow" type="button" class="fab3d__flow-view-btn" @click="showProcessFlow">
-                공정 흐름 한눈에 보기
-              </button>
-              <p v-else class="fab3d__flow-loading">연결된 공정 정보가 없습니다</p>
-            </template>
-          </section>
-
-          <section v-if="selectedTgIsBuffer" class="fab3d__buffer-panel">
-            <div class="fab3d__ps-title">버퍼 상태 요약</div>
-            <dl class="fab3d__buffer-kpis">
+            <dl class="fab3d__ps-kpis">
               <div>
-                <dt>활성 슬롯</dt>
-                <dd>{{ selectedToolStatusSummary.RUN }}</dd>
+                <dt>병목 위험 점수</dt>
+                <dd>
+                  {{ selectedTg.compositeScore != null ? `${(selectedTg.compositeScore * 100).toFixed(0)}` : '—' }}
+                </dd>
               </div>
               <div>
-                <dt>대기 슬롯</dt>
-                <dd>{{ selectedToolStatusSummary.IDLE }}</dd>
+                <dt>가동률 (MES)</dt>
+                <dd>{{ formatRatioPercent(selectedTg.utilizationRate) }}</dd>
               </div>
               <div>
-                <dt>총 슬롯</dt>
-                <dd>{{ selectedTg.toolCount }}</dd>
+                <dt>WIP</dt>
+                <dd>{{ formatFabNumber(selectedTg.wipCount) }} Lot</dd>
               </div>
               <div>
                 <dt>대기 Lot</dt>
                 <dd>{{ formatFabNumber(selectedTg.waitingLots) }}</dd>
               </div>
             </dl>
-            <div class="fab3d__tool-dist" aria-hidden="true">
-              <span
-                v-for="status in visibleToolStatuses"
-                :key="status"
+            <div class="fab3d__bar-lbl">
+              <span>병목 위험 점수</span
+              ><span>{{
+                selectedTg.compositeScore != null ? `${(selectedTg.compositeScore * 100).toFixed(0)}` : '—'
+              }}</span>
+            </div>
+            <div class="fab3d__bar-track">
+              <div
+                class="fab3d__bar-fill"
                 :style="{
-                  width: `${((selectedToolStatusSummary[status] / selectedToolStatusTotal) * 100).toFixed(1)}%`,
-                  background: statusColor(status),
+                  width: selectedTg.compositeScore != null ? `${(selectedTg.compositeScore * 100).toFixed(1)}%` : '0%',
+                  background: riskHex(selectedTg.risk),
                 }"
               />
             </div>
-          </section>
 
-          <section v-else class="fab3d__tool-panel">
-            <div class="fab3d__ps-title">선택 설비</div>
-            <div v-if="selectedTool" class="fab3d__selected-tool">
-              <div class="fab3d__selected-tool-hd">
-                <strong>{{ selectedTool.toolCode }}</strong>
-                <span :style="{ color: statusColor(selectedTool.status) }">{{ statusLabel(selectedTool.status) }}</span>
+            <!-- 스냅샷 모드: 병목 탐지 정보 -->
+            <section v-if="selectedTgIsAnchor" class="fab3d__bnc-info fab3d__bnc-info--anchor">
+              <div class="fab3d__bnc-info-label">병목 탐지 TG</div>
+              <dl class="fab3d__ps-kpis">
+                <div v-if="snapshotCompositeScore !== null">
+                  <dt>위험 점수</dt>
+                  <dd>{{ (snapshotCompositeScore * 100).toFixed(0) }}</dd>
+                </div>
+                <div v-if="snapshotImpactScore !== null">
+                  <dt>확산 영향</dt>
+                  <dd>{{ (snapshotImpactScore * 100).toFixed(0) }}</dd>
+                </div>
+                <div v-if="snapshotAffectedCount !== null">
+                  <dt>영향 TG</dt>
+                  <dd>{{ snapshotAffectedCount }}개</dd>
+                </div>
+                <div v-if="snapshotCtIncreaseMin !== null">
+                  <dt>CT 증가</dt>
+                  <dd>+{{ snapshotCtIncreaseMin }}분</dd>
+                </div>
+              </dl>
+              <RouterLink
+                v-if="snapshotCaseId"
+                :to="{ name: 'bottleneckCenter', query: { caseId: snapshotCaseId } }"
+                class="fab3d__bnc-info-link"
+                >AI 분석 보기 →</RouterLink
+              >
+            </section>
+            <section v-else-if="selectedTgIsAffected" class="fab3d__bnc-info fab3d__bnc-info--affected">
+              <div class="fab3d__bnc-info-label">확산 영향 TG</div>
+              <div v-if="selectedTgDiffusionHop !== null" class="fab3d__bnc-info-hop">
+                병목 TG로부터 {{ selectedTgDiffusionHop }}홉
               </div>
+              <div class="fab3d__bnc-info-anchor-name">병목: {{ snapshotAnchorTgName }}</div>
+            </section>
 
-              <div v-if="isLoadingActivity" class="fab3d__act-loading">불러오는 중…</div>
-
-              <div v-else-if="activityLoadError" class="fab3d__act-error">활동 정보를 불러오지 못했습니다</div>
-
-              <template v-else-if="toolActivity">
-                <!-- DOWN 구분: PM vs BM -->
-                <div
-                  v-if="toolActivity.currentState === 'DOWN'"
-                  class="fab3d__act-down-badge"
-                  :class="{ 'fab3d__act-down-badge--bm': toolActivity.rawState === 'DOWN_BM' }"
-                >
-                  <span class="fab3d__act-down-type" :style="{ color: downStateColor(toolActivity.rawState) }">
-                    {{ downStateLabel(toolActivity.rawState) }}
-                  </span>
-                  <span
-                    class="fab3d__act-duration"
-                    :class="{ 'fab3d__act-duration--alarm': isLongDown(toolActivity.stateDurationMin) }"
-                  >
-                    {{ formatDuration(toolActivity.stateDurationMin) }} 경과
-                  </span>
-                </div>
-                <div v-else class="fab3d__act-duration" :style="{ color: statusColor(selectedTool.status) }">
-                  {{ formatDuration(toolActivity.stateDurationMin) }} 지속
-                </div>
-
-                <!-- DOWN 시작 시각 -->
-                <div v-if="toolActivity.currentState === 'DOWN' && toolActivity.stateChangedAt" class="fab3d__act-row">
-                  <span class="fab3d__act-label">발생 시각</span>
-                  <span>{{ formatEventTime(toolActivity.stateChangedAt) }}</span>
-                </div>
-
-                <div v-if="toolActivity.currentState === 'DOWN' && toolActivity.reason" class="fab3d__act-row">
-                  <span class="fab3d__act-label">사유</span>
-                  <span>{{ toolActivity.reason }}</span>
-                </div>
-
-                <div v-if="toolActivity.setupName" class="fab3d__act-row">
-                  <span class="fab3d__act-label">공정 레시피</span>
-                  <span>{{ toolActivity.setupName }}</span>
-                </div>
-
-                <!-- RUN 중이면 현재 Lot, 아니면 마지막 처리 Lot -->
-                <div class="fab3d__act-row">
-                  <span class="fab3d__act-label">
-                    {{ toolActivity.currentState === 'RUN' ? '처리 중 Lot' : '마지막 처리 Lot' }}
-                  </span>
-                  <span>
-                    {{ toolActivity.currentLotId ?? toolActivity.lastDispatchLotId ?? '없음' }}
-                    <em
-                      v-if="toolActivity.currentState !== 'RUN' && toolActivity.lastDispatchAt"
-                      class="fab3d__act-lot-time"
-                    >
-                      {{ formatEventTime(toolActivity.lastDispatchAt) }} 투입
-                    </em>
-                  </span>
-                </div>
-
-                <div class="fab3d__act-metrics">
-                  <span
-                    >대기 Lot <strong>{{ toolActivity.queueLotCount ?? selectedTool.queueLotCount }}</strong></span
-                  >
-                  <span
-                    >가동률 <strong>{{ formatRatioPercent(selectedTool.utilizationRate) }}</strong></span
-                  >
-                  <span v-if="selectedTool.downRatio > 0"
-                    >비가동 <strong>{{ formatRatioPercent(selectedTool.downRatio) }}</strong></span
-                  >
-                  <span v-if="selectedTool.setupRatio > 0"
-                    >셋업 <strong>{{ formatRatioPercent(selectedTool.setupRatio) }}</strong></span
-                  >
-                </div>
-
-                <div v-if="toolActivity.recentEvents.length" class="fab3d__act-events">
-                  <div class="fab3d__act-label">최근 이벤트</div>
-                  <div
-                    v-for="ev in toolActivity.recentEvents.slice(0, 5)"
-                    :key="ev.eventTime + ev.eventType + (ev.lotId ?? '')"
-                    class="fab3d__act-event-row"
-                  >
-                    <span class="fab3d__act-event-time">{{ formatEventTime(ev.eventTime) }}</span>
-                    <span class="fab3d__act-event-type" :style="{ color: eventTypeColor(ev.eventType) }">{{
-                      eventTypeLabel(ev.eventType)
-                    }}</span>
-                    <span class="fab3d__act-event-lot">{{ ev.lotId }}</span>
-                  </div>
-                </div>
-              </template>
-
+            <!-- 공정 흐름: 이전/다음 공정으로 카메라 이동 -->
+            <section v-if="!selectedTgIsBuffer" class="fab3d__flow-ctx">
+              <div class="fab3d__ps-title">공정 흐름</div>
+              <div v-if="isLoadingRouteSteps" class="fab3d__flow-loading">조회 중…</div>
               <template v-else>
-                <dl class="fab3d__tool-kpis">
-                  <div>
-                    <dt>가동률</dt>
-                    <dd>{{ formatRatioPercent(selectedTool.utilizationRate) }}</dd>
-                  </div>
-                  <div v-if="selectedTool.queueLotCount > 0">
-                    <dt>대기 Lot</dt>
-                    <dd>{{ selectedTool.queueLotCount }}</dd>
-                  </div>
-                  <div v-if="selectedTool.setupRatio > 0">
-                    <dt>셋업</dt>
-                    <dd>{{ formatRatioPercent(selectedTool.setupRatio) }}</dd>
-                  </div>
-                  <div v-if="selectedTool.downRatio > 0">
-                    <dt>비가동</dt>
-                    <dd>{{ formatRatioPercent(selectedTool.downRatio) }}</dd>
-                  </div>
-                </dl>
+                <div v-if="prevProcessAreas.length" class="fab3d__flow-row">
+                  <span class="fab3d__flow-label fab3d__flow-label--prev">이전</span>
+                  <span class="fab3d__flow-chips">
+                    <span v-for="a in prevProcessAreas" :key="a" class="fab3d__flow-chip fab3d__flow-chip--prev">
+                      {{ formatAreaDisplay(a) }}
+                    </span>
+                  </span>
+                </div>
+                <div class="fab3d__flow-row">
+                  <span class="fab3d__flow-label fab3d__flow-label--cur">현재</span>
+                  <span class="fab3d__flow-chips">
+                    <span class="fab3d__flow-chip fab3d__flow-chip--cur">{{
+                      formatAreaDisplay(selectedTg.areaCode)
+                    }}</span>
+                  </span>
+                </div>
+                <div v-if="nextProcessAreas.length" class="fab3d__flow-row">
+                  <span class="fab3d__flow-label fab3d__flow-label--next">다음</span>
+                  <span class="fab3d__flow-chips">
+                    <span v-for="a in nextProcessAreas" :key="a" class="fab3d__flow-chip fab3d__flow-chip--next">
+                      {{ formatAreaDisplay(a) }}
+                    </span>
+                  </span>
+                </div>
+                <button v-if="hasProcessFlow" type="button" class="fab3d__flow-view-btn" @click="showProcessFlow">
+                  공정 흐름 한눈에 보기
+                </button>
+                <p v-else class="fab3d__flow-loading">연결된 공정 정보가 없습니다</p>
               </template>
-            </div>
-            <p v-else-if="!selectedTgAllTools.length" class="fab3d__empty-tool">
-              해당 TG의 설비 상세 데이터가 없습니다.
-            </p>
-            <p v-else class="fab3d__tool-hint">
-              아래 <strong>설비 보드</strong>에서 설비를 선택하면 상세가 표시됩니다.
-            </p>
-          </section>
-        </template>
-        <p v-else class="fab3d__ps-hint">Tool Group, AMR, OHT, Stocker를 클릭하면<br />상세 정보가 표시됩니다</p>
-      </div>
-
-      <!-- 현재/선택 브리핑 결과 -->
-      <div
-        v-if="agentPanelTab === 'ai' && (isAgentTaskRunning || fabAgentTask || agentTaskError)"
-        class="fab3d__ps fab3d__agent-card"
-      >
-        <button
-          class="fab3d__agent-card-head"
-          type="button"
-          :aria-expanded="!isAgentCardCollapsed"
-          aria-controls="fab3d-agent-result-body"
-          @click="isAgentCardCollapsed = !isAgentCardCollapsed"
-        >
-          <div class="fab3d__agent-head-text">
-            <div class="fab3d__ps-title">현황 브리핑 결과</div>
-            <strong>{{
-              fabAgentTask?.result?.artifacts?.[0]?.title ?? (isAgentTaskRunning ? '현황 분석 중' : '분석 결과')
-            }}</strong>
-            <div v-if="briefingBasisAt" class="fab3d__agent-time">
-              기준 시각 · {{ formatEventTime(briefingBasisAt) }}
-            </div>
-          </div>
-          <span class="fab3d__agent-toggle" aria-hidden="true">
-            <ChevronUp v-if="!isAgentCardCollapsed" :size="18" />
-            <ChevronDown v-else :size="18" />
-          </span>
-        </button>
-
-        <div v-show="!isAgentCardCollapsed" id="fab3d-agent-result-body" class="fab3d__agent-card-body">
-          <ChatStatusIndicator v-if="isAgentTaskRunning" label="현황 분석 생성 중…" />
-          <p v-else-if="agentTaskError" class="fab3d__agent-error">{{ agentTaskError }}</p>
-          <template v-else-if="fabAgentTask?.result">
-            <p class="fab3d__agent-summary">{{ fabAgentTask.result.summary }}</p>
-
-            <section v-if="fabAgentTask.result.evidence?.length" class="fab3d__agent-section">
-              <h4 class="fab3d__agent-section-title">{{ agentEvidenceLabel }}</h4>
-              <ul class="fab3d__agent-evidence">
-                <li v-for="item in fabAgentTask.result.evidence.slice(0, 6)" :key="`${item.label}-${item.value}`">
-                  <span class="fab3d__ev-label">{{ item.label }}</span>
-                  <b class="fab3d__ev-value">{{ item.value }}</b>
-                </li>
-              </ul>
             </section>
 
-            <section v-if="fabAgentTask.result.watchToolGroups?.length" class="fab3d__agent-section">
-              <h4 class="fab3d__agent-section-title">살펴볼 TG</h4>
-              <div class="fab3d__watch-list">
-                <button
-                  v-for="w in fabAgentTask.result.watchToolGroups"
-                  :key="w.tgName"
-                  type="button"
-                  class="fab3d__watch-chip"
-                  :style="{ '--watch-color': watchSeverityColor(w.severity) }"
-                  :title="`${w.tgName}${w.areaName ? ' · ' + w.areaName : ''} — ${w.reason} (클릭 시 줌인)`"
-                  @click="focusAgentToolGroup(w.tgName)"
-                >
-                  <span class="fab3d__watch-name">{{ w.tgName }}</span>
-                  <span class="fab3d__watch-reason">{{ w.reason }}</span>
-                </button>
+            <section v-if="selectedTgIsBuffer" class="fab3d__buffer-panel">
+              <div class="fab3d__ps-title">버퍼 상태 요약</div>
+              <dl class="fab3d__buffer-kpis">
+                <div>
+                  <dt>활성 슬롯</dt>
+                  <dd>{{ selectedToolStatusSummary.RUN }}</dd>
+                </div>
+                <div>
+                  <dt>대기 슬롯</dt>
+                  <dd>{{ selectedToolStatusSummary.IDLE }}</dd>
+                </div>
+                <div>
+                  <dt>총 슬롯</dt>
+                  <dd>{{ selectedTg.toolCount }}</dd>
+                </div>
+                <div>
+                  <dt>대기 Lot</dt>
+                  <dd>{{ formatFabNumber(selectedTg.waitingLots) }}</dd>
+                </div>
+              </dl>
+              <div class="fab3d__tool-dist" aria-hidden="true">
+                <span
+                  v-for="status in visibleToolStatuses"
+                  :key="status"
+                  :style="{
+                    width: `${((selectedToolStatusSummary[status] / selectedToolStatusTotal) * 100).toFixed(1)}%`,
+                    background: statusColor(status),
+                  }"
+                />
               </div>
             </section>
 
-            <section v-if="fabAgentTask.result.responseDirections?.length" class="fab3d__agent-section">
-              <h4 class="fab3d__agent-section-title">{{ agentDirectionsLabel }}</h4>
-              <ul class="fab3d__agent-directions">
-                <li v-for="direction in fabAgentTask.result.responseDirections.slice(0, 4)" :key="direction.title">
-                  <strong>{{ direction.title }}</strong>
-                  <span>{{ direction.description }}</span>
-                </li>
-              </ul>
+            <section v-else class="fab3d__tool-panel">
+              <div class="fab3d__ps-title">선택 설비</div>
+              <div v-if="selectedTool" class="fab3d__selected-tool">
+                <div class="fab3d__selected-tool-hd">
+                  <strong>{{ selectedTool.toolCode }}</strong>
+                  <span :style="{ color: statusColor(selectedTool.status) }">{{
+                    statusLabel(selectedTool.status)
+                  }}</span>
+                </div>
+
+                <div v-if="isLoadingActivity" class="fab3d__act-loading">불러오는 중…</div>
+
+                <div v-else-if="activityLoadError" class="fab3d__act-error">활동 정보를 불러오지 못했습니다</div>
+
+                <template v-else-if="toolActivity">
+                  <!-- DOWN 구분: PM vs BM -->
+                  <div
+                    v-if="toolActivity.currentState === 'DOWN'"
+                    class="fab3d__act-down-badge"
+                    :class="{ 'fab3d__act-down-badge--bm': toolActivity.rawState === 'DOWN_BM' }"
+                  >
+                    <span class="fab3d__act-down-type" :style="{ color: downStateColor(toolActivity.rawState) }">
+                      {{ downStateLabel(toolActivity.rawState) }}
+                    </span>
+                    <span
+                      class="fab3d__act-duration"
+                      :class="{ 'fab3d__act-duration--alarm': isLongDown(toolActivity.stateDurationMin) }"
+                    >
+                      {{ formatDuration(toolActivity.stateDurationMin) }} 경과
+                    </span>
+                  </div>
+                  <div v-else class="fab3d__act-duration" :style="{ color: statusColor(selectedTool.status) }">
+                    {{ formatDuration(toolActivity.stateDurationMin) }} 지속
+                  </div>
+
+                  <!-- DOWN 시작 시각 -->
+                  <div
+                    v-if="toolActivity.currentState === 'DOWN' && toolActivity.stateChangedAt"
+                    class="fab3d__act-row"
+                  >
+                    <span class="fab3d__act-label">발생 시각</span>
+                    <span>{{ formatEventTime(toolActivity.stateChangedAt) }}</span>
+                  </div>
+
+                  <div v-if="toolActivity.currentState === 'DOWN' && toolActivity.reason" class="fab3d__act-row">
+                    <span class="fab3d__act-label">사유</span>
+                    <span>{{ toolActivity.reason }}</span>
+                  </div>
+
+                  <div v-if="toolActivity.setupName" class="fab3d__act-row">
+                    <span class="fab3d__act-label">공정 레시피</span>
+                    <span>{{ toolActivity.setupName }}</span>
+                  </div>
+
+                  <!-- RUN 중이면 현재 Lot, 아니면 마지막 처리 Lot -->
+                  <div class="fab3d__act-row">
+                    <span class="fab3d__act-label">
+                      {{ toolActivity.currentState === 'RUN' ? '처리 중 Lot' : '마지막 처리 Lot' }}
+                    </span>
+                    <span>
+                      {{ toolActivity.currentLotId ?? toolActivity.lastDispatchLotId ?? '없음' }}
+                      <em
+                        v-if="toolActivity.currentState !== 'RUN' && toolActivity.lastDispatchAt"
+                        class="fab3d__act-lot-time"
+                      >
+                        {{ formatEventTime(toolActivity.lastDispatchAt) }} 투입
+                      </em>
+                    </span>
+                  </div>
+
+                  <div class="fab3d__act-metrics">
+                    <span
+                      >대기 Lot <strong>{{ toolActivity.queueLotCount ?? selectedTool.queueLotCount }}</strong></span
+                    >
+                    <span
+                      >가동률 <strong>{{ formatRatioPercent(selectedTool.utilizationRate) }}</strong></span
+                    >
+                    <span v-if="selectedTool.downRatio > 0"
+                      >비가동 <strong>{{ formatRatioPercent(selectedTool.downRatio) }}</strong></span
+                    >
+                    <span v-if="selectedTool.setupRatio > 0"
+                      >셋업 <strong>{{ formatRatioPercent(selectedTool.setupRatio) }}</strong></span
+                    >
+                  </div>
+
+                  <div v-if="toolActivity.recentEvents.length" class="fab3d__act-events">
+                    <div class="fab3d__act-label">최근 이벤트</div>
+                    <div
+                      v-for="ev in toolActivity.recentEvents.slice(0, 5)"
+                      :key="ev.eventTime + ev.eventType + (ev.lotId ?? '')"
+                      class="fab3d__act-event-row"
+                    >
+                      <span class="fab3d__act-event-time">{{ formatEventTime(ev.eventTime) }}</span>
+                      <span class="fab3d__act-event-type" :style="{ color: eventTypeColor(ev.eventType) }">{{
+                        eventTypeLabel(ev.eventType)
+                      }}</span>
+                      <span class="fab3d__act-event-lot">{{ ev.lotId }}</span>
+                    </div>
+                  </div>
+                </template>
+
+                <template v-else>
+                  <dl class="fab3d__tool-kpis">
+                    <div>
+                      <dt>가동률</dt>
+                      <dd>{{ formatRatioPercent(selectedTool.utilizationRate) }}</dd>
+                    </div>
+                    <div v-if="selectedTool.queueLotCount > 0">
+                      <dt>대기 Lot</dt>
+                      <dd>{{ selectedTool.queueLotCount }}</dd>
+                    </div>
+                    <div v-if="selectedTool.setupRatio > 0">
+                      <dt>셋업</dt>
+                      <dd>{{ formatRatioPercent(selectedTool.setupRatio) }}</dd>
+                    </div>
+                    <div v-if="selectedTool.downRatio > 0">
+                      <dt>비가동</dt>
+                      <dd>{{ formatRatioPercent(selectedTool.downRatio) }}</dd>
+                    </div>
+                  </dl>
+                </template>
+              </div>
+              <p v-else-if="!selectedTgAllTools.length" class="fab3d__empty-tool">
+                해당 TG의 설비 상세 데이터가 없습니다.
+              </p>
+              <p v-else class="fab3d__tool-hint">
+                아래 <strong>설비 보드</strong>에서 설비를 선택하면 상세가 표시됩니다.
+              </p>
             </section>
-
-            <button
-              v-if="fabAgentTask.status === 'SUCCEEDED'"
-              class="fab3d__agent-ask"
-              type="button"
-              @click="openWithAgentTask(fabAgentTask)"
-            >
-              <MessageCircle :size="14" aria-hidden="true" />
-              대화에서 더 물어보기
-            </button>
           </template>
-          <p v-else class="fab3d__agent-summary">AI Agent 작업을 준비 중입니다.</p>
+          <p v-else class="fab3d__ps-hint">Tool Group, AMR, OHT, Stocker를 클릭하면<br />상세 정보가 표시됩니다</p>
         </div>
-      </div>
 
-      <!-- 지난 현황 브리핑 이력 -->
-      <div v-if="agentPanelTab === 'ai'" class="fab3d__ps">
-        <AgentRunHistoryList
-          title="지난 현황 브리핑"
-          :items="filteredHistory"
-          :loading="briefingHistoryLoading"
-          deletable
-          :load-full="loadBriefingFull"
-          @delete="handleDeleteBriefing"
-          @focus-tg="focusAgentToolGroup"
-        />
-      </div>
-
-      <!-- FAB 현황 -->
-      <div v-if="agentPanelTab === 'site' && !selectedTg && !selectedAsset" class="fab3d__ps">
-        <div class="fab3d__ps-title">FAB 현황 · TG {{ summary.total }}개</div>
-        <div v-for="item in summaryItems" :key="item.key" class="fab3d__sum-row">
-          <span><i class="fab3d__risk-dot" :style="{ background: item.color }" />{{ item.label }}</span>
-          <strong :style="{ color: item.color }">{{ item.count }}개</strong>
-        </div>
-      </div>
-
-      <!-- Area 별 현황 -->
-      <div v-if="agentPanelTab === 'site' && !selectedTg && !selectedAsset" class="fab3d__ps fab3d__ps--grow">
-        <div class="fab3d__ps-title">구역별 현황</div>
-        <button
-          v-for="area in areas"
-          :key="area.areaCode"
-          class="fab3d__area-row"
-          type="button"
-          @click="handleZoomToArea(area.areaCode)"
+        <!-- 현재 브리핑 결과 — 'Fab 현황' 탭에 표시(요청 직후 바로 노출) -->
+        <div
+          v-if="agentPanelTab === 'site' && (isAgentTaskRunning || fabAgentTask || agentTaskError)"
+          class="fab3d__ps fab3d__agent-card"
         >
-          <span class="fab3d__area-hd">
-            <span class="fab3d__area-name">{{ formatAreaDisplay(area.areaCode) }}</span>
-            <span class="fab3d__area-count">{{ area.toolGroups.length }} TG</span>
-          </span>
-          <span class="fab3d__area-dist">
-            <span
-              v-for="item in areaGradeDistribution(area)"
-              :key="item.key"
-              class="fab3d__area-chip"
-              :style="{ color: item.color }"
-            >
-              {{ item.shortLabel }}{{ item.count }}
+          <button
+            class="fab3d__agent-card-head"
+            type="button"
+            :aria-expanded="!isAgentCardCollapsed"
+            aria-controls="fab3d-agent-result-body"
+            @click="isAgentCardCollapsed = !isAgentCardCollapsed"
+          >
+            <div class="fab3d__agent-head-text">
+              <div class="fab3d__ps-title">현황 브리핑 결과</div>
+              <strong>{{
+                fabAgentTask?.result?.artifacts?.[0]?.title ?? (isAgentTaskRunning ? '현황 분석 중' : '분석 결과')
+              }}</strong>
+              <div v-if="briefingBasisAt" class="fab3d__agent-time">
+                기준 시각 · {{ formatEventTime(briefingBasisAt) }}
+              </div>
+            </div>
+            <span class="fab3d__agent-toggle" aria-hidden="true">
+              <ChevronUp v-if="!isAgentCardCollapsed" :size="18" />
+              <ChevronDown v-else :size="18" />
             </span>
-          </span>
-          <span class="fab3d__area-bar-track" aria-hidden="true">
-            <span
-              v-for="item in areaGradeDistribution(area)"
-              :key="item.key"
-              class="fab3d__area-bar-fill"
-              :style="{
-                width: `${((item.count / Math.max(area.toolGroups.length, 1)) * 100).toFixed(1)}%`,
-                background: item.color,
-              }"
-            />
-          </span>
-        </button>
-      </div>
-    </aside>
+          </button>
+
+          <div v-show="!isAgentCardCollapsed" id="fab3d-agent-result-body" class="fab3d__agent-card-body">
+            <ChatStatusIndicator v-if="isAgentTaskRunning" label="현황 분석 생성 중…" />
+            <p v-else-if="agentTaskError" class="fab3d__agent-error">{{ agentTaskError }}</p>
+            <template v-else-if="fabAgentTask?.result">
+              <p class="fab3d__agent-summary">{{ fabAgentTask.result.summary }}</p>
+
+              <section v-if="fabAgentTask.result.evidence?.length" class="fab3d__agent-section">
+                <h4 class="fab3d__agent-section-title">{{ agentEvidenceLabel }}</h4>
+                <ul class="fab3d__agent-evidence">
+                  <li v-for="item in fabAgentTask.result.evidence.slice(0, 6)" :key="`${item.label}-${item.value}`">
+                    <span class="fab3d__ev-label">{{ item.label }}</span>
+                    <b class="fab3d__ev-value">{{ item.value }}</b>
+                  </li>
+                </ul>
+              </section>
+
+              <section v-if="fabAgentTask.result.watchToolGroups?.length" class="fab3d__agent-section">
+                <h4 class="fab3d__agent-section-title">살펴볼 TG</h4>
+                <div class="fab3d__watch-list">
+                  <button
+                    v-for="w in fabAgentTask.result.watchToolGroups"
+                    :key="w.tgName"
+                    type="button"
+                    class="fab3d__watch-chip"
+                    :style="{ '--watch-color': watchSeverityColor(w.severity) }"
+                    :title="`${w.tgName}${w.areaName ? ' · ' + w.areaName : ''} — ${w.reason} (클릭 시 줌인)`"
+                    @click="focusAgentToolGroup(w.tgName)"
+                  >
+                    <span class="fab3d__watch-name">{{ w.tgName }}</span>
+                    <span class="fab3d__watch-reason">{{ w.reason }}</span>
+                  </button>
+                </div>
+              </section>
+
+              <section v-if="fabAgentTask.result.responseDirections?.length" class="fab3d__agent-section">
+                <h4 class="fab3d__agent-section-title">{{ agentDirectionsLabel }}</h4>
+                <ul class="fab3d__agent-directions">
+                  <li v-for="direction in fabAgentTask.result.responseDirections.slice(0, 4)" :key="direction.title">
+                    <strong>{{ direction.title }}</strong>
+                    <span>{{ direction.description }}</span>
+                  </li>
+                </ul>
+              </section>
+
+              <button
+                v-if="fabAgentTask.status === 'SUCCEEDED'"
+                class="fab3d__agent-ask"
+                type="button"
+                @click="openWithAgentTask(fabAgentTask)"
+              >
+                <MessageCircle :size="14" aria-hidden="true" />
+                대화에서 더 물어보기
+              </button>
+            </template>
+            <p v-else class="fab3d__agent-summary">AI Agent 작업을 준비 중입니다.</p>
+          </div>
+        </div>
+
+        <!-- 지난 현황 브리핑 이력 -->
+        <div v-if="agentPanelTab === 'ai'" class="fab3d__ps">
+          <AgentRunHistoryList
+            title="지난 현황 브리핑"
+            :items="filteredHistory"
+            :loading="briefingHistoryLoading"
+            deletable
+            :load-full="loadBriefingFull"
+            @delete="handleDeleteBriefing"
+            @focus-tg="focusAgentToolGroup"
+          />
+        </div>
+
+        <!-- FAB 현황 -->
+        <div v-if="agentPanelTab === 'site' && !selectedTg && !selectedAsset" class="fab3d__ps">
+          <div class="fab3d__ps-title">FAB 현황 · TG {{ summary.total }}개</div>
+          <div v-for="item in summaryItems" :key="item.key" class="fab3d__sum-row">
+            <span><i class="fab3d__risk-dot" :style="{ background: item.color }" />{{ item.label }}</span>
+            <strong :style="{ color: item.color }">{{ item.count }}개</strong>
+          </div>
+        </div>
+
+        <!-- Area 별 현황 -->
+        <div v-if="agentPanelTab === 'site' && !selectedTg && !selectedAsset" class="fab3d__ps fab3d__ps--grow">
+          <div class="fab3d__ps-title">구역별 현황</div>
+          <button
+            v-for="area in areas"
+            :key="area.areaCode"
+            class="fab3d__area-row"
+            type="button"
+            @click="handleZoomToArea(area.areaCode)"
+          >
+            <span class="fab3d__area-hd">
+              <span class="fab3d__area-name">{{ formatAreaDisplay(area.areaCode) }}</span>
+              <span class="fab3d__area-count">{{ area.toolGroups.length }} TG</span>
+            </span>
+            <span class="fab3d__area-dist">
+              <span
+                v-for="item in areaGradeDistribution(area)"
+                :key="item.key"
+                class="fab3d__area-chip"
+                :style="{ color: item.color }"
+              >
+                {{ item.shortLabel }}{{ item.count }}
+              </span>
+            </span>
+            <span class="fab3d__area-bar-track" aria-hidden="true">
+              <span
+                v-for="item in areaGradeDistribution(area)"
+                :key="item.key"
+                class="fab3d__area-bar-fill"
+                :style="{
+                  width: `${((item.count / Math.max(area.toolGroups.length, 1)) * 100).toFixed(1)}%`,
+                  background: item.color,
+                }"
+              />
+            </span>
+          </button>
+        </div>
+      </aside>
+    </div>
   </div>
 </template>
 
@@ -1332,9 +1364,41 @@ watch(requestedCaseId, () => {
   --f-bar-track: rgba(0, 60, 120, 0.4);
 }
 
+.fab3d-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  gap: var(--space-3);
+}
+
+.fab3d-page__header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  border-bottom: var(--border-width-default) solid var(--color-border-default);
+  padding-bottom: var(--space-2);
+}
+
+.fab3d-page__title {
+  margin: 0;
+  color: var(--color-fg-strong);
+  font-size: var(--text-page-title-size);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--text-page-title-line-height);
+}
+
+.fab3d-page__subtitle {
+  margin: var(--space-1) 0 0;
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-base);
+}
+
 .fab3d {
   display: flex;
-  height: 100%; /* 컨테이너(.app-layout__content) 높이에 정확히 맞춤 → 바깥 스크롤(두 번 움직임) 제거 */
+  flex: 1;
   min-height: 0;
   overflow: hidden;
   background: var(--f-bg);

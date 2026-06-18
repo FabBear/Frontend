@@ -8,20 +8,16 @@ import { useTheme } from '@/composables/useTheme';
 import type { AuthUser } from '@/types/auth';
 
 import BaseButton from '@/components/base/BaseButton.vue';
-import DataAsOfBadge from '@/components/layout/DataAsOfBadge.vue';
 
 interface Props {
-  title: string;
   notificationCount: number;
   user: AuthUser | null;
   notificationOpen?: boolean;
   chatOpen?: boolean;
-  dataAsOf?: string | null;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   chatOpen: false,
-  dataAsOf: null,
   notificationOpen: false,
 });
 
@@ -51,13 +47,7 @@ const userSecondaryLabel = computed(() => {
 
 <template>
   <header class="the-header">
-    <div>
-      <p class="the-header__eyebrow">Fab 운영</p>
-      <h1 class="the-header__title">{{ title }}</h1>
-    </div>
-
     <div class="the-header__actions">
-      <DataAsOfBadge :as-of="dataAsOf ?? null" />
       <BaseButton
         class="the-header__chat-button"
         :class="{ 'the-header__chat-button--active': chatOpen }"
@@ -122,30 +112,12 @@ const userSecondaryLabel = computed(() => {
   padding: 0 var(--spacing-page);
 }
 
-.the-header > div:first-child {
-  min-width: 0;
-}
-
-.the-header__eyebrow {
-  color: var(--color-fg-muted);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-}
-
-.the-header__title {
-  overflow: hidden;
-  color: var(--color-fg-strong);
-  font-size: var(--font-size-lg);
-  line-height: var(--line-height-tight);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .the-header__actions {
   display: flex;
   align-items: center;
   min-width: 0;
   gap: var(--space-3);
+  margin-left: auto;
 }
 
 .the-header__actions :deep(.base-button--sm) {

@@ -184,6 +184,28 @@ function riskLabel(risk: string | undefined) {
   return 'Low';
 }
 
+// 본체·신호탑 색 = 가동률 등급(우측 패널 summary와 동일 임계값 ≥90/85/70 → sev 3/2/1/0).
+function utilSev(u: number | null | undefined): number {
+  const v = u ?? 0;
+  if (v >= 0.9) return 3;
+  if (v >= 0.85) return 2;
+  if (v >= 0.7) return 1;
+  return 0;
+}
+// 상단 구체 색 = 병목 위험 점수(composite) 등급. composite는 검출+cascade 케이스에만 있으므로(=1시간 고정 스냅샷)
+// 값이 있을 때만 구체를 표시한다. 임계값은 앱 전역 composite 기준(CRITICAL≥0.75/HIGH≥0.55/MEDIUM≥0.35).
+function compositeSev(score: number | null | undefined): number | null {
+  if (score == null) return null;
+  if (score >= 0.75) return 3;
+  if (score >= 0.55) return 2;
+  if (score >= 0.35) return 1;
+  return 0;
+}
+// 앱 전역 위험 팔레트와 동일 (--color-risk-*): 범례 점·등급 색과 일치시킨다.
+function compositeSphereColor(sev: number): number {
+  return sev >= 3 ? 0xc00000 : sev >= 2 ? 0xed7d31 : sev >= 1 ? 0xf2bd1f : 0x70ad47;
+}
+
 function cs(m: THREE.Mesh) {
   m.castShadow = true;
   m.receiveShadow = true;
@@ -620,8 +642,8 @@ function buildFab() {
     const bayW = (maxCount - 1) * bay.colSp + fpW * bay.sc + 3.0;
     const bayD = bay.aisleW * 2 + fpD * bay.sc + 3.0;
 
-    const maxU = Math.max(...tgs.map((t) => t.utilizationRate));
-    const edgeCol = maxU >= 0.9 ? 0x993333 : maxU >= 0.85 ? 0x886622 : 0x2248aa;
+    const maxSev = Math.max(...tgs.map((t) => utilSev(t.utilizationRate)));
+    const edgeCol = maxSev >= 3 ? 0x993333 : maxSev >= 2 ? 0x886622 : 0x2248aa;
 
     const plat = cs(
       new THREE.Mesh(
@@ -641,7 +663,7 @@ function buildFab() {
     scene.add(edge);
 
     if (bay.label) {
-      const lbl = makeBayLabel(bay.label, maxU);
+      const lbl = makeBayLabel(bay.label, maxSev);
       lbl.position.set(bay.cx, 1.7, bay.aisleZ - bayD / 2 - 1.2);
       scene.add(lbl);
     }
@@ -658,9 +680,9 @@ function buildFab() {
         const type = equipType(tg.tgName);
         const eqH = (HT[type] ?? 2.0) * bay.sc;
 
-        // 본체·신호탑 모두 ML 병목 위험 점수 기준 (CRITICAL/HIGH/MEDIUM/LOW → 4단계)
-        const sev = tg.risk === 'CRITICAL' ? 3 : tg.risk === 'HIGH' ? 2 : tg.risk === 'MEDIUM' ? 1 : 0;
-        const eq = mkEquipment(type, tg.utilizationRate, sev);
+        // 본체·신호탑 = 가동률 등급 (≥90/85/70 → 4단계)
+        const sev = utilSev(tg.utilizationRate);
+        const eq = mkEquipment(type, sev);
         eq.scale.setScalar(bay.sc);
         eq.position.set(tx, 0.28, rowZ);
         eq.rotation.y = rotY;
@@ -674,19 +696,23 @@ function buildFab() {
         if (Array.isArray(eq.userData.towerSegs)) tgTower.set(tg.tgId, eq.userData.towerSegs);
 
         if (tg.toolCount > 1 && !tg.tgName.startsWith('Delay_')) {
-          const riskU = sev >= 3 ? 0.95 : sev >= 2 ? 0.87 : sev >= 1 ? 0.72 : 0.5;
-          const badge = makeCountBadge(tg.toolCount, riskU);
+          const badge = makeCountBadge(tg.toolCount, sev);
           badge.position.set(tx, 0.28 + eqH + 0.72, rowZ);
           scene.add(badge);
         }
 
-        // 알람 구체: CRITICAL 병목 탐지 TG에만 표시 → 실시간 갱신 시 visible만 토글.
+        // 상단 구체 = 병목 위험 점수 CRITICAL TG에만 표시 (등급 CRITICAL → 빨강).
+        const aSev = compositeSev(tg.compositeScore);
         const alert = new THREE.Mesh(
           new THREE.SphereGeometry(0.85, 16, 12),
-          new THREE.MeshBasicMaterial({ color: 0xc00000, transparent: true, opacity: 0.82 })
+          new THREE.MeshBasicMaterial({
+            color: compositeSphereColor(aSev ?? 0),
+            transparent: true,
+            opacity: 0.82,
+          })
         );
         alert.position.set(tx, 0.28 + eqH + 1.9, rowZ);
-        alert.visible = tg.risk === 'CRITICAL';
+        alert.visible = aSev === 3;
         scene.add(alert);
         alertSpheres.push(alert);
         tgAlert.set(tg.tgId, alert);
@@ -751,7 +777,8 @@ function buildDelayBufferBay(bay: (typeof BAYS)[number], tg: Fab3dToolGroup) {
     scene.add(slot);
   }
 
-  const lbl = makeBayLabel('Delay Buffer', tg.utilizationRate);
+  const delaySev = utilSev(tg.utilizationRate);
+  const lbl = makeBayLabel('Delay Buffer', delaySev);
   lbl.position.set(bay.cx, 1.7, bay.aisleZ - padD / 2 - 1.2);
   scene.add(lbl);
 
@@ -1357,11 +1384,14 @@ function applyStatus() {
     for (const tg of area.toolGroups) {
       const segs = tgTower.get(tg.tgId);
       if (segs) {
-        const sev = tg.risk === 'CRITICAL' ? 3 : tg.risk === 'HIGH' ? 2 : tg.risk === 'MEDIUM' ? 1 : 0;
-        setTowerSeverity(segs, sev);
+        setTowerSeverity(segs, utilSev(tg.utilizationRate));
       }
       const alert = tgAlert.get(tg.tgId);
-      if (alert) alert.visible = tg.risk === 'CRITICAL';
+      if (alert) {
+        const aSev = compositeSev(tg.compositeScore);
+        alert.visible = aSev === 3;
+        if (aSev === 3) (alert.material as THREE.MeshBasicMaterial).color.set(compositeSphereColor(aSev));
+      }
     }
   }
 }
@@ -1385,6 +1415,10 @@ defineExpose({
       <strong class="fab3d-tooltip__name">{{ hoveredTg.tgName }}</strong>
       <div class="fab3d-tooltip__risk" :style="{ color: riskHex(hoveredTg.risk) }">
         ● {{ riskLabel(hoveredTg.risk) }}
+      </div>
+      <div class="fab3d-tooltip__row">
+        병목 위험 점수
+        {{ hoveredTg.compositeScore != null ? (hoveredTg.compositeScore * 100).toFixed(0) : '—' }}
       </div>
       <div class="fab3d-tooltip__row">가동률 {{ formatRatioPercent(hoveredTg.utilizationRate) }}</div>
       <div class="fab3d-tooltip__row">대기 Lot {{ hoveredTg.waitingLots }}개</div>

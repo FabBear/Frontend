@@ -1,8 +1,11 @@
 import api from '@/services/api';
 
-import { DEMO_NOTIFICATION_LIST } from '@/constants/mockData/demoAlert';
-import { shouldUseDemoMockData } from '@/constants/mockMode';
+import { DEMO_NOTIFICATION_LIST, getDemoNotifications } from '@/constants/mockData/demoAlert';
+import { shouldUsePresentationScenario } from '@/constants/scenarioMode';
 
+import { formatNumber, formatRatioPercent, formatRiskScore } from '@/utils/format';
+
+import type { BncAlertMetrics } from '@/types/bnc';
 import type {
   NotificationItem,
   NotificationItemResponse,
@@ -16,7 +19,7 @@ import type {
 const NOTIFICATION_STREAM_PATH = '/v1/notifications/stream';
 
 export async function fetchNotifications(): Promise<NotificationListData> {
-  if (shouldUseDemoMockData()) return DEMO_NOTIFICATION_LIST;
+  if (shouldUsePresentationScenario()) return getDemoNotifications();
 
   try {
     const { data } = await api.get<NotificationListResponse>('/v1/notifications', {
@@ -31,19 +34,20 @@ export async function fetchNotifications(): Promise<NotificationListData> {
       totalUnreadCount: data.totalUnreadCount,
       items: data.items.map(mapNotificationItem),
     };
-  } catch {
-    return DEMO_NOTIFICATION_LIST;
+  } catch (e) {
+    if (shouldUsePresentationScenario()) return DEMO_NOTIFICATION_LIST;
+    throw e;
   }
 }
 
 export async function markNotificationsRead(notificationIds: string[]): Promise<void> {
   if (notificationIds.length === 0) return;
-  if (shouldUseDemoMockData()) return;
+  if (shouldUsePresentationScenario()) return;
   await api.put('/v1/notifications/read', { notificationIds, readAll: false });
 }
 
 export async function markAllNotificationsRead(): Promise<void> {
-  if (shouldUseDemoMockData()) return;
+  if (shouldUsePresentationScenario()) return;
   await api.put('/v1/notifications/read', { notificationIds: [], readAll: true });
 }
 
@@ -76,13 +80,36 @@ function mapNotificationItem(item: NotificationItemResponse): NotificationItem {
     refCaseId: item.refCaseId,
     createdAt: item.createdAt,
     unread: !item.isRead,
+    detailItems: buildNotificationDetailItems(item.alertMetrics),
   };
 }
 
+// 알림 패널에 케이스 지표를 노출한다. BncAlertCard와 동일하게 위험 점수·영향·위험 Lot을 보여주되,
+// 값이 없는 항목은 건너뛰고, 하나도 없으면 표시하지 않는다.
+function buildNotificationDetailItems(
+  metrics: BncAlertMetrics | null | undefined
+): Array<{ label: string; value: string }> | undefined {
+  if (!metrics) return undefined;
+  const items: Array<{ label: string; value: string }> = [];
+  if (metrics.compositeScore !== null) {
+    items.push({ label: '위험 점수', value: formatRiskScore(metrics.compositeScore) });
+  }
+  if (metrics.impactScore !== null) {
+    items.push({ label: '영향', value: formatRatioPercent(metrics.impactScore) });
+  } else if (metrics.affectedCount !== null) {
+    items.push({ label: '후속 TG', value: `${formatNumber(metrics.affectedCount)}개` });
+  }
+  if (metrics.atRiskLots !== null) {
+    items.push({ label: '위험 Lot', value: formatNumber(metrics.atRiskLots) });
+  }
+  return items.length ? items : undefined;
+}
+
 function getNotificationLevel(type: NotificationType, riskGrade: 'HIGH' | 'CRITICAL' | null): NotificationLevel {
+  // 타입을 우선 판정한다. HITL_PENDING은 케이스 risk_grade(CRITICAL 등)를 그대로 싣고 오므로
+  // riskGrade를 먼저 보면 '승인 대기'가 '위험'으로 오표시된다.
+  if (type === 'HITL_PENDING' || type === 'MODEL_RETRAIN') return 'warning';
   if (type === 'BOTTLENECK_CRITICAL' || riskGrade === 'CRITICAL') return 'critical';
-  if (type === 'BOTTLENECK_HIGH' || type === 'QTIME_EXCEEDED' || riskGrade === 'HIGH') return 'warning';
-  if (type === 'DIFFUSION_COMPLETE') return 'success';
   return 'info';
 }
 
@@ -90,12 +117,6 @@ function getNotificationTitle(type: NotificationType): string {
   switch (type) {
     case 'BOTTLENECK_CRITICAL':
       return '긴급 병목 발생';
-    case 'BOTTLENECK_HIGH':
-      return '병목 위험 감지';
-    case 'DIFFUSION_COMPLETE':
-      return '확산 분석 완료';
-    case 'QTIME_EXCEEDED':
-      return 'Q-time 초과';
     case 'HITL_PENDING':
       return '대응안 승인 대기';
     case 'MODEL_RETRAIN':

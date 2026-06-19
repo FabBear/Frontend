@@ -10,6 +10,7 @@ import VChart from 'vue-echarts';
 import type { FinalBottleneckReport } from '@/types/report';
 
 import { buildTrendPath, parseModelFeatureRows, parseTrendRows } from '@/utils/finalReportParsers';
+import { formatKoMonthDayTime } from '@/utils/format';
 import { buildReportPdfFilename, downloadElementAsPdf } from '@/utils/reportPdf';
 
 use([CanvasRenderer, LineChart, GridComponent, LegendComponent, TooltipComponent]);
@@ -38,6 +39,11 @@ const CAUSE_LABELS: Record<string, string> = {
   q_time_min_delta_120: '대기시간 변화',
   wait_ratio: '대기 비율',
 };
+
+function formatApprovalDateTime(value?: string | null): string {
+  if (!value) return '-';
+  return Number.isNaN(new Date(value).getTime()) ? value : formatKoMonthDayTime(value);
+}
 
 const isCompact = computed(() => props.variant === 'compact');
 
@@ -747,7 +753,7 @@ defineExpose({ triggerPdfDownload: handlePdfDownload, downloadMarkdown, download
             </div>
             <div>
               <dt>승인일시</dt>
-              <dd>{{ report.approval_info.approved_at }}</dd>
+              <dd>{{ formatApprovalDateTime(report.approval_info.approved_at) }}</dd>
             </div>
             <div>
               <dt>의견</dt>
@@ -1104,7 +1110,7 @@ defineExpose({ triggerPdfDownload: handlePdfDownload, downloadMarkdown, download
               <th>승인자</th>
               <td>{{ report.approval_info.approved_by }} ({{ report.approval_info.approved_role }})</td>
               <th>승인일시</th>
-              <td>{{ report.approval_info.approved_at }}</td>
+              <td>{{ formatApprovalDateTime(report.approval_info.approved_at) }}</td>
             </tr>
             <tr>
               <th>의견</th>

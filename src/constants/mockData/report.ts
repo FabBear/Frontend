@@ -106,7 +106,7 @@ function displayDay(date: string): string {
 }
 
 function selectedLabel(report: ReportV1): string {
-  return report.actions.approved_label ?? report.approval.selected_label ?? 'standard';
+  return report.actions.approved_label ?? report.approval?.selected_label ?? 'standard';
 }
 
 function planTitleFromReport(report: ReportV1): string {

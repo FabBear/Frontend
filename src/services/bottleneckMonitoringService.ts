@@ -6,6 +6,7 @@ import {
 } from '@/services/mappers/bottleneckMonitoringMapper';
 import { mapRiskAlerts } from '@/services/mappers/dashboardMapper';
 
+import { shouldUsePresentationScenario } from '@/constants/scenarioMode';
 import { DEMO_CASE_ID, DEMO_DETECTED_AT, getDemoBottleneckAlertsPage } from '@/constants/mockData/demoAlert';
 import { MOCK_MES_MONITORING_DATA } from '@/constants/mockData/mes';
 
@@ -28,6 +29,11 @@ import type { MesToolGroupMetric } from '@/types/mes';
 
 const DEFAULT_SORT = 'riskScore,desc';
 const DEFAULT_PAGE = 0;
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function isRealUuid(id: string | null | undefined): id is string {
+  return !!id && UUID_RE.test(id);
+}
 const DEFAULT_PAGE_SIZE = 200; // 전체 TG를 한 번에 받아 클라이언트 필터로 처리
 
 const DEFAULT_BOTTLENECK_RISK_COUNTS: Record<BottleneckRiskGrade, number> = {
@@ -125,8 +131,9 @@ export async function fetchBottleneckAlertsPage({
       items: mapRiskAlerts(data),
       pageInfo: data.pageInfo,
     };
-  } catch {
-    return getDemoBottleneckAlertsPage({ size, detectedFrom, detectedTo });
+  } catch (e) {
+    if (shouldUsePresentationScenario()) return getDemoBottleneckAlertsPage({ size, detectedFrom, detectedTo });
+    throw e;
   }
 }
 
@@ -136,29 +143,31 @@ export async function fetchBottleneckSnapshot(caseId?: string | null): Promise<B
       ? await api.get<BottleneckSnapshotResponse>(`/v1/snapshots/by-case/${caseId}`)
       : await api.get<BottleneckSnapshotResponse>('/v1/snapshots/latest');
     return mapBottleneckSnapshot(data);
-  } catch {
-    return {
+  } catch (e) {
+    if (shouldUsePresentationScenario()) return {
       snapshotId: 'demo-snapshot-de-fe-1-3780',
       caseId: caseId ?? DEMO_CASE_ID,
       capturedAt: DEMO_DETECTED_AT,
       simulationTick: 3780,
       fabId: 'fab-demo-001',
     };
+    throw e;
   }
 }
 
 export async function fetchBottleneckProcessMap(snapshotId?: string | null): Promise<BottleneckProcessMapData> {
   try {
     const { data } = await api.get<BottleneckProcessMapResponse>('/v1/monitoring/bottleneck/process-map', {
-      params: snapshotId ? { snapshotId } : undefined,
+      params: isRealUuid(snapshotId) ? { snapshotId } : undefined,
     });
     return mapBottleneckProcessMap(data);
-  } catch {
-    return {
+  } catch (e) {
+    if (shouldUsePresentationScenario()) return {
       snapshotId: snapshotId ?? 'demo-snapshot-de-fe-1-3780',
       capturedAt: DEMO_DETECTED_AT,
       areas: buildMockProcessMapAreas(),
     };
+    throw e;
   }
 }
 
@@ -172,12 +181,13 @@ async function fetchRankingsResponse(
         page: DEFAULT_PAGE,
         size: DEFAULT_PAGE_SIZE,
         sort: DEFAULT_SORT,
-        ...(snapshotId ? { snapshotId } : {}),
+        ...(isRealUuid(snapshotId) ? { snapshotId } : {}),
         ...(areaId ? { areaId } : {}),
       },
     });
     return data;
-  } catch {
+  } catch (e) {
+    if (!shouldUsePresentationScenario()) throw e;
     const items = MOCK_MES_MONITORING_DATA.toolGroups
       .filter((toolGroup) => !areaId || toolGroup.areaId === areaId || toolGroup.areaCode === areaId)
       .map(mapMockMesToolGroupToRanking)
@@ -207,10 +217,11 @@ export async function fetchBottleneckToolGroupDetail(
 ): Promise<BottleneckToolGroupDetail> {
   try {
     const { data } = await api.get<BottleneckToolGroupDetailResponse>(`/v1/monitoring/bottleneck/tool-groups/${tgId}`, {
-      params: snapshotId ? { snapshotId } : undefined,
+      params: isRealUuid(snapshotId) ? { snapshotId } : undefined,
     });
     return mapBottleneckToolGroupDetail(data);
-  } catch {
+  } catch (e) {
+    if (!shouldUsePresentationScenario()) throw e;
     const toolGroup = MOCK_MES_MONITORING_DATA.toolGroups.find((item) => item.tgId === tgId);
     if (!toolGroup) throw new Error('Bottleneck tool group not found');
     const overlay = MOCK_DETECTED_TG_OVERLAY[toolGroup.tgCode];

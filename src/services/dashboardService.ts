@@ -1,6 +1,16 @@
 import api from '@/services/api';
-import { mapKpi, mapProcessMap, mapRiskAlerts, mapTrends } from '@/services/mappers/dashboardMapper';
+import {
+  fetchBottleneckAlertsPage,
+  fetchBottleneckProcessMap,
+  fetchBottleneckRankings,
+} from '@/services/bottleneckMonitoringService';
+import { mapKpi, mapTrends } from '@/services/mappers/dashboardMapper';
+import {
+  mapBottleneckRankings,
+  mapBottleneckToolGroupsToDashboardAreas,
+} from '@/services/mappers/bottleneckMonitoringMapper';
 import { fetchReleasePlanSummary } from '@/services/productionPlanService';
+import { shouldUsePresentationScenario } from '@/constants/scenarioMode';
 
 import {
   DASHBOARD_ALERTS_PAGE_SIZE,
@@ -27,8 +37,6 @@ import type {
 import type {
   DashboardKpiResponse,
   DashboardPageInfo,
-  DashboardProcessMapResponse,
-  DashboardRiskAlertsResponse,
   DashboardTrendKey,
   DashboardTrendsResponse,
 } from '@/types/dashboardApi';
@@ -109,8 +117,9 @@ export async function fetchDashboardKpi(): Promise<FabKpiSnapshot> {
   try {
     const { data } = await api.get<DashboardKpiResponse>('/v1/dashboard/kpi');
     return mapKpi(data);
-  } catch {
-    return MOCK_FAB_KPI;
+  } catch (e) {
+    if (shouldUsePresentationScenario()) return MOCK_FAB_KPI;
+    throw e;
   }
 }
 
@@ -121,21 +130,10 @@ export async function fetchDashboardRiskAlertsPage({
   detectedTo,
 }: DashboardRiskAlertParams = {}): Promise<DashboardRiskAlertsPage> {
   try {
-    const { data } = await api.get<DashboardRiskAlertsResponse>('/v1/dashboard/risk-alerts', {
-      params: {
-        page,
-        size,
-        riskGrade: 'CRITICAL',
-        ...(detectedFrom ? { detectedFrom } : {}),
-        ...(detectedTo ? { detectedTo } : {}),
-      },
-    });
-    return {
-      items: mapRiskAlerts(data),
-      pageInfo: data.pageInfo,
-    };
-  } catch {
-    return getDemoBottleneckAlertsPage({ size, detectedFrom, detectedTo });
+    return await fetchBottleneckAlertsPage({ page, size, riskGrade: 'CRITICAL', detectedFrom, detectedTo });
+  } catch (e) {
+    if (shouldUsePresentationScenario()) return getDemoBottleneckAlertsPage({ size, detectedFrom, detectedTo });
+    throw e;
   }
 }
 
@@ -146,10 +144,15 @@ export async function fetchDashboardRiskAlerts(size = DASHBOARD_ALERTS_PAGE_SIZE
 
 export async function fetchDashboardProcessMap(): Promise<DashboardProcessAreaData[]> {
   try {
-    const { data } = await api.get<DashboardProcessMapResponse>('/v1/dashboard/process-map');
-    return mapProcessMap(data);
-  } catch {
-    return buildMockDashboardProcessMap();
+    const [processMapData, rankingsRaw] = await Promise.all([
+      fetchBottleneckProcessMap(null),
+      fetchBottleneckRankings(null),
+    ]);
+    const rankings = mapBottleneckRankings(rankingsRaw, processMapData.areas);
+    return mapBottleneckToolGroupsToDashboardAreas(rankings, processMapData.areas);
+  } catch (e) {
+    if (shouldUsePresentationScenario()) return buildMockDashboardProcessMap();
+    throw e;
   }
 }
 
@@ -165,8 +168,9 @@ export async function fetchDashboardTrends(): Promise<KpiTrendSeries[]> {
     ]);
 
     return sortDashboardTrends([...mapTrends(hourly.data), ...mapTrends(daily.data)]);
-  } catch {
-    return sortDashboardTrends(MOCK_KPI_TRENDS);
+  } catch (e) {
+    if (shouldUsePresentationScenario()) return sortDashboardTrends(MOCK_KPI_TRENDS);
+    throw e;
   }
 }
 
@@ -184,8 +188,9 @@ export async function fetchDashboardTrendsForPeriod(
       },
     });
     return sortDashboardTrends(mapTrends(data));
-  } catch {
-    return sortDashboardTrends(MOCK_KPI_TRENDS.filter((trend) => kpis.includes(trend.key as DashboardTrendKey)));
+  } catch (e) {
+    if (shouldUsePresentationScenario()) return sortDashboardTrends(MOCK_KPI_TRENDS.filter((trend) => kpis.includes(trend.key as DashboardTrendKey)));
+    throw e;
   }
 }
 

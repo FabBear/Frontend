@@ -1,7 +1,7 @@
 import api from '@/services/api';
 
 import { MOCK_MES_MONITORING_DATA } from '@/constants/mockData/mes';
-import { shouldUseDemoMockData } from '@/constants/mockMode';
+import { shouldUsePresentationScenario } from '@/constants/scenarioMode';
 import { getMesSemiconductorProcessCode, getProcessAreaNameKo } from '@/constants/processArea';
 import { RISK_LEVEL_META, riskGradeToLevel } from '@/constants/riskLevel';
 
@@ -351,7 +351,7 @@ export function mapMesPayload(payload: MesRealtimePayload, isConnected = true): 
 }
 
 export async function fetchMesMonitoringData(): Promise<MesMonitoringData> {
-  if (shouldUseDemoMockData()) return MOCK_MES_MONITORING_DATA;
+  if (shouldUsePresentationScenario()) return MOCK_MES_MONITORING_DATA;
 
   const { data } = await api.get<MesRealtimePayload>(MES_CURRENT_PATH);
   return mapMesPayload(data, true);

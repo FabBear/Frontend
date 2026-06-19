@@ -48,7 +48,7 @@ const gradeCounts = computed<Record<ProcessRiskGrade, number>>(() => {
   const counts = Object.fromEntries(PROCESS_RISK_GRADES.map((grade) => [grade, 0])) as Record<ProcessRiskGrade, number>;
 
   for (const area of props.areas) {
-    for (const tg of area.toolGroups) {
+    for (const tg of getAreaToolGroups(area)) {
       counts[getTgRiskGrade(tg)] += 1;
     }
   }
@@ -97,11 +97,16 @@ function getAreaRiskGrade(toolGroups: DashboardProcessToolGroupData[]): ProcessR
     .sort((a, b) => PROCESS_RISK_GRADES.indexOf(a) - PROCESS_RISK_GRADES.indexOf(b))[0];
 }
 
+function getAreaToolGroups(area: DashboardProcessAreaData): DashboardProcessToolGroupData[] {
+  return Array.isArray(area.toolGroups) ? area.toolGroups : [];
+}
+
 const processedAreas = computed(() =>
   props.areas.map((area) => {
     const isSelected = currentSelectedAreaCode.value === area.areaCode;
     const hasSelection = !!currentSelectedAreaCode.value;
-    const visibleTgs = area.toolGroups
+    const areaToolGroups = getAreaToolGroups(area);
+    const visibleTgs = areaToolGroups
       .filter((tg) => activeGrades.value.has(getTgRiskGrade(tg)))
       .sort((a, b) => {
         const riskDiff =
@@ -138,7 +143,7 @@ const processedAreas = computed(() =>
         outlineOffset: isSelected ? '2px' : '0',
       },
       visibleTgs,
-      totalTgCount: area.totalTgCount,
+      totalTgCount: area.totalTgCount ?? areaToolGroups.length,
     };
   })
 );
@@ -146,19 +151,19 @@ const processedAreas = computed(() =>
 
 <template>
   <section class="process-map" aria-labelledby="pm-title">
-    <div class="process-map__header">
-      <h2 id="pm-title" class="process-map__title">{{ mapTitle }}</h2>
-      <p class="process-map__hint">{{ metricHint }}</p>
-    </div>
-
     <div class="process-map__card">
-      <ProcessMapToolbar
-        class="process-map__toolbar"
-        :active-grades="activeGrades"
-        :grade-counts="gradeCounts"
-        :show-label="false"
-        @toggle-grade="handleToggleGrade"
-      />
+      <div class="process-map__header">
+        <h2 id="pm-title" class="process-map__title">{{ mapTitle }}</h2>
+        <div class="process-map__header-right">
+          <p class="process-map__hint">{{ metricHint }}</p>
+          <ProcessMapToolbar
+            :active-grades="activeGrades"
+            :grade-counts="gradeCounts"
+            :show-label="false"
+            @toggle-grade="handleToggleGrade"
+          />
+        </div>
+      </div>
 
       <div class="process-map__grid">
         <article
@@ -218,20 +223,28 @@ const processedAreas = computed(() =>
 
 <style scoped>
 .process-map {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: var(--space-2);
+  height: 100%;
   min-width: 0;
   min-height: 0;
 }
 
 .process-map__header {
   display: flex;
-  gap: var(--space-2);
+  align-items: center;
   justify-content: space-between;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.process-map__header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-shrink: 0;
 }
 
 .process-map__title {
+  flex-shrink: 0;
   color: var(--color-fg-strong);
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-bold);
@@ -239,14 +252,18 @@ const processedAreas = computed(() =>
 }
 
 .process-map__hint {
+  overflow: hidden;
   color: var(--color-fg-muted);
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .process-map__card {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   gap: 10px;
+  height: 100%;
   min-height: 0;
   min-width: 0;
   overflow: auto;
@@ -257,15 +274,10 @@ const processedAreas = computed(() =>
   box-shadow: var(--shadow-sm);
 }
 
-.process-map__toolbar {
-  justify-content: flex-end;
-}
-
 .process-map__grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(300px, 1fr));
-  grid-template-rows: repeat(4, minmax(0, 1fr));
-  grid-auto-rows: minmax(0, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: minmax(min-content, 1fr);
   gap: 10px;
   min-width: 0;
   min-height: 0;

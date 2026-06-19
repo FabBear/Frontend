@@ -88,6 +88,8 @@ function mapAlert(alert: DashboardRiskAlertItem): BottleneckAlertItem {
     canAnalyzeCause: hasCause || getAgentStepOrder(currentStepName) >= 2,
     canShowSolutions: getAgentStepOrder(currentStepName) >= 4,
     detectedAt: alert.detectedAt,
+    batchCriticalCount: alert.batchCriticalCount ?? 1,
+    batchAreaCount: alert.batchAreaCount ?? 1,
   };
 }
 
@@ -118,6 +120,7 @@ function getAgentStepOrder(stepName: string): number {
     case 'HITL_WAITING':
       return 5;
     case 'REPORT_GEN':
+    case 'PORT_GEN':
       return 6;
     default:
       return 0;

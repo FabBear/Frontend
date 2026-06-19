@@ -4,7 +4,7 @@ import api from '@/services/api';
 
 import { MOCK_CHAT_QUICK_PROMPTS, MOCK_CHAT_RESPONSES, MOCK_CHAT_SESSIONS } from '@/constants/mockData/chatbot';
 import { DEMO_CASE_ID, DEMO_DETECTED_AT } from '@/constants/mockData/demoAlert';
-import { shouldUseDemoMockData } from '@/constants/mockMode';
+import { shouldUsePresentationScenario } from '@/constants/scenarioMode';
 
 import type { ChatQuickPrompt, ChatSendRequest, ChatSession, ChatUiCard } from '@/types/chatbot';
 
@@ -82,7 +82,7 @@ export interface VoiceTranscribeResult {
 }
 
 export async function fetchChatSessions(): Promise<ChatSession[]> {
-  if (shouldUseDemoMockData())
+  if (shouldUsePresentationScenario())
     return MOCK_CHAT_SESSIONS.map((session) => ({ ...session, messages: [...session.messages] }));
 
   const { data } = await api.get<BackendChatSessionList>('/v1/chatbot/sessions', {
@@ -96,7 +96,7 @@ export async function fetchChatSessions(): Promise<ChatSession[]> {
 }
 
 export async function fetchChatSessionMessages(sessionId: string): Promise<ChatSession['messages']> {
-  if (shouldUseDemoMockData()) {
+  if (shouldUsePresentationScenario()) {
     return (MOCK_CHAT_SESSIONS.find((session) => session.sessionId === sessionId)?.messages ?? []).map((message) => ({
       ...message,
       references: {
@@ -136,7 +136,7 @@ export async function fetchChatSessionMessages(sessionId: string): Promise<ChatS
 }
 
 export async function sendChatMessage(request: ChatSendRequest): Promise<BackendChatMessage> {
-  if (shouldUseDemoMockData()) return createMockChatMessage(request);
+  if (shouldUsePresentationScenario()) return createScenarioChatMessage(request);
 
   const { data } = await api.post<BackendChatMessage>('/v1/chatbot/messages', request);
   return data;
@@ -169,7 +169,7 @@ function fmtPct(v?: number | null): string {
 
 /** Spring buildLiveFabContext와 동일 형식의 실시간 현황 텍스트(AI status 카드 파서가 이 형식에 의존). */
 export async function buildLiveFabContext(): Promise<string | null> {
-  if (shouldUseDemoMockData()) {
+  if (shouldUsePresentationScenario()) {
     return [
       '[현재 FAB 현황 · 기준 2026-06-14 23:12]',
       '전체: DE_FE_1 Critical 병목, 병목 위험 점수 80.3',
@@ -238,11 +238,11 @@ export async function streamChatMessage(
   },
   callbacks: ChatStreamCallbacks
 ): Promise<ChatStreamMeta> {
-  if (shouldUseDemoMockData()) {
+  if (shouldUsePresentationScenario()) {
     callbacks.onStage?.('DE_FE_1 산출물 확인 중');
-    const answer = createMockChatAnswer(payload.message);
-    const ui = createMockChatUi(payload.message);
-    const toolsUsed = createMockToolsUsed(payload.message);
+    const answer = createScenarioChatAnswer(payload.message);
+    const ui = createScenarioChatUi(payload.message);
+    const toolsUsed = createScenarioToolsUsed(payload.message);
     callbacks.onToken(answer);
     const meta: ChatStreamMeta = {
       answer,
@@ -320,19 +320,21 @@ export async function streamChatMessage(
 }
 
 export async function deleteChatSession(sessionId: string): Promise<void> {
-  if (shouldUseDemoMockData()) return;
+  if (shouldUsePresentationScenario()) return;
 
   await api.delete(`/v1/chatbot/sessions/${sessionId}`);
 }
 
 /** 녹음 오디오를 온프렘 STT로 전사(우리 TG 어휘 보정). 오디오는 백엔드 경유, 외부로 안 나감. */
 export async function transcribeAudio(blob: Blob): Promise<VoiceTranscribeResult> {
-  if (shouldUseDemoMockData()) return { text: 'DE_FE_1 병목 원인을 요약해줘', confidence: 0.98 };
+  if (shouldUsePresentationScenario()) return { text: 'DE_FE_1 병목 원인을 요약해줘', confidence: 0.98 };
 
   const form = new FormData();
   form.append('audio', blob, createAudioFilename(blob));
   try {
-    const { data } = await api.post<{ text: string; confidence?: number | null }>('/v1/chatbot/voice/transcribe', form);
+    const { data } = await api.post<{ text: string; confidence?: number | null }>('/v1/chatbot/voice/transcribe', form, {
+      headers: { 'Content-Type': undefined },
+    });
     return { text: data.text ?? '', confidence: data.confidence ?? null };
   } catch (error) {
     throw new Error(resolveVoiceErrorMessage(error));
@@ -368,7 +370,7 @@ function resolveVoiceErrorMessage(error: unknown): string {
 }
 
 export async function fetchSuggestedQuestions(): Promise<ChatQuickPrompt[]> {
-  if (shouldUseDemoMockData()) return MOCK_CHAT_QUICK_PROMPTS;
+  if (shouldUsePresentationScenario()) return MOCK_CHAT_QUICK_PROMPTS;
 
   const { data } = await api.get<BackendSuggestedQuestions>('/v1/chatbot/suggested-questions');
   return data.categories.flatMap((category, categoryIndex) =>
@@ -380,7 +382,7 @@ export async function fetchSuggestedQuestions(): Promise<ChatQuickPrompt[]> {
   );
 }
 
-function createMockChatAnswer(message: string, request?: ChatSendRequest): string {
+function createScenarioChatAnswer(message: string, request?: ChatSendRequest): string {
   const normalized = message.toLowerCase();
   const hasReportContext = Boolean(request?.contextCaseId || request?.contextReportId);
   if (
@@ -405,7 +407,7 @@ function createMockChatAnswer(message: string, request?: ChatSendRequest): strin
     return '확산 경로는 DE_FE_1 → Diffusion_FE_125입니다. 무대응 120분 후 DE_FE_1은 WIP 12 Lot, Q-time 96.39분까지 악화될 수 있고, Diffusion_FE_125도 WIP 편중과 대기 누적을 같이 봐야 합니다.';
   }
   if (normalized.includes('tool') || normalized.includes('설비') || normalized.includes('장비')) {
-    return 'DE_FE_1 내부 설비는 가동률이 한계권에 있어 개별 Tool 상태를 같이 봐야 합니다. 현재 mock 응답은 get_tool_status와 get_top_toolgroups 도구 기준으로 DE_FE_1, Diffusion_FE_125, DE_FE_86을 우선 확인하도록 구성했습니다.';
+    return 'DE_FE_1 내부 설비는 가동률이 한계권에 있어 개별 Tool 상태를 같이 봐야 합니다. 현재 분석 응답은 get_tool_status와 get_top_toolgroups 도구 기준으로 DE_FE_1, Diffusion_FE_125, DE_FE_86을 우선 확인하도록 구성했습니다.';
   }
   if (normalized.includes('3d') || normalized.includes('fab')) {
     return '3D FAB에서는 caseId=case-de-fe-1-3780과 tg=DE_FE_1 기준으로 감지 당시 스냅샷을 열어야 합니다. 확인 순서는 DE_FE_1, Diffusion_FE_125, 업스트림 DE_FE_86입니다.';
@@ -413,7 +415,7 @@ function createMockChatAnswer(message: string, request?: ChatSendRequest): strin
   return MOCK_CHAT_RESPONSES[0];
 }
 
-function createMockToolsUsed(message: string): string[] {
+function createScenarioToolsUsed(message: string): string[] {
   const normalized = message.toLowerCase();
   if (normalized.includes('원인') || normalized.includes('why'))
     return ['get_case_detail', 'get_kpi_trend', 'compare_periods'];
@@ -425,7 +427,7 @@ function createMockToolsUsed(message: string): string[] {
   return ['get_case_detail', 'search_bottleneck_cases'];
 }
 
-function createMockChatUi(message: string): ChatUiCard | null {
+function createScenarioChatUi(message: string): ChatUiCard | null {
   const normalized = message.toLowerCase();
   if (normalized.includes('원인') || normalized.includes('추세') || normalized.includes('why')) {
     return {
@@ -499,11 +501,11 @@ function createMockChatUi(message: string): ChatUiCard | null {
   };
 }
 
-function createMockChatMessage(request: ChatSendRequest): BackendChatMessage {
-  const answer = createMockChatAnswer(request.message, request);
+function createScenarioChatMessage(request: ChatSendRequest): BackendChatMessage {
+  const answer = createScenarioChatAnswer(request.message, request);
   const sessionId = request.sessionId ?? 'chat-de-fe-1-live';
-  const ui = createMockChatUi(request.message);
-  const toolsUsed = createMockToolsUsed(request.message);
+  const ui = createScenarioChatUi(request.message);
+  const toolsUsed = createScenarioToolsUsed(request.message);
   return {
     sessionId,
     sessionTitle: 'DE_FE_1 병목 대응 문의',

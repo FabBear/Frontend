@@ -117,6 +117,7 @@ function speak(text: string, id: string | null = null) {
   if (!clean) return;
   stop();
   const requestId = ++speechRequestId;
+  ttsPreparing.value = true;
   speakBrowser(clean, id, requestId);
 }
 

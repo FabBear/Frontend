@@ -251,7 +251,7 @@ function buildActionCandidates(report: ReportV1, ragCandidates: ReportV1RagCandi
     isApproved:
       candidate.is_approved ||
       candidate.label.toLowerCase() ===
-        (report.actions.approved_label ?? report.approval.selected_label ?? '').toLowerCase(),
+        (report.actions.approved_label ?? report.approval?.selected_label ?? '').toLowerCase(),
     description: candidate.description,
     targetToolgroups: candidate.target_toolgroups,
     compositeScore: candidate.composite_score,

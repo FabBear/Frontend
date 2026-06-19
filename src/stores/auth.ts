@@ -5,9 +5,9 @@ import api from '@/services/api';
 
 import type { AuthFab, AuthLoginResult, AuthMenu, AuthUser, LoginRequest } from '@/types/auth';
 
-const MOCK_AUTH_STORAGE_KEY = 'fabbear.mockAuthUser';
+const PREVIEW_AUTH_STORAGE_KEY = 'fabbear.previewAuthUser';
 
-const MOCK_FABS: AuthFab[] = [
+const PREVIEW_FABS: AuthFab[] = [
   {
     fabId: 'FAB_ICN_01',
     fabCode: 'ICN',
@@ -16,7 +16,7 @@ const MOCK_FABS: AuthFab[] = [
   },
 ];
 
-const MOCK_ACCOUNTS: Array<AuthUser & { password: string }> = [
+const PREVIEW_ACCOUNTS: Array<AuthUser & { password: string }> = [
   {
     userId: 'user-admin',
     loginId: 'admin',
@@ -88,29 +88,46 @@ export const useAuthStore = defineStore('auth', () => {
       fabs.value = data.fabs;
       return data.fabs;
     } catch {
-      fabs.value = MOCK_FABS.map((fab) => ({ ...fab }));
+      fabs.value = PREVIEW_FABS.map((fab) => ({ ...fab }));
       return fabs.value;
     }
   }
 
   async function login(payload: LoginRequest): Promise<AuthLoginResult> {
+    if (!isUuid(payload.fabId)) {
+      const previewUser = resolvePreviewLogin(payload, fabs.value);
+      if (!previewUser) {
+        throw new Error('아이디 또는 비밀번호가 올바르지 않습니다.');
+      }
+
+      user.value = withFabName(previewUser);
+      menus.value = buildPreviewMenus(previewUser.roles);
+      authChecked.value = true;
+      persistPreviewUser(user.value);
+      return { user: user.value };
+    }
+
     try {
       const { data } = await api.post<AuthUser>('/v1/auth/login', payload);
       user.value = withFabName(data);
       authChecked.value = true;
+      // 실서버 로그인 성공 → 과거 백엔드 다운 시 fallback으로 남았을 수 있는 preview 키 제거.
+      // 이 키가 남아 있으면 shouldUsePresentationScenario()가 true가 되어 SSE 알림 스트림이
+      // 비활성화되고(알림이 새로고침해야만 보임) 데모 데이터로 폴백된다.
+      clearPreviewUser();
       // 로그인 직후 1회만 메뉴를 받아 캐싱 — 사이드바는 이 캐시를 읽는다(매 렌더 재조회 X)
       await fetchMenus().catch((error) => {
         console.error('[Auth] 메뉴 로드 실패:', error);
       });
       return { user: user.value };
     } catch (error) {
-      const mockUser = resolveMockLogin(payload, fabs.value);
-      if (!mockUser) throw error;
+      const previewUser = resolvePreviewLogin(payload, fabs.value);
+      if (!previewUser) throw error;
 
-      user.value = withFabName(mockUser);
-      menus.value = buildMockMenus(mockUser.roles);
+      user.value = withFabName(previewUser);
+      menus.value = buildPreviewMenus(previewUser.roles);
       authChecked.value = true;
-      persistMockUser(user.value);
+      persistPreviewUser(user.value);
       return { user: user.value };
     }
   }
@@ -122,7 +139,7 @@ export const useAuthStore = defineStore('auth', () => {
       user.value = withFabName(data);
       return user.value;
     } catch (error) {
-      const storedUser = readMockUser();
+      const storedUser = readPreviewUser();
       if (!storedUser) throw error;
       user.value = withFabName(storedUser);
       return user.value;
@@ -136,7 +153,7 @@ export const useAuthStore = defineStore('auth', () => {
       menus.value = data;
       return data;
     } catch {
-      menus.value = buildMockMenus(user.value?.roles ?? ['ENGINEER']);
+      menus.value = buildPreviewMenus(user.value?.roles ?? ['ENGINEER']);
       return menus.value;
     }
   }
@@ -182,7 +199,7 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null;
     menus.value = []; // 로그아웃/세션 만료 시 메뉴 캐시도 비운다
     authChecked.value = true; // 인증 확인 완료 + 미로그인 상태 — 불필요한 /me 재시도 방지
-    clearMockUser();
+    clearPreviewUser();
   }
 
   return {
@@ -203,12 +220,12 @@ export const useAuthStore = defineStore('auth', () => {
   };
 });
 
-function resolveMockLogin(payload: LoginRequest, availableFabs: AuthFab[]): AuthUser | null {
-  const account = MOCK_ACCOUNTS.find(
-    (mockAccount) => mockAccount.loginId === payload.loginId && mockAccount.password === payload.password
+function resolvePreviewLogin(payload: LoginRequest, availableFabs: AuthFab[]): AuthUser | null {
+  const account = PREVIEW_ACCOUNTS.find(
+    (previewAccount) => previewAccount.loginId === payload.loginId && previewAccount.password === payload.password
   );
   if (!account) return null;
-  const selectedFab = availableFabs.find((fab) => fab.fabId === payload.fabId) ?? MOCK_FABS[0];
+  const selectedFab = availableFabs.find((fab) => fab.fabId === payload.fabId) ?? PREVIEW_FABS[0];
   const user: AuthUser = {
     userId: account.userId,
     loginId: account.loginId,
@@ -228,7 +245,7 @@ function resolveMockLogin(payload: LoginRequest, availableFabs: AuthFab[]): Auth
   };
 }
 
-function buildMockMenus(roles: AuthUser['roles']): AuthMenu[] {
+function buildPreviewMenus(roles: AuthUser['roles']): AuthMenu[] {
   const codes = roles.includes('ADMIN') ? ADMIN_MENU_CODES : ENGINEER_MENU_CODES;
   return codes.map((code) => ({
     menuCode: code,
@@ -244,17 +261,21 @@ function normalizeFabName(fabName: string | null | undefined): string | undefine
   return fabName;
 }
 
-function persistMockUser(authUser: AuthUser): void {
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function persistPreviewUser(authUser: AuthUser): void {
   try {
-    window.localStorage.setItem(MOCK_AUTH_STORAGE_KEY, JSON.stringify(authUser));
+    window.localStorage.setItem(PREVIEW_AUTH_STORAGE_KEY, JSON.stringify(authUser));
   } catch {
     return;
   }
 }
 
-function readMockUser(): AuthUser | null {
+function readPreviewUser(): AuthUser | null {
   try {
-    const raw = window.localStorage.getItem(MOCK_AUTH_STORAGE_KEY);
+    const raw = window.localStorage.getItem(PREVIEW_AUTH_STORAGE_KEY);
     if (!raw) return null;
     return JSON.parse(raw) as AuthUser;
   } catch {
@@ -262,9 +283,9 @@ function readMockUser(): AuthUser | null {
   }
 }
 
-function clearMockUser(): void {
+function clearPreviewUser(): void {
   try {
-    window.localStorage.removeItem(MOCK_AUTH_STORAGE_KEY);
+    window.localStorage.removeItem(PREVIEW_AUTH_STORAGE_KEY);
   } catch {
     return;
   }

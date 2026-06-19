@@ -6,7 +6,7 @@ import type { ActionHistoryDetail } from '@/types/report';
 import BaseBadge from '@/components/base/BaseBadge.vue';
 import BaseButton from '@/components/base/BaseButton.vue';
 
-import { formatKoMonthDayTime, formatNumber, formatRatioPercent } from '@/utils/format';
+import { formatKoMonthDayTime, formatNumber } from '@/utils/format';
 
 defineProps<{
   detail: ActionHistoryDetail | null;
@@ -56,10 +56,6 @@ function handlePdfDownload() {
           <dd>
             <BaseBadge :variant="riskGradeToLevel(detail.riskGrade)">{{ detail.riskGrade }}</BaseBadge>
           </dd>
-        </div>
-        <div>
-          <dt>병목 확률</dt>
-          <dd>{{ formatRatioPercent(detail.bottleneckProb) }}</dd>
         </div>
         <div>
           <dt>감지</dt>

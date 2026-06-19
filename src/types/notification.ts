@@ -1,9 +1,8 @@
+import type { BncAlertMetrics } from '@/types/bnc';
+
 export type NotificationLevel = 'critical' | 'warning' | 'info' | 'success';
 export type NotificationType =
-  | 'BOTTLENECK_HIGH'
   | 'BOTTLENECK_CRITICAL'
-  | 'DIFFUSION_COMPLETE'
-  | 'QTIME_EXCEEDED'
   | 'HITL_PENDING'
   | 'MODEL_RETRAIN';
 
@@ -35,6 +34,8 @@ export interface NotificationItemResponse {
   isRead: boolean;
   createdAt: string;
   expiresAt: string;
+  /** refCaseId 케이스의 위험 점수·영향·위험 Lot 등 지표. 없으면 null. */
+  alertMetrics: BncAlertMetrics | null;
 }
 
 export interface NotificationListResponse {

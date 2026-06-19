@@ -1,6 +1,7 @@
 import axios, { type AxiosRequestConfig } from 'axios';
 
 import api from '@/services/api';
+import { shouldUsePresentationScenario } from '@/constants/scenarioMode';
 
 import {
   MOCK_ACCESS_USERS,
@@ -34,6 +35,11 @@ const adminDbApi = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
   headers: { 'Content-Type': 'application/json' },
   withCredentials: true,
+});
+
+adminDbApi.interceptors.request.use((config) => {
+  if (shouldUsePresentationScenario()) return Promise.reject(new Error('API request skipped'));
+  return config;
 });
 
 function getCsrfToken(): string | null {
@@ -83,8 +89,9 @@ export async function fetchAdminAccessUsers(): Promise<AdminAccessUser[]> {
   try {
     const { data } = await api.get<BackendAccessUser[]>('/v1/admin/access/users');
     return data.map(mapAccessUser);
-  } catch {
-    return MOCK_ACCESS_USERS.map((user) => ({ ...user }));
+  } catch (e) {
+    if (shouldUsePresentationScenario()) return MOCK_ACCESS_USERS.map((user) => ({ ...user }));
+    throw e;
   }
 }
 
@@ -124,7 +131,8 @@ export async function createAdminAccessUser(payload: CreateAdminAccessUserPayloa
   try {
     const { data } = await api.post<BackendAccessUser>('/v1/admin/access/users', payload);
     return mapAccessUser(data);
-  } catch {
+  } catch (e) {
+    if (!shouldUsePresentationScenario()) throw e;
     return {
       userId: payload.loginId,
       id: payload.loginId,
@@ -146,7 +154,8 @@ export async function updateAdminAccessUser(
   try {
     const { data } = await api.patch<BackendAccessUser>(`/v1/admin/access/users/${userId}`, payload);
     return mapAccessUser(data);
-  } catch {
+  } catch (e) {
+    if (!shouldUsePresentationScenario()) throw e;
     const current = MOCK_ACCESS_USERS.find((user) => user.userId === userId || user.id === userId);
     return {
       userId,
@@ -242,7 +251,8 @@ export async function fetchAdminPrompts(): Promise<{
         template.versions.map((version) => mapPromptVersion(template.templateId, version))
       ),
     };
-  } catch {
+  } catch (e) {
+    if (!shouldUsePresentationScenario()) throw e;
     return {
       templates: MOCK_PROMPT_TEMPLATES.map((template) => ({
         ...template,
@@ -260,8 +270,8 @@ export async function updatePromptVersion(category: string, promptBody: string, 
       promptBody,
       changeReason: changeReason.trim() || null,
     });
-  } catch {
-    return;
+  } catch (e) {
+    if (!shouldUsePresentationScenario()) throw e;
   }
 }
 
@@ -317,8 +327,9 @@ export async function fetchMesFieldMappings(fabId: string): Promise<AdminMesFiel
   try {
     const data = await dbGet<BackendMesFieldMapping[]>('/v1/admin/mes/mappings', { params: { fabId } });
     return data.map(mapMesFieldMapping);
-  } catch {
-    return MOCK_MES_FIELD_MAPPINGS.map((mapping) => ({ ...mapping, fabId }));
+  } catch (e) {
+    if (shouldUsePresentationScenario()) return MOCK_MES_FIELD_MAPPINGS.map((mapping) => ({ ...mapping, fabId }));
+    throw e;
   }
 }
 
@@ -329,7 +340,8 @@ export async function updateMesFieldMapping(
   try {
     const data = await dbPatch<BackendMesFieldMapping>(`/v1/admin/mes/mappings/${mappingId}`, payload);
     return mapMesFieldMapping(data);
-  } catch {
+  } catch (e) {
+    if (!shouldUsePresentationScenario()) throw e;
     const current = MOCK_MES_FIELD_MAPPINGS.find((mapping) => mapping.id === mappingId);
     return {
       ...(current ?? MOCK_MES_FIELD_MAPPINGS[0]),
@@ -368,16 +380,18 @@ export interface AdminMesCollectJob {
 export async function fetchMesHealth(fabId: string): Promise<AdminMesHealth> {
   try {
     return await dbGet<AdminMesHealth>('/v1/admin/mes/health', { params: { fabId } });
-  } catch {
-    return { ...MOCK_MES_HEALTH };
+  } catch (e) {
+    if (shouldUsePresentationScenario()) return { ...MOCK_MES_HEALTH };
+    throw e;
   }
 }
 
 export async function fetchMesCollectJobs(fabId: string, limit = 20): Promise<AdminMesCollectJob[]> {
   try {
     return await dbGet<AdminMesCollectJob[]>('/v1/admin/mes/collect-jobs', { params: { fabId, limit } });
-  } catch {
-    return MOCK_MES_COLLECT_JOBS.slice(0, limit).map((job) => ({ ...job }));
+  } catch (e) {
+    if (shouldUsePresentationScenario()) return MOCK_MES_COLLECT_JOBS.slice(0, limit).map((job) => ({ ...job }));
+    throw e;
   }
 }
 
@@ -385,8 +399,9 @@ export async function fetchMlflowModelVersions(): Promise<AdminMlModelVersion[]>
   try {
     const { data } = await api.get<AdminMlModelVersion[]>('/v1/admin/mlflow/models');
     return data;
-  } catch {
-    return MOCK_ML_MODEL_VERSIONS.map((model) => ({ ...model, featureList: [...model.featureList] }));
+  } catch (e) {
+    if (shouldUsePresentationScenario()) return MOCK_ML_MODEL_VERSIONS.map((model) => ({ ...model, featureList: [...model.featureList] }));
+    throw e;
   }
 }
 
@@ -394,8 +409,9 @@ export async function fetchMlflowDriftAlerts(): Promise<AdminDriftAlert[]> {
   try {
     const { data } = await api.get<AdminDriftAlert[]>('/v1/admin/mlflow/drift-alerts');
     return data;
-  } catch {
-    return MOCK_DRIFT_ALERTS.map((alert) => ({ ...alert }));
+  } catch (e) {
+    if (shouldUsePresentationScenario()) return MOCK_DRIFT_ALERTS.map((alert) => ({ ...alert }));
+    throw e;
   }
 }
 
@@ -403,7 +419,8 @@ export async function fetchMlflowRuntimeStatus(): Promise<AdminMlflowRuntimeStat
   try {
     const { data } = await api.get<AdminMlflowRuntimeStatus>('/v1/admin/mlflow/runtime-status');
     return data;
-  } catch {
+  } catch (e) {
+    if (!shouldUsePresentationScenario()) throw e;
     return {
       productionAlias: { ...MOCK_MLFLOW_RUNTIME_STATUS.productionAlias },
       activeDbModel: MOCK_MLFLOW_RUNTIME_STATUS.activeDbModel
@@ -421,7 +438,8 @@ export async function promoteMlflowModel(modelVersionId: string): Promise<AdminM
   try {
     const { data } = await api.patch<AdminMlModelVersion>(`/v1/admin/mlflow/models/${modelVersionId}/promote`);
     return data;
-  } catch {
+  } catch (e) {
+    if (!shouldUsePresentationScenario()) throw e;
     const model = MOCK_ML_MODEL_VERSIONS.find((item) => item.id === modelVersionId) ?? MOCK_ML_MODEL_VERSIONS[0];
     return { ...model, status: 'ACTIVE', featureList: [...model.featureList] };
   }
@@ -442,7 +460,8 @@ export async function requestMlflowRetrain(
       payload ?? {}
     );
     return data;
-  } catch {
+  } catch (e) {
+    if (!shouldUsePresentationScenario()) throw e;
     const alert = MOCK_DRIFT_ALERTS.find((item) => item.id === driftId) ?? MOCK_DRIFT_ALERTS[0];
     return {
       ...alert,
@@ -462,7 +481,8 @@ export async function holdMlflowRetrain(
       payload ?? {}
     );
     return data;
-  } catch {
+  } catch (e) {
+    if (!shouldUsePresentationScenario()) throw e;
     const alert = MOCK_DRIFT_ALERTS.find((item) => item.id === driftId) ?? MOCK_DRIFT_ALERTS[0];
     return {
       ...alert,
@@ -478,8 +498,9 @@ export async function fetchActiveLabelingRule(): Promise<AdminLabelingRule> {
   try {
     const { data } = await api.get<AdminLabelingRule>('/v1/admin/labeling-rules/active');
     return data;
-  } catch {
-    return { ...(MOCK_LABELING_RULES.find((rule) => rule.isActive) ?? MOCK_LABELING_RULES[0]) };
+  } catch (e) {
+    if (shouldUsePresentationScenario()) return { ...(MOCK_LABELING_RULES.find((rule) => rule.isActive) ?? MOCK_LABELING_RULES[0]) };
+    throw e;
   }
 }
 
@@ -487,8 +508,9 @@ export async function fetchLabelingRuleHistory(): Promise<AdminLabelingRule[]> {
   try {
     const { data } = await api.get<AdminLabelingRule[]>('/v1/admin/labeling-rules/history');
     return data;
-  } catch {
-    return MOCK_LABELING_RULES.map((rule) => ({ ...rule }));
+  } catch (e) {
+    if (shouldUsePresentationScenario()) return MOCK_LABELING_RULES.map((rule) => ({ ...rule }));
+    throw e;
   }
 }
 
@@ -496,8 +518,9 @@ export async function previewLabelingRule(req: AdminLabelingPreviewRequest): Pro
   try {
     const { data } = await api.post<AdminLabelingPreview>('/v1/admin/labeling-rules/preview', req);
     return data;
-  } catch {
-    return buildMockLabelingPreview(req);
+  } catch (e) {
+    if (shouldUsePresentationScenario()) return buildMockLabelingPreview(req);
+    throw e;
   }
 }
 
@@ -507,7 +530,8 @@ export async function createLabelingRule(
   try {
     const { data } = await api.post<AdminLabelingRule>('/v1/admin/labeling-rules', req);
     return data;
-  } catch {
+  } catch (e) {
+    if (!shouldUsePresentationScenario()) throw e;
     const preview = buildMockLabelingPreview(req);
     return {
       ruleId: `label-rule-demo-${Date.now()}`,

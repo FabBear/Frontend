@@ -1,13 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { BNC_STEP_META } from '@/constants/bnc';
-
 import type { BncCaseDetail } from '@/types/bnc';
 
 import AgentProgressStep from '@/components/bnc/AgentProgressStep.vue';
-
-import { formatNumber, formatRatioPercent } from '@/utils/format';
 
 const props = defineProps<{
   detail: BncCaseDetail | null;
@@ -20,10 +16,19 @@ defineEmits<{
 }>();
 
 const orderedSteps = computed(() => [...(props.detail?.agentProgress ?? [])].sort((a, b) => a.stepOrder - b.stepOrder));
-const doneCount = computed(() => orderedSteps.value.filter((step) => step.status === 'DONE').length);
+// 완료(DONE)뿐 아니라 진행 중·실패 등 '시작된' 단계까지 카운트 — 카드/백엔드 step_progress와 동일 기준.
+// 대기(PENDING/WAITING)만 제외해, 첫 단계가 진행 중이어도 진행률이 0% 대신 채워지게 한다.
+const reachedStepOrder = computed(() =>
+  Math.max(
+    0,
+    ...orderedSteps.value
+      .filter((step) => step.status !== 'PENDING' && step.status !== 'WAITING')
+      .map((step) => step.stepOrder)
+  )
+);
 const progressRate = computed(() => {
   if (orderedSteps.value.length === 0) return 0;
-  return Math.round((doneCount.value / orderedSteps.value.length) * 100);
+  return Math.round((reachedStepOrder.value / orderedSteps.value.length) * 100);
 });
 const currentStep = computed(
   () =>
@@ -31,9 +36,6 @@ const currentStep = computed(
     orderedSteps.value.find((s) => s.status === 'RUNNING' || s.status === 'IN_PROGRESS') ??
     orderedSteps.value.find((s) => s.status === 'WAITING' || s.status === 'PENDING') ??
     null
-);
-const currentStepLabel = computed(() =>
-  currentStep.value ? (BNC_STEP_META[currentStep.value.stepName]?.label ?? currentStep.value.stepName) : '완료'
 );
 const isAllDone = computed(
   () => orderedSteps.value.length > 0 && orderedSteps.value.every((step) => step.status === 'DONE')
@@ -66,7 +68,6 @@ const isAllDone = computed(
                     : '대기'
             }}
           </span>
-          <span class="bnc-progress-tab__status-step">{{ currentStepLabel }}</span>
         </div>
         <span class="bnc-progress-tab__rate">{{ progressRate }}%</span>
       </header>
@@ -75,26 +76,6 @@ const isAllDone = computed(
       <div class="bnc-progress-tab__bar" aria-hidden="true">
         <span :style="{ width: `${progressRate}%` }" />
       </div>
-
-      <!-- 요약 KPI -->
-      <dl class="bnc-progress-tab__summary">
-        <div>
-          <dt>완료 단계</dt>
-          <dd>{{ doneCount }} / {{ orderedSteps.length }}</dd>
-        </div>
-        <div>
-          <dt>병목 TG</dt>
-          <dd>{{ formatNumber(detail.agentSummary.bottleneckCount) }}</dd>
-        </div>
-        <div>
-          <dt>최대 WIP</dt>
-          <dd>{{ formatNumber(detail.agentSummary.maxWipCount) }} Lot</dd>
-        </div>
-        <div>
-          <dt>최대 가동률</dt>
-          <dd>{{ formatRatioPercent(detail.agentSummary.maxUtilizationRate) }}</dd>
-        </div>
-      </dl>
 
       <!-- 타임라인 -->
       <div class="bnc-progress-tab__steps">
@@ -112,12 +93,10 @@ const isAllDone = computed(
 <style scoped>
 .bnc-progress-tab {
   display: grid;
+  align-content: start;
   gap: var(--space-4);
   padding: var(--space-5);
   background: var(--color-bg-surface);
-  border: 1px solid var(--color-border-default);
-  border-top: none;
-  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
 
 .bnc-progress-tab__header {
@@ -136,8 +115,8 @@ const isAllDone = computed(
 .bnc-progress-tab__status-badge {
   display: inline-flex;
   align-items: center;
-  padding: 2px var(--space-2);
-  font-size: var(--font-size-xs);
+  padding: 4px var(--space-3);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-action-primary);
   background: var(--color-action-primary-soft);
@@ -148,12 +127,6 @@ const isAllDone = computed(
 .bnc-progress-tab__status-badge--done {
   color: var(--color-status-success);
   background: var(--color-status-success-soft);
-}
-
-.bnc-progress-tab__status-step {
-  color: var(--color-fg-strong);
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-semibold);
 }
 
 .bnc-progress-tab__rate {
@@ -187,44 +160,8 @@ const isAllDone = computed(
   color: var(--color-status-danger);
 }
 
-.bnc-progress-tab__summary {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-3);
-  margin: 0;
-}
-
-.bnc-progress-tab__summary div {
-  min-width: 0;
-  padding: var(--space-3);
-  background: var(--color-bg-page);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-}
-
-.bnc-progress-tab__summary dt {
-  color: var(--color-fg-muted);
-  font-size: var(--font-size-xs);
-}
-
-.bnc-progress-tab__summary dd {
-  margin: var(--space-1) 0 0;
-  overflow: hidden;
-  color: var(--color-fg-strong);
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-bold);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .bnc-progress-tab__steps {
   display: flex;
   flex-direction: column;
-}
-
-@media (max-width: 900px) {
-  .bnc-progress-tab__summary {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
 }
 </style>

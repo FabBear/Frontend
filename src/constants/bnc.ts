@@ -9,21 +9,24 @@ export const BNC_TAB_OPTIONS: BncTabOption[] = [
 
 export const BNC_STATUS_META: Record<
   BncCaseStatus,
-  { label: string; variant: 'info' | 'warning' | 'success'; priority: number }
+  { label: string; variant: 'info' | 'warning' | 'success' | 'danger'; priority: number }
 > = {
   DETECTED: { label: '감지됨', variant: 'info', priority: 2 },
   ANALYZING: { label: 'Agent 실행 중', variant: 'info', priority: 1 },
   AWAITING_HITL: { label: '승인 대기', variant: 'warning', priority: 0 },
   RESOLVED: { label: '보고서 완료', variant: 'success', priority: 9 },
+  EXPIRED: { label: '만료됨', variant: 'danger', priority: 10 },
+  NOT_ACTIONABLE: { label: '대응 불필요', variant: 'info', priority: 11 },
 };
 
 export const BNC_AGENT_STEP_NAMES = [
+  'BOTTLENECK_DETECTOR',
   'DIFFUSION_ANALYSIS',
   'CAUSE_ANALYSIS',
   'ACTION_PLAN_GEN',
   'ACTION_PLAN_COMPARE',
-  'REPORT_GEN',
   'HITL_WAITING',
+  'REPORT_GEN',
 ] as const;
 
 export const BNC_STEP_META: Record<string, { label: string; description: string; sourcePath: string }> = {

@@ -1,18 +1,19 @@
 import api from '@/services/api';
+import { fetchBottleneckRankings } from '@/services/bottleneckMonitoringService';
 import { fetchMesMonitoringData } from '@/services/mesService';
 
 import { DEMO_CASE_ID, DEMO_DETECTED_AT } from '@/constants/mockData/demoAlert';
 import { MOCK_FAB3D_AREAS } from '@/constants/mockData/fab3d';
-import { shouldUseDemoMockData } from '@/constants/mockMode';
+import { shouldUsePresentationScenario } from '@/constants/scenarioMode';
 import { getProcessAreaNameKo, getProcessAreaSortOrder } from '@/constants/processArea';
 
 import type { Fab3dArea, Fab3dRisk, Fab3dToolDetail, Fab3dToolGroup, TgRouteStep, ToolActivity } from '@/types/fab3d';
-import type { MesMonitoringData, MesRiskGrade, MesToolGroupMetric, MesToolMetric } from '@/types/mes';
+import type { MesMonitoringData, MesToolGroupMetric, MesToolMetric } from '@/types/mes';
 
 export interface Fab3dMonitoringData {
   areas: Fab3dArea[];
   tools: Fab3dToolDetail[];
-  source: 'current' | 'case_snapshot' | 'mock';
+  source: 'current' | 'case_snapshot' | 'scenario';
   measuredAt: string | null;
   // 케이스 스냅샷 모드 전용
   caseId?: string;
@@ -67,75 +68,11 @@ interface BackendFabSnapshot {
   diffusionPath: Array<{ tgId: string; tgCode: string; tgName: string; areaName: string; hop: number }>;
 }
 
-function toFabRisk(riskGrade: MesRiskGrade): Fab3dRisk {
-  if (riskGrade === 'CRITICAL') return 'CRITICAL';
-  if (riskGrade === 'HIGH') return 'HIGH';
-  if (riskGrade === 'MEDIUM') return 'MEDIUM';
+function toFabRiskFromUtil(utilizationRate: number): Fab3dRisk {
+  if (utilizationRate >= 0.9) return 'CRITICAL';
+  if (utilizationRate >= 0.75) return 'HIGH';
+  if (utilizationRate >= 0.6) return 'MEDIUM';
   return 'LOW';
-}
-
-export interface BottleneckOverlayItem {
-  tgId: string;
-  compositeScore: number | null;
-  riskGrade: string | null;
-}
-
-export type BottleneckOverlayMap = Map<string, BottleneckOverlayItem>;
-
-const MOCK_FAB3D_COMPOSITE_BY_TG_NAME: Record<string, { compositeScore: number; risk: Fab3dRisk }> = {
-  DE_FE_1: { compositeScore: 0.8031, risk: 'CRITICAL' },
-  DE_FE_86: { compositeScore: 0.6867, risk: 'HIGH' },
-  Diffusion_FE_125: { compositeScore: 0.6867, risk: 'HIGH' },
-  Diffusion_FE_127: { compositeScore: 0.42, risk: 'MEDIUM' },
-};
-
-function createMockBottleneckOverlay(): BottleneckOverlayMap {
-  const entries = MOCK_FAB3D_AREAS.flatMap((area) =>
-    area.toolGroups.flatMap((tg) => {
-      const overlay = MOCK_FAB3D_COMPOSITE_BY_TG_NAME[tg.tgName];
-      if (!overlay) return [];
-      return [[tg.tgId, { tgId: tg.tgId, compositeScore: overlay.compositeScore, riskGrade: overlay.risk }]] as const;
-    })
-  );
-
-  return new Map(entries);
-}
-
-function createMockFab3dAreasWithCompositeOverlay(): Fab3dArea[] {
-  return MOCK_FAB3D_AREAS.map((area) => ({
-    ...area,
-    toolGroups: area.toolGroups.map((tg) => {
-      const overlay = MOCK_FAB3D_COMPOSITE_BY_TG_NAME[tg.tgName];
-      if (!overlay) return { ...tg, compositeScore: undefined };
-      return {
-        ...tg,
-        risk: overlay.risk,
-        compositeScore: overlay.compositeScore,
-      };
-    }),
-  }));
-}
-
-function overlayRisk(overlay: BottleneckOverlayMap | null, tgId: string, fallback: Fab3dRisk): Fab3dRisk {
-  if (!overlay) return fallback;
-  const item = overlay.get(tgId);
-  if (!item) return 'LOW';
-  const g = item.riskGrade ?? '';
-  if (g === 'CRITICAL') return 'CRITICAL';
-  if (g === 'HIGH') return 'HIGH';
-  if (g === 'MEDIUM') return 'MEDIUM';
-  return 'LOW';
-}
-
-export async function fetchBottleneckOverlay(): Promise<BottleneckOverlayMap> {
-  if (shouldUseDemoMockData()) return createMockBottleneckOverlay();
-
-  try {
-    const { data } = await api.get<BottleneckOverlayItem[]>('/v1/monitoring/bottleneck-overlay');
-    return new Map((data ?? []).map((item) => [item.tgId, item]));
-  } catch {
-    return new Map();
-  }
 }
 
 function toFabLayoutAreaCode(toolGroup: MesToolGroupMetric): string {
@@ -150,8 +87,7 @@ function toFabLayoutAreaCode(toolGroup: MesToolGroupMetric): string {
 
 function toFabToolGroup(
   toolGroup: MesToolGroupMetric,
-  tools: MesToolMetric[],
-  overlay: BottleneckOverlayMap | null
+  tools: MesToolMetric[]
 ): Fab3dToolGroup {
   const groupTools = tools.filter((tool) => tool.tgId === toolGroup.tgId);
   const waitingLots =
@@ -159,19 +95,15 @@ function toFabToolGroup(
       ? groupTools.reduce((sum, tool) => sum + tool.queueLotCount, 0)
       : Math.round(toolGroup.waitRatio * Math.max(toolGroup.toolCount, 1));
 
-  const overlayItem = overlay?.get(toolGroup.tgId);
   return {
     tgId: toolGroup.tgId,
     tgName: toolGroup.tgName || toolGroup.tgCode,
     areaCode: toFabLayoutAreaCode(toolGroup),
-    // cascade overlay가 있으면 그 등급 사용 (snapshot 없는 TG = LOW)
-    // overlay null이면 XGBoost riskGrade 폴백 (초기 로딩 또는 오류 시)
-    risk: overlayRisk(overlay, toolGroup.tgId, toFabRisk(toolGroup.riskGrade)),
+    risk: toFabRiskFromUtil(toolGroup.utilizationRate),
     utilizationRate: toolGroup.utilizationRate,
     wipCount: toolGroup.wipCount,
     waitingLots,
     bottleneckProb: toolGroup.bottleneckProb,
-    compositeScore: overlayItem?.compositeScore ?? undefined,
     toolCount: toolGroup.toolCount,
     measuredAt: toolGroup.measuredAt,
   };
@@ -193,14 +125,11 @@ function toFabTool(tool: MesToolMetric): Fab3dToolDetail {
   };
 }
 
-export function mapMesMonitoringToFab3d(
-  data: MesMonitoringData,
-  overlay: BottleneckOverlayMap | null = null
-): Fab3dMonitoringData {
+export function mapMesMonitoringToFab3d(data: MesMonitoringData): Fab3dMonitoringData {
   const toolGroupsByArea = data.toolGroups.reduce<Map<string, Fab3dToolGroup[]>>((acc, toolGroup) => {
     const areaCode = toFabLayoutAreaCode(toolGroup);
     const current = acc.get(areaCode) ?? [];
-    current.push(toFabToolGroup(toolGroup, data.tools, overlay));
+    current.push(toFabToolGroup(toolGroup, data.tools));
     acc.set(areaCode, current);
     return acc;
   }, new Map());
@@ -218,14 +147,14 @@ export function mapMesMonitoringToFab3d(
     .sort((a, b) => a.order - b.order);
 
   return {
-    areas: areas.length > 0 ? areas : createMockFab3dAreasWithCompositeOverlay(),
+    areas,
     tools: data.tools.map(toFabTool),
-    source: areas.length > 0 ? 'current' : 'mock',
+    source: 'current',
     measuredAt: data.snapshot.measuredAt,
   };
 }
 
-export function createMockFab3dToolDetails(): Fab3dToolDetail[] {
+export function createScenarioFab3dToolDetails(): Fab3dToolDetail[] {
   return MOCK_FAB3D_AREAS.flatMap((area) =>
     area.toolGroups.flatMap((tg) =>
       Array.from({ length: Math.min(tg.toolCount, 20) }, (_, index) => {
@@ -256,18 +185,19 @@ export function createMockFab3dToolDetails(): Fab3dToolDetail[] {
 }
 
 export async function fetchTgRouteSteps(tgId: string): Promise<TgRouteStep[]> {
-  if (shouldUseDemoMockData()) return getMockTgRouteSteps(tgId);
+  if (shouldUsePresentationScenario()) return getScenarioTgRouteSteps(tgId);
 
   try {
     const { data } = await api.get<TgRouteStep[]>(`/v1/monitoring/tool-groups/${tgId}/route-steps`);
     return data ?? [];
-  } catch {
-    return getMockTgRouteSteps(tgId);
+  } catch (e) {
+    if (shouldUsePresentationScenario()) return getScenarioTgRouteSteps(tgId);
+    throw e;
   }
 }
 
 export async function fetchToolActivity(toolId: string): Promise<ToolActivity | null> {
-  if (shouldUseDemoMockData()) return null;
+  if (shouldUsePresentationScenario()) return null;
 
   try {
     const { data } = await api.get<ToolActivity>(`/v1/monitoring/tools/${toolId}/activity`);
@@ -278,7 +208,7 @@ export async function fetchToolActivity(toolId: string): Promise<ToolActivity | 
 }
 
 export async function fetchFab3dCaseSnapshot(caseId: string): Promise<Fab3dMonitoringData> {
-  if (shouldUseDemoMockData()) return createMockFab3dCaseSnapshot(caseId);
+  if (shouldUsePresentationScenario()) return createScenarioFab3dCaseSnapshot(caseId);
 
   try {
     const { data } = await api.get<BackendFabSnapshot>(`/v1/response-center/cases/${caseId}/fab-snapshot`);
@@ -318,8 +248,8 @@ export async function fetchFab3dCaseSnapshot(caseId: string): Promise<Fab3dMonit
       .sort((a, b) => a.order - b.order);
 
     return {
-      areas: areas.length > 0 ? areas : MOCK_FAB3D_AREAS,
-      tools: createCaseSnapshotToolDetails(areas.length > 0 ? areas : MOCK_FAB3D_AREAS),
+      areas,
+      tools: createCaseSnapshotToolDetails(areas),
       source: 'case_snapshot',
       measuredAt: data.anchorTime,
       caseId: data.caseId,
@@ -332,8 +262,9 @@ export async function fetchFab3dCaseSnapshot(caseId: string): Promise<Fab3dMonit
       ctIncreaseMin: data.anchorTg.ctIncreaseMin ?? undefined,
       diffusionPath: data.diffusionPath,
     };
-  } catch {
-    return createMockFab3dCaseSnapshot(caseId);
+  } catch (e) {
+    if (shouldUsePresentationScenario()) return createScenarioFab3dCaseSnapshot(caseId);
+    throw e;
   }
 }
 
@@ -348,30 +279,50 @@ function toFabRiskFromSnapshot(tg: BackendFabSnapshotTg): Fab3dRisk {
 }
 
 export async function fetchFab3dMonitoringData(): Promise<Fab3dMonitoringData> {
-  if (shouldUseDemoMockData()) {
+  if (shouldUsePresentationScenario()) {
     return {
-      areas: createMockFab3dAreasWithCompositeOverlay(),
-      tools: createMockFab3dToolDetails(),
-      source: 'mock',
+      areas: MOCK_FAB3D_AREAS,
+      tools: createScenarioFab3dToolDetails(),
+      source: 'scenario',
       measuredAt: null,
     };
   }
 
   try {
-    const [mesData, overlay] = await Promise.all([fetchMesMonitoringData(), fetchBottleneckOverlay()]);
-    return mapMesMonitoringToFab3d(mesData, overlay.size > 0 ? overlay : null);
-  } catch (error) {
-    console.warn('[Fab3D] current API failed, fallback to local snapshot.', error);
+    // MES 지표(가동률 등)와 함께 병목 랭킹(TG별 composite 점수)을 받아 병합한다.
+    // composite는 검출+cascade 케이스에만 존재 → 3D 상단 구체 색(병목 위험 점수 등급)에 쓰인다.
+    const [mesData, rankings] = await Promise.all([
+      fetchMesMonitoringData(),
+      fetchBottleneckRankings(null).catch(() => null),
+    ]);
+    const fab = mapMesMonitoringToFab3d(mesData);
+    if (rankings) {
+      const compositeByTgId = new Map<string, number>();
+      for (const item of rankings.items) {
+        if (item.compositeScore != null) compositeByTgId.set(item.tgId, item.compositeScore);
+      }
+      if (compositeByTgId.size > 0) {
+        for (const area of fab.areas) {
+          for (const tg of area.toolGroups) {
+            const composite = compositeByTgId.get(tg.tgId);
+            if (composite != null) tg.compositeScore = composite;
+          }
+        }
+      }
+    }
+    return fab;
+  } catch (e) {
+    if (!shouldUsePresentationScenario()) throw e;
     return {
-      areas: createMockFab3dAreasWithCompositeOverlay(),
-      tools: createMockFab3dToolDetails(),
-      source: 'mock',
+      areas: MOCK_FAB3D_AREAS,
+      tools: createScenarioFab3dToolDetails(),
+      source: 'scenario',
       measuredAt: null,
     };
   }
 }
 
-function createMockFab3dCaseSnapshot(caseId: string): Fab3dMonitoringData {
+function createScenarioFab3dCaseSnapshot(caseId: string): Fab3dMonitoringData {
   const areas = MOCK_FAB3D_AREAS.map((area) => ({
     ...area,
     toolGroups: area.toolGroups.map(toSnapshotBaselineTg).map(applyDeFe1CaseOverlay),
@@ -522,7 +473,7 @@ function inferToolCount(tgName: string): number {
   return 4;
 }
 
-function getMockTgRouteSteps(tgId: string): TgRouteStep[] {
+function getScenarioTgRouteSteps(tgId: string): TgRouteStep[] {
   const normalized = tgId.toLowerCase().replace(/[^a-z0-9]/g, '');
   if (normalized.includes('defe1')) {
     return [

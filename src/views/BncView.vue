@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { useBnc } from '@/composables/useBnc';
@@ -20,6 +20,13 @@ import BncSolutionsTab from '@/components/bnc/tabs/BncSolutionsTab.vue';
 const route = useRoute();
 const router = useRouter();
 const { openWithReport, openWithReportContext, open: openChat } = useChatDrawer();
+const tabPanelRef = ref<HTMLElement | null>(null);
+
+type HitlDecisionPayload = {
+  decision: 'APPROVED' | 'REJECTED';
+  selectedPlanId: string | null;
+  comment?: string | null;
+};
 
 function routeCaseId() {
   return typeof route.query.caseId === 'string' ? route.query.caseId : null;
@@ -50,6 +57,7 @@ const {
   errorMessage,
   detailErrorMessage,
   artifactErrorMessage,
+  hitlSubmitMessage,
   loadCases,
   loadCaseDetail,
   loadCaseArtifacts,
@@ -61,10 +69,11 @@ const {
 
 const disabledTabs = computed<Set<BncTabId>>(() => {
   const steps = selectedCaseDetail.value?.agentProgress ?? [];
-  const isDone = (name: string) => steps.some((step) => step.stepName === name && step.status === 'DONE');
+  const statusOf = (name: string) => steps.find((step) => step.stepName === name)?.status ?? null;
+  const isDone = (name: string) => statusOf(name) === 'DONE';
   const disabled = new Set<BncTabId>();
   if (!isDone('CAUSE_ANALYSIS')) disabled.add('cause');
-  if (!isDone('ACTION_PLAN_COMPARE')) disabled.add('solutions');
+  if (!isDone('ACTION_PLAN_GEN') || !isDone('ACTION_PLAN_COMPARE')) disabled.add('solutions');
   if (!isDone('REPORT_GEN')) disabled.add('report');
   return disabled;
 });
@@ -81,7 +90,9 @@ async function updateRoute(caseId: string | null, tab: BncTabId) {
 
 function handleSelectCase(caseId: string) {
   selectCase(caseId);
-  void updateRoute(caseId, activeTab.value);
+  // 새 케이스를 선택하면 항상 진행 탭으로 돌아간다 — 이전 케이스에서 보던 탭(원인 분석 등)을 그대로 유지하지 않는다.
+  selectTab('progress');
+  void updateRoute(caseId, 'progress');
   void loadCaseDetail(caseId);
 }
 
@@ -89,6 +100,19 @@ function handleSelectTab(tabId: BncTabId) {
   if (disabledTabs.value.has(tabId)) return;
   selectTab(tabId);
   void updateRoute(selectedCaseId.value, tabId);
+}
+
+async function scrollToTabPanelTop() {
+  await nextTick();
+  tabPanelRef.value?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+}
+
+async function handleHitlDecision(payload: HitlDecisionPayload) {
+  if (isDecisionSubmitting.value) return;
+  await submitHitlDecision(payload);
+  // submitHitlDecision already calls selectTab('progress'); sync the URL too
+  void updateRoute(selectedCaseId.value, 'progress');
+  await scrollToTabPanelTop();
 }
 
 function isArtifactTab(tabId: BncTabId) {
@@ -122,7 +146,9 @@ function openCaseChat() {
 onMounted(async () => {
   document.documentElement.classList.add('bnc-fluid');
   await loadCases();
-  await loadCaseDetail();
+  if (selectedCaseId.value) {
+    await loadCaseDetail();
+  }
   if (isArtifactTab(activeTab.value)) {
     void loadCaseArtifacts();
   }
@@ -141,6 +167,30 @@ watch(selectedCaseId, (caseId) => {
   }
 });
 
+// 벨 알림/외부 네비게이션으로 route의 caseId가 바뀌면(이미 BnC 화면에 머문 경우 포함) 해당 케이스를 연다.
+// onMounted는 최초 1회뿐이라 마운트 후 query 변경에는 반응하지 않는다 — "케이스 보기 눌러도 안 열림" 원인.
+watch(
+  () => route.query.caseId,
+  (caseIdRaw) => {
+    const caseId = typeof caseIdRaw === 'string' ? caseIdRaw : null;
+    if (!caseId || caseId === selectedCaseId.value) return;
+    selectCase(caseId);
+    const tab = routeTab();
+    if (tab) selectTab(tab as BncTabId);
+    void loadCaseDetail(caseId);
+  }
+);
+
+// 같은 케이스에서 tab만 바뀌는 경우(예: '승인 검토'로 solutions 탭 딥링크) 반영. 비활성 탭은 무시.
+watch(
+  () => route.query.tab,
+  (tabRaw) => {
+    const tab = typeof tabRaw === 'string' ? (tabRaw as BncTabId) : null;
+    if (!tab || tab === activeTab.value || disabledTabs.value.has(tab)) return;
+    selectTab(tab);
+  }
+);
+
 watch(activeTab, (tab) => {
   if (isArtifactTab(tab)) {
     void loadCaseArtifacts();
@@ -148,9 +198,18 @@ watch(activeTab, (tab) => {
 });
 
 watch(selectedCaseDetail, (detail) => {
-  if (!detail || !disabledTabs.value.has(activeTab.value)) return;
-  selectTab('progress');
-  void updateRoute(selectedCaseId.value, 'progress');
+  if (!detail) return;
+  // 탭 리디렉션: 현재 탭이 비활성화됐으면 progress로 이동
+  if (disabledTabs.value.has(activeTab.value)) {
+    selectTab('progress');
+    void updateRoute(selectedCaseId.value, 'progress');
+  }
+  // 대응안 비교 탭 프리패치: 두 단계 모두 완료된 경우 데이터 미리 로드
+  const steps = detail.agentProgress ?? [];
+  const isDone = (name: string) => steps.some((s) => s.stepName === name && s.status === 'DONE');
+  if (isDone('ACTION_PLAN_GEN') && isDone('ACTION_PLAN_COMPARE') && selectedActionPlans.value === null) {
+    void loadCaseArtifacts(detail.caseId, 'solutions');
+  }
 });
 </script>
 
@@ -181,43 +240,53 @@ watch(selectedCaseDetail, (detail) => {
       />
 
       <main class="bnc-view__main">
-        <BncCaseSummary v-if="selectedCase" :item="selectedCase" :detail="selectedCaseDetail" />
+        <div v-if="selectedCase" class="bnc-view__content-card">
+          <BncCaseSummary v-if="selectedCase" :item="selectedCase" :detail="selectedCaseDetail" />
 
-        <div class="bnc-view__tab-panel">
-          <BncTabNav
-            :tabs="tabOptions"
-            :active-tab="activeTab"
-            :disabled-tabs="disabledTabs"
-            @select="handleSelectTab"
-          />
-          <BncProgressTab
-            v-if="activeTab === 'progress'"
-            :detail="selectedCaseDetail"
-            :loading="isDetailLoading"
-            :error-message="detailErrorMessage"
-          />
-          <BncCauseTab
-            v-else-if="activeTab === 'cause'"
-            :analysis="selectedCauseAnalysis"
-            :loading="isArtifactLoading"
-            :error-message="artifactErrorMessage"
-            :case-id="selectedCaseId"
-          />
-          <BncSolutionsTab
-            v-else-if="activeTab === 'solutions'"
-            :payload="selectedActionPlans"
-            :loading="isArtifactLoading || isDecisionSubmitting"
-            :error-message="artifactErrorMessage"
-            @decide="submitHitlDecision"
-          />
-          <BncReportTab
-            v-else-if="activeTab === 'report'"
-            :report="selectedReport"
-            :loading="isArtifactLoading"
-            :error-message="artifactErrorMessage"
-            :ai-busy="false"
-            @ask-ai="openCaseChat()"
-          />
+          <div v-if="hitlSubmitMessage" class="bnc-view__hitl-toast" role="status" aria-live="polite">
+            {{ hitlSubmitMessage }}
+          </div>
+
+          <div ref="tabPanelRef" class="bnc-view__tab-panel">
+            <BncTabNav
+              :tabs="tabOptions"
+              :active-tab="activeTab"
+              :disabled-tabs="disabledTabs"
+              @select="handleSelectTab"
+            />
+            <BncProgressTab
+              v-if="activeTab === 'progress'"
+              :detail="selectedCaseDetail"
+              :loading="isDetailLoading"
+              :error-message="detailErrorMessage"
+            />
+            <BncCauseTab
+              v-else-if="activeTab === 'cause'"
+              :analysis="selectedCauseAnalysis"
+              :loading="isArtifactLoading"
+              :error-message="artifactErrorMessage"
+              :case-id="selectedCaseId"
+            />
+            <BncSolutionsTab
+              v-else-if="activeTab === 'solutions'"
+              :payload="selectedActionPlans"
+              :loading="isArtifactLoading || isDecisionSubmitting"
+              :error-message="artifactErrorMessage"
+              @decide="handleHitlDecision"
+            />
+            <BncReportTab
+              v-else-if="activeTab === 'report'"
+              :report="selectedReport"
+              :loading="isArtifactLoading"
+              :error-message="artifactErrorMessage"
+              :ai-busy="false"
+              @ask-ai="openCaseChat()"
+            />
+          </div>
+        </div>
+        <div v-else class="bnc-view__empty-card">
+          <strong>병목 케이스를 선택하세요</strong>
+          <p>왼쪽 목록에서 DE_FE_1 같은 병목 카드를 선택하면 Agent 진행 탭과 분석 결과가 열립니다.</p>
         </div>
       </main>
     </div>
@@ -236,6 +305,8 @@ watch(selectedCaseDetail, (detail) => {
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-4);
+  border-bottom: var(--border-width-default) solid var(--color-border-default);
+  padding-bottom: var(--space-2);
 }
 
 .bnc-view__title {
@@ -302,18 +373,9 @@ watch(selectedCaseDetail, (detail) => {
   gap: var(--space-4);
 }
 
-.bnc-view__workspace > :first-child {
-  position: sticky;
-  top: var(--space-4);
-  max-height: calc(100vh - var(--space-4) * 2);
-  overflow-y: auto;
-}
-
 .bnc-view__main {
   display: grid;
   min-width: 0;
-  align-content: start;
-  gap: var(--space-4);
   /* 오른쪽 패널(요약 카드 + 모든 탭) 글씨를 전체적으로 키운다.
      커스텀 프로퍼티는 하위로 상속되므로 자식 컴포넌트(BncCauseTab 등)에도 적용된다. */
   --font-size-xs: 14px;
@@ -323,9 +385,59 @@ watch(selectedCaseDetail, (detail) => {
   --font-size-xl: 26px;
 }
 
-.bnc-view__tab-panel {
-  display: grid;
+.bnc-view__content-card {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+}
+
+.bnc-view__empty-card {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  min-height: 360px;
+  padding: var(--space-6);
+  border: 1px dashed var(--color-border-default);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-card);
+  text-align: center;
+}
+
+.bnc-view__empty-card strong {
+  color: var(--color-fg-strong);
+  font-size: var(--font-size-lg);
+}
+
+.bnc-view__empty-card p {
+  max-width: 440px;
+  margin: var(--space-2) 0 0;
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+}
+
+.bnc-view__hitl-toast {
+  display: flex;
+  align-items: center;
+  padding: var(--space-2) var(--space-4);
+  background: color-mix(in srgb, var(--color-status-success) 12%, var(--color-bg-card));
+  border-bottom: 1px solid color-mix(in srgb, var(--color-status-success) 28%, var(--color-border-default));
+  color: var(--color-status-success);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.bnc-view__tab-panel {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--color-border-default);
+}
+
+.bnc-view__tab-panel > :nth-child(2) {
+  min-height: 0;
 }
 
 @media (max-width: 1180px) {

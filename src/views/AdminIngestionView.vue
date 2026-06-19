@@ -441,6 +441,11 @@ onMounted(async () => {
 }
 
 /* Header */
+.admin-ingestion__header {
+  border-bottom: var(--border-width-default) solid var(--color-border-default);
+  padding-bottom: var(--space-2);
+}
+
 .admin-ingestion__header h1 {
   margin: 0;
   color: var(--color-fg-strong);

@@ -5,7 +5,6 @@ import { exportMesCsv } from '@/services/mesService';
 
 import { useMesMonitoring } from '@/composables/useMesMonitoring';
 
-import MesAlertBanner from '@/components/mes/MesAlertBanner.vue';
 import MesConnectionStatus from '@/components/mes/MesConnectionStatus.vue';
 import MesTabNav from '@/components/mes/MesTabNav.vue';
 import MesAllProcessTab from '@/components/mes/tabs/MesAllProcessTab.vue';
@@ -62,15 +61,6 @@ onUnmounted(() => {
         </div>
       </div>
     </header>
-
-    <MesAlertBanner
-      v-if="data"
-      :data="data"
-      @navigate-to-down-tools="navigateToDownTools"
-      @navigate-to-critical="navigateToCriticalTgs"
-      @navigate-to-high="navigateToHighTgs"
-      @navigate-to-tool-group="setActiveTab('toolGroup')"
-    />
 
     <MesTabNav :active-tab="activeTab" @change="setActiveTab" />
 

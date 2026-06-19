@@ -18,7 +18,6 @@ import type {
 } from '@/types/bottleneckMonitoringApi';
 import type { DashboardProcessAreaData, DashboardProcessToolGroupData } from '@/types/dashboard';
 
-import { resolveBottleneckRiskGrade } from '@/utils/bottleneckRisk';
 
 const RISK_GRADES: BottleneckRiskGrade[] = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
 
@@ -87,7 +86,7 @@ export function mapBottleneckToolGroupDetail(detail: BottleneckToolGroupDetailRe
     waitRatio: detail.waitRatio,
     bottleneckProb: detail.bottleneckProb ?? 0,
     riskScore: detail.riskScore,
-    riskGrade: resolveBottleneckRiskGrade(detail.riskScore),
+    riskGrade: detail.riskGrade ?? 'LOW',
     relatedCaseId: detail.relatedCaseId,
   };
 }
@@ -100,7 +99,7 @@ function mapRankingItem(item: BottleneckRankingItemResponse, area: AreaContext):
     tgCode: item.tgCode,
     tgName: item.tgName,
     status: null,
-    riskGrade: resolveBottleneckRiskGrade(item.riskScore),
+    riskGrade: item.riskGrade ?? 'LOW',
     utilizationRate: item.utilizationRate ?? 0,
     wipCount: item.wipCount ?? 0,
     avgQtimeMin: null,
@@ -108,7 +107,7 @@ function mapRankingItem(item: BottleneckRankingItemResponse, area: AreaContext):
     waitRatio: null,
     availableToolRatio: null,
     bottleneckProb: item.bottleneckProb ?? 0,
-    riskScore: item.riskScore,
+    riskScore: item.compositeScore ?? item.riskScore,
     measuredAt: item.measuredAt,
     areaId: area.areaId,
     areaCode: processCode,

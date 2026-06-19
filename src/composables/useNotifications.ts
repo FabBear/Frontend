@@ -11,14 +11,16 @@ import {
   markNotificationsRead,
 } from '@/services/notificationService';
 
-import { shouldUseDemoMockData } from '@/constants/mockMode';
+import { shouldUsePresentationScenario } from '@/constants/scenarioMode';
 
 import type { AdminDriftAlert } from '@/types/admin';
 import type { NotificationItem, NotificationStreamEvent } from '@/types/notification';
 
+import { latestCaseProgress } from '@/composables/useCaseProgress';
+
 // 드리프트 알림은 ADMIN 전용 엔드포인트(/v1/admin/mlflow/drift-alerts)에서 가져온다.
-// 드리프트는 빈도가 낮으므로 SSE 없이 주기 폴링으로 충분하다.
-const DRIFT_POLL_INTERVAL_MS = 10000;
+// 신규 drift는 백엔드 DriftAlertPushScheduler가 60초 주기로 SSE(MODEL_RETRAIN)를 발행하면
+// 프론트가 수신 즉시 목록을 새로고침한다. 클라이언트 폴링은 사용하지 않는다.
 
 // 드리프트 알림 ID는 서버 알림 ID와 구분되도록 접두사를 붙인다 (읽음 처리 분기에 사용).
 const DRIFT_ID_PREFIX = 'drift-';
@@ -56,8 +58,8 @@ function buildDriftDetails(alert: AdminDriftAlert): NotificationItem['detailItem
     { label: '감지 기준', value: alert.triggerType },
     { label: '현재 F1', value: formatDriftScore(alert.f1AtDetection ?? detail?.f1_current) },
     { label: '임계값', value: formatDriftScore(detail?.threshold) },
-    { label: '권장 조치', value: detail?.recommendation ?? '재학습 권장' },
-    ...(decision?.status ? [{ label: 'HITL 결정', value: decision.status === 'ON_HOLD' ? '보류됨' : '승인됨' }] : []),
+    { label: '권장 조치', value: detail?.recommendation ?? '모델 교체 승인 필요' },
+    ...(decision?.status ? [{ label: '교체 승인', value: decision.status === 'ON_HOLD' ? '보류됨' : '승인됨' }] : []),
     ...(contributors ? [{ label: '주요 영향 TG', value: contributors }] : []),
   ];
 }
@@ -72,12 +74,12 @@ function mapDriftAlert(alert: AdminDriftAlert, ackedIds: Set<string>): Notificat
     level: 'warning',
     title: isDecided ? '모델 드리프트 처리됨' : '모델 드리프트 감지',
     message: isDecided
-      ? `${alert.triggerType} 드리프트 HITL 결정이 기록되었습니다${f1Suffix}`
-      : `${alert.triggerType} 드리프트로 모델 재학습이 권장됩니다${f1Suffix}`,
+      ? `${alert.triggerType} 드리프트 모델 교체 승인이 기록되었습니다${f1Suffix}`
+      : `${alert.triggerType} 드리프트 감지 — 신규 모델 교체 승인 대기${f1Suffix}`,
     refCaseId: null,
     createdAt: alert.detectedAt,
     detailItems: buildDriftDetails(alert),
-    // 재학습 요청 전이라도 사용자가 알림을 확인하면 현재 브라우저에서는 읽음으로 처리한다.
+    // 모델 교체 승인 전이라도 사용자가 알림을 확인하면 현재 브라우저에서는 읽음으로 처리한다.
     unread: !isDecided && !ackedIds.has(alert.id),
   };
 }
@@ -94,6 +96,7 @@ export function useNotifications() {
   const errorMessage = ref<string | null>(null);
   const streamConnected = ref(false);
   const streamError = ref(false);
+  const notificationPushTick = ref(0);
 
   // 패널/종에 보여줄 통합 목록 (최신순)
   const notifications = computed(() =>
@@ -207,7 +210,6 @@ export function useNotifications() {
   }
 
   let eventSource: EventSource | null = null;
-  let driftTimer: ReturnType<typeof setInterval> | undefined;
 
   function closeStream() {
     eventSource?.close();
@@ -215,21 +217,8 @@ export function useNotifications() {
     streamConnected.value = false;
   }
 
-  function stopDriftPolling() {
-    if (driftTimer) clearInterval(driftTimer);
-    driftTimer = undefined;
-  }
-
-  function startDriftPolling() {
-    stopDriftPolling();
-    void loadDriftAlerts();
-    if (shouldUseDemoMockData()) return;
-    driftTimer = setInterval(() => void loadDriftAlerts(), DRIFT_POLL_INTERVAL_MS);
-  }
-
   function resetNotifications() {
     closeStream();
-    stopDriftPolling();
     serverNotifications.value = [];
     driftNotifications.value = [];
     serverUnreadCount.value = 0;
@@ -240,7 +229,7 @@ export function useNotifications() {
 
   function connectStream() {
     if (!authStore.isLoggedIn) return;
-    if (shouldUseDemoMockData()) {
+    if (shouldUsePresentationScenario()) {
       streamConnected.value = true;
       streamError.value = false;
       return;
@@ -265,14 +254,33 @@ export function useNotifications() {
         serverUnreadCount.value = payload.unreadCount ?? serverUnreadCount.value + 1;
         streamConnected.value = true;
         streamError.value = false;
+        notificationPushTick.value += 1;
+        if (payload.notificationType === 'MODEL_RETRAIN') {
+          void loadDriftAlerts();
+        }
       } catch {
         // 잘못된 SSE 페이로드는 무시 — 스트림 연결 유지
+      }
+    });
+
+    eventSource.addEventListener('caseProgress', (event) => {
+      try {
+        latestCaseProgress.value = JSON.parse((event as MessageEvent).data);
+      } catch {
+        // 잘못된 페이로드 무시
       }
     });
 
     eventSource.onerror = () => {
       streamConnected.value = false;
       streamError.value = true;
+      eventSource?.close();
+      eventSource = null;
+      setTimeout(() => {
+        if (authStore.isLoggedIn && !eventSource) {
+          connectStream();
+        }
+      }, 5000);
     };
   }
 
@@ -281,7 +289,7 @@ export function useNotifications() {
 
     void loadNotifications();
     connectStream();
-    startDriftPolling();
+    void loadDriftAlerts();
   });
 
   watch(
@@ -294,13 +302,12 @@ export function useNotifications() {
 
       void loadNotifications();
       connectStream();
-      startDriftPolling();
+      void loadDriftAlerts();
     }
   );
 
   onUnmounted(() => {
     closeStream();
-    stopDriftPolling();
   });
 
   return {
@@ -312,6 +319,7 @@ export function useNotifications() {
     errorMessage,
     streamConnected,
     streamError,
+    notificationPushTick,
     loadNotifications,
     markRead,
     markAllRead,

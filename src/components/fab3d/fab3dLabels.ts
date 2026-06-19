@@ -65,12 +65,12 @@ export function makeStockerBadge(label: string, wip: number, queue: number): THR
   return spr;
 }
 
-export function makeCountBadge(count: number, utilizationRate: number): THREE.Sprite {
+export function makeCountBadge(count: number, sev: number): THREE.Sprite {
   const canvas = document.createElement('canvas');
   canvas.width = 80;
   canvas.height = 32;
   const ctx = canvas.getContext('2d')!;
-  const col = utilizationRate >= 0.9 ? '#ff4422' : utilizationRate >= 0.85 ? '#ff9922' : '#66aadd';
+  const col = sev >= 3 ? '#ff4422' : sev >= 2 ? '#ff9922' : sev >= 1 ? '#ffd700' : '#66aadd';
   ctx.fillStyle = 'rgba(10,16,28,0.72)';
   ctx.roundRect(3, 3, 74, 26, 6);
   ctx.fill();
@@ -91,7 +91,7 @@ export function makeCountBadge(count: number, utilizationRate: number): THREE.Sp
   return spr;
 }
 
-export function makeBayLabel(text: string, maxUtilizationRate: number): THREE.Sprite {
+export function makeBayLabel(text: string, maxSev: number): THREE.Sprite {
   const canvas = document.createElement('canvas');
   canvas.width = 420;
   canvas.height = 96;
@@ -100,7 +100,7 @@ export function makeBayLabel(text: string, maxUtilizationRate: number): THREE.Sp
   ctx.fillStyle = 'rgba(8, 14, 26, 0.64)';
   ctx.roundRect(6, 26, 408, 50, 13);
   ctx.fill();
-  ctx.fillStyle = maxUtilizationRate >= 0.9 ? '#ff8a8a' : maxUtilizationRate >= 0.85 ? '#ffc488' : '#c6e2ff';
+  ctx.fillStyle = maxSev >= 3 ? '#ff8a8a' : maxSev >= 2 ? '#ffc488' : maxSev >= 1 ? '#ffe08a' : '#c6e2ff';
   ctx.font = '700 33px system-ui, sans-serif';
   ctx.textBaseline = 'middle';
   ctx.fillText(text, 22, 52);

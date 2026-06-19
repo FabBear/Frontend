@@ -27,22 +27,22 @@ function handleOpenMonitoring(caseId: string) {
 
 <template>
   <section class="bottleneck-alert-list" aria-labelledby="bottleneck-alert-list-title">
-    <!-- 제목: 카드 밖 (ProcessMapCard와 동일한 구조) -->
-    <div class="bottleneck-alert-list__header">
-      <h2 id="bottleneck-alert-list-title" class="bottleneck-alert-list__title">병목 위험 알림</h2>
-      <BaseButton variant="primary" size="sm" @click="emit('openMonitoringList')">더보기</BaseButton>
-    </div>
-
-    <!-- 카드: 내용만 -->
     <div class="bottleneck-alert-list__card">
-      <p v-if="alerts.length === 0" class="bottleneck-alert-list__empty">표시할 병목 위험 알림이 없습니다.</p>
-      <BottleneckAlertCard
-        v-for="alert in alerts"
-        :key="alert.caseId"
-        :alert="alert"
-        @open-center="handleOpenCenter"
-        @open-monitoring="handleOpenMonitoring"
-      />
+      <div class="bottleneck-alert-list__header">
+        <h2 id="bottleneck-alert-list-title" class="bottleneck-alert-list__title">병목 위험 알림</h2>
+        <BaseButton variant="primary" size="sm" @click="emit('openMonitoringList')">더보기</BaseButton>
+      </div>
+
+      <div class="bottleneck-alert-list__items">
+        <p v-if="alerts.length === 0" class="bottleneck-alert-list__empty">표시할 병목 위험 알림이 없습니다.</p>
+        <BottleneckAlertCard
+          v-for="alert in alerts"
+          :key="alert.caseId"
+          :alert="alert"
+          @open-center="handleOpenCenter"
+          @open-monitoring="handleOpenMonitoring"
+        />
+      </div>
     </div>
   </section>
 </template>
@@ -50,12 +50,23 @@ function handleOpenMonitoring(caseId: string) {
 <style scoped>
 /* 제목 + 카드를 세로로 배치 */
 .bottleneck-alert-list {
-  display: grid;
-  grid-template-rows: auto 1fr;
   height: 100%;
   min-height: 0;
   min-width: 0;
+}
+
+.bottleneck-alert-list__card {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: var(--space-2);
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  border: var(--border-width-default) solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-card);
+  padding: var(--space-3);
+  box-shadow: var(--shadow-sm);
 }
 
 .bottleneck-alert-list__header {
@@ -73,20 +84,13 @@ function handleOpenMonitoring(caseId: string) {
   white-space: nowrap;
 }
 
-/* 카드 영역: ProcessMapCard의 .process-map__card와 동일한 스타일 */
-.bottleneck-alert-list__card {
+.bottleneck-alert-list__items {
   display: grid;
   align-content: start;
   gap: var(--space-2);
   min-height: 0;
-  max-height: 100%;
   overflow-y: auto;
-  border: var(--border-width-default) solid var(--color-border-default);
-  border-radius: var(--radius-lg);
-  background: var(--color-bg-card);
-  padding: var(--space-3);
-  box-shadow: var(--shadow-sm);
-  scrollbar-gutter: stable;
+  scrollbar-width: thin;
 }
 
 .bottleneck-alert-list__empty {

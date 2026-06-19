@@ -28,6 +28,7 @@ const DASHBOARD_STEP_LABELS: Record<string, string> = {
   ACTION_PLAN_COMPARE: '대응안 비교',
   HITL_WAITING: 'HITL 승인',
   REPORT_GEN: '보고서 작성',
+  PORT_GEN: '보고서 작성',
 };
 
 const DASHBOARD_STEP_PROGRESS: Record<string, number> = {
@@ -43,10 +44,21 @@ const DASHBOARD_STEP_PROGRESS: Record<string, number> = {
   ACTION_PLAN_COMPARE: 83,
   HITL_WAITING: 88,
   REPORT_GEN: 100,
+  PORT_GEN: 100,
 };
 
+export function getBottleneckAlertTitle(alert: BottleneckAlertItem): string {
+  return (alert.batchCriticalCount ?? 1) > 1
+    ? `${alert.batchCriticalCount}개 TG`
+    : alert.tgName;
+}
+
 export function getBottleneckAlertSubtitle(alert: BottleneckAlertItem): string {
-  return `${formatAlertAreaDisplay(alert.areaName, alert.tgName)} · ${formatKoMonthDayTime(alert.detectedAt)}`;
+  const time = formatKoMonthDayTime(alert.detectedAt);
+  if ((alert.batchCriticalCount ?? 1) > 1) {
+    return `${alert.batchCriticalCount}개 TG 동시 탐지 · ${time}`;
+  }
+  return `${formatAlertAreaDisplay(alert.areaName, alert.tgName)} · ${time}`;
 }
 
 export function getBottleneckAlertMetrics(alert: BottleneckAlertItem): BottleneckCaseMetric[] {
@@ -56,6 +68,7 @@ export function getBottleneckAlertMetrics(alert: BottleneckAlertItem): Bottlenec
     { label: '위험 Lot', value: formatNumber(alert.alertMetrics?.atRiskLots ?? null) },
   ];
 }
+
 
 function formatAlertImpact(alert: BottleneckAlertItem): string {
   if (alert.alertMetrics?.impactScore !== null && alert.alertMetrics?.impactScore !== undefined) {
@@ -106,7 +119,7 @@ function isUsableStepName(stepName: string): boolean {
 }
 
 function isResolvedStatus(status: string): boolean {
-  return status === 'RESOLVED' || status === 'SUCCEEDED' || status === 'COMPLETED' || status === 'DONE';
+  return status === 'RESOLVED' || status === 'NOT_ACTIONABLE' || status === 'SUCCEEDED' || status === 'COMPLETED' || status === 'DONE';
 }
 
 function isFailedStatus(status: string): boolean {

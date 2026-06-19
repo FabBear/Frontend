@@ -825,22 +825,22 @@ onMounted(async () => {
     </template>
 
     <template v-else>
-      <div
-        class="action-history-view__body"
-        :class="{ 'action-history-view__body--split': selectedReportItem !== null }"
-      >
-        <section class="action-history-view__report-panel surface-card">
+      <div class="action-history-view__body">
+        <section class="action-history-view__period-toolbar surface-card">
           <div class="action-history-view__section-header">
             <div>
               <h2>기간 이슈 보고서</h2>
-              <p>시작일과 종료일을 선택해 기간 이슈 보고서를 생성합니다.</p>
+              <p>기간을 선택해 보고서를 생성하거나 기존 보고서를 다시 열 수 있습니다.</p>
             </div>
             <BaseButton variant="ghost" size="sm" :loading="periodReportsLoading" @click="loadPeriodReports">
               새로고침
             </BaseButton>
           </div>
 
-          <form class="action-history-view__period-form" @submit.prevent="runPeriodIssueReport()">
+          <form
+            class="action-history-view__period-form action-history-view__period-form--compact"
+            @submit.prevent="runPeriodIssueReport()"
+          >
             <div class="action-history-view__control-group action-history-view__period-preset">
               <span class="action-history-view__control-label">기간</span>
               <div class="action-history-view__seg-group" role="group" aria-label="기간 이슈 보고서 기간 선택">
@@ -885,30 +885,21 @@ onMounted(async () => {
           <p v-if="reportListError" class="action-history-view__state action-history-view__state--error">
             {{ reportListError }}
           </p>
-          <FabBearProgressLoader
-            v-if="periodReportsLoading"
-            tone="panel"
-            label="기간 이슈 보고서를 불러오는 중입니다"
-          />
-          <p v-else-if="periodReports.length === 0" class="action-history-view__empty">
-            아직 생성된 기간 이슈 보고서가 없습니다.
-          </p>
-          <div v-else class="action-history-view__report-list">
+          <div
+            v-if="periodReports.length"
+            class="action-history-view__period-report-strip"
+            aria-label="기간 이슈 보고서 목록"
+          >
             <button
               v-for="item in periodReports"
               :key="item.id"
               type="button"
-              class="action-history-view__report-row"
-              :class="{ 'action-history-view__report-row--active': selectedReportItem?.id === item.id }"
+              class="action-history-view__period-report-chip"
+              :class="{ 'action-history-view__period-report-chip--active': selectedReportItem?.id === item.id }"
               @click="openReportFromHistory(item)"
             >
-              <span class="action-history-view__report-type">{{ reportIntentLabel(item.reportIntent) }}</span>
               <strong>{{ reportRowTitle(item) }}</strong>
-              <span>{{ formatReportPeriod(item) }} · 생성 {{ formatRunDate(item.createdAt) }}</span>
-              <p>{{ reportRowSummary(item) }}</p>
-              <em class="action-history-view__report-status" :class="reportStatusClass(item.status)">
-                {{ reportStatusLabel(item.status) }}
-              </em>
+              <span>{{ formatReportPeriod(item) }} · {{ reportStatusLabel(item.status) }}</span>
             </button>
           </div>
         </section>
@@ -923,6 +914,17 @@ onMounted(async () => {
             @open-reference="handleOpenReportReference"
           />
         </div>
+        <div v-else class="action-history-view__detail-panel surface-card">
+          <FabBearProgressLoader
+            v-if="periodReportsLoading"
+            tone="panel"
+            label="기간 이슈 보고서를 불러오는 중입니다"
+          />
+          <p v-else-if="reportListError" class="action-history-view__state action-history-view__state--error">
+            {{ reportListError }}
+          </p>
+          <p v-else class="action-history-view__empty">표시할 기간 이슈 보고서가 없습니다.</p>
+        </div>
       </div>
     </template>
   </div>
@@ -934,7 +936,15 @@ onMounted(async () => {
   gap: var(--space-4);
 }
 
-.action-history-view__header,
+.action-history-view__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  border-bottom: var(--border-width-default) solid var(--color-border-default);
+  padding-bottom: var(--space-2);
+}
+
 .action-history-view__pager {
   display: flex;
   align-items: center;
@@ -1240,6 +1250,12 @@ onMounted(async () => {
   padding: var(--space-4);
 }
 
+.action-history-view__period-toolbar {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
 .action-history-view__period-form {
   display: flex;
   flex-wrap: wrap;
@@ -1248,6 +1264,11 @@ onMounted(async () => {
   border-top: 1px solid var(--color-border-subtle);
   border-bottom: 1px solid var(--color-border-subtle);
   padding: var(--space-3) 0;
+}
+
+.action-history-view__period-form--compact {
+  border-top: 0;
+  padding-top: 0;
 }
 
 .action-history-view__period-form label {
@@ -1279,6 +1300,50 @@ onMounted(async () => {
 .action-history-view__report-list {
   display: grid;
   gap: var(--space-2);
+}
+
+.action-history-view__period-report-strip {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+}
+
+.action-history-view__period-report-chip {
+  display: grid;
+  flex: 0 0 min(360px, 82vw);
+  gap: 2px;
+  min-height: 66px;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-card);
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+}
+
+.action-history-view__period-report-chip:hover,
+.action-history-view__period-report-chip--active {
+  border-color: var(--color-action-primary-border);
+  background: color-mix(in srgb, var(--color-action-primary-soft) 35%, var(--color-bg-card));
+}
+
+.action-history-view__period-report-chip strong {
+  overflow: hidden;
+  color: var(--color-fg-strong);
+  font-size: var(--font-size-sm);
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.action-history-view__period-report-chip span {
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
 }
 
 .action-history-view__report-row {

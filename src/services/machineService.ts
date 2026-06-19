@@ -7,7 +7,7 @@ import {
   MOCK_MACHINE_TOOL_GROUPS,
   generateMockEquipmentTrends,
 } from '@/constants/mockData/machine';
-import { shouldUseDemoMockData } from '@/constants/mockMode';
+import { shouldUsePresentationScenario } from '@/constants/scenarioMode';
 import { getProcessAreaNameKo } from '@/constants/processArea';
 
 import type {
@@ -234,7 +234,7 @@ function mapEquipmentPayload(payload: EquipmentRealtimePayload): MachineMonitori
 }
 
 export async function fetchMachineMonitoringData(): Promise<MachineMonitoringData> {
-  if (shouldUseDemoMockData()) return MOCK_MACHINE_MONITORING_DATA;
+  if (shouldUsePresentationScenario()) return MOCK_MACHINE_MONITORING_DATA;
 
   const { data } = await api.get<EquipmentRealtimePayload>(EQUIPMENT_CURRENT_PATH);
   return mapEquipmentPayload(data);
@@ -250,7 +250,7 @@ export async function fetchEquipmentOverview(
   from: string,
   to: string
 ): Promise<EquipmentOverviewPayload> {
-  if (shouldUseDemoMockData()) return createMockEquipmentOverview(range, from, to);
+  if (shouldUsePresentationScenario()) return createMockEquipmentOverview(range, from, to);
 
   const { data } = await api.get<EquipmentOverviewPayload>('/v1/monitoring/equipment/overview', {
     params: { from, to, range },
@@ -268,7 +268,7 @@ export async function fetchEquipmentTrends(
   ids: string[],
   periodRange: MachinePeriodRange
 ): Promise<MachineEquipmentTrendsPayload> {
-  if (shouldUseDemoMockData()) {
+  if (shouldUsePresentationScenario()) {
     const targets =
       type === 'toolGroup'
         ? MOCK_MACHINE_TOOL_GROUPS.filter((tg) => ids.includes(tg.tgId)).map((tg) => ({

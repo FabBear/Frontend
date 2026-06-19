@@ -1,7 +1,6 @@
 import api from '@/services/api';
 import {
   actionLabelFromIndex,
-  addNullable,
   extractActionLabel,
   featureLabel,
   formatCompareParamLine,
@@ -21,12 +20,13 @@ import {
 import { MOCK_BNC_REPORTS } from '@/constants/mockData/bncArtifacts';
 import { MOCK_ARCHIVE_REPORTS } from '@/constants/mockData/ragCaseReports';
 import { MOCK_ACTION_HISTORY_REPORTS } from '@/constants/mockData/report';
-import { shouldUseDemoMockData } from '@/constants/mockMode';
+import { shouldUsePresentationScenario } from '@/constants/scenarioMode';
 
 import type {
   BncActionPlanBaseline,
   BncActionPlanMetric,
   BncActionPlansPayload,
+  BncActionSpec,
   BncCaseDetail,
   BncCaseListData,
   BncCauseAnalysis,
@@ -61,6 +61,13 @@ interface BackendCauseAnalysis {
   judgment: BncCauseAnalysis['judgment'] | null;
   causeCategories: BncCauseAnalysis['causeCategories'] | null;
   upstreamSuspects: string[] | null;
+  trendInsights?: Array<{
+    feature: string;
+    slopePerHour: number | null;
+    values: number[];
+    r2: number | null;
+    significant: boolean | null;
+  }>;
   simForecast: BncCauseAnalysis['simForecast'] | null;
   gStar: BncCauseAnalysis['gStar'] | null;
   createdAt: string;
@@ -73,10 +80,14 @@ interface BackendActionPlan {
   planType: string | null;
   planDetail: string | null;
   simulationBasis: string | null;
-  estThroughputDelta: number | null;
-  estAvgWaitDelta: number | null;
-  estDeliveryComplianceDelta: number | null;
-  estDelayDelta: number | null;
+  estUtilDelta: number | null;
+  estQTimeDelta: number | null;
+  estWipDelta: number | null;
+  estWaitRatioDelta: number | null;
+  estThroughputDelta?: number | null;
+  estAvgWaitDelta?: number | null;
+  estDeliveryComplianceDelta?: number | null;
+  estDelayDelta?: number | null;
 }
 
 interface BackendActionPlansPayload {
@@ -95,6 +106,7 @@ interface BackendActionPlansPayload {
 interface BackendCompareActionEffect {
   label: string;
   action_kind: string;
+  plan_id?: string;
   description: string;
   simulation_confidence: number;
   kpi_delta: {
@@ -254,6 +266,7 @@ interface BackendCompareV2Payload {
     is_baseline?: boolean;
     tradeoffs?: string[];
     outcome_if_kept?: string | null;
+    plan_id?: string;
   }>;
   recommendation: {
     headline: string;
@@ -302,6 +315,25 @@ interface BackendCompareV2Payload {
       suspect_component?: string;
     }>;
   };
+  rag_evidence?: {
+    candidates?: Array<{
+      label: string;
+      evidence?: {
+        effect_outlook?: string;
+        risk_level?: string;
+        candidate_summary?: string;
+        evidence_strength?: string;
+        claims?: string[];
+      };
+    }>;
+    common_hits?: Array<{
+      case_id?: string;
+      score?: number;
+      tg_code?: string;
+      cause_summary?: string;
+      report_title?: string;
+    }>;
+  };
 }
 
 interface BackendReportPayload {
@@ -311,7 +343,7 @@ interface BackendReportPayload {
   renderedMarkdown: string | null;
   rootCauseText: string | null;
   actionComparisonText: string | null;
-  timelineJson: unknown;
+  timelineJson?: unknown;
   reportJson?: ReportV1 | null;
   hasPdf: boolean;
   generatedAt: string;
@@ -335,47 +367,51 @@ const COMPARE_KPI_LABELS: Record<string, string> = {
 };
 
 function buildActionMetrics(baseline: BncActionPlanBaseline, plan: BackendActionPlan): BncActionPlanMetric[] {
+  const qTimeBeforeMin = baseline.avgWaitDay != null ? baseline.avgWaitDay * 1440 : null;
+  const qTimeAfterMin =
+    qTimeBeforeMin != null && plan.estQTimeDelta != null ? qTimeBeforeMin + plan.estQTimeDelta : null;
+
   return [
     {
-      label: '처리량',
-      before: formatMetricValue(baseline.throughput, ' lot/day'),
-      after: formatMetricValue(addNullable(baseline.throughput, plan.estThroughputDelta), ' lot/day'),
-      delta: formatDelta(plan.estThroughputDelta, '', 1),
+      label: '가동률',
+      before: '기준선',
+      after: formatNeutralDelta(plan.estUtilDelta, '%p', 2),
+      delta: formatNeutralDelta(plan.estUtilDelta, '%p', 2),
     },
     {
-      label: '평균 대기',
-      before: formatMetricValue(baseline.avgWaitDay, '일', 2),
-      after: formatMetricValue(addNullable(baseline.avgWaitDay, plan.estAvgWaitDelta), '일', 2),
-      delta: formatDelta(plan.estAvgWaitDelta, '일', 2),
+      label: '평균 Q-Time',
+      before: formatMetricValue(qTimeBeforeMin, '분', 1),
+      after: formatMetricValue(qTimeAfterMin, '분', 1),
+      delta: formatNeutralDelta(plan.estQTimeDelta, '분', 2),
     },
     {
-      label: '납기 준수',
-      before: formatMetricValue(baseline.deliveryCompliance, '%'),
-      after: formatMetricValue(addNullable(baseline.deliveryCompliance, plan.estDeliveryComplianceDelta), '%'),
-      delta: formatDelta(plan.estDeliveryComplianceDelta, '%'),
+      label: 'WIP',
+      before: '기준선',
+      after: formatNeutralDelta(plan.estWipDelta, ' Lot', 1),
+      delta: formatNeutralDelta(plan.estWipDelta, ' Lot', 1),
     },
     {
-      label: '평균 지연',
-      before: formatMetricValue(baseline.avgDelayDay, '일', 2),
-      after: formatMetricValue(addNullable(baseline.avgDelayDay, plan.estDelayDelta), '일', 2),
-      delta: formatDelta(plan.estDelayDelta, '일', 2),
+      label: 'Wait Ratio',
+      before: '기준선',
+      after: formatNeutralDelta(plan.estWaitRatioDelta, '', 3),
+      delta: formatNeutralDelta(plan.estWaitRatioDelta, '', 3),
     },
   ];
 }
 
 function buildExpectedImpact(plan: BackendActionPlan): string {
   const impacts = [
-    plan.estThroughputDelta !== null && plan.estThroughputDelta !== undefined
-      ? `처리량 ${formatDelta(plan.estThroughputDelta)}`
+    plan.estUtilDelta !== null && plan.estUtilDelta !== undefined
+      ? `가동률 ${formatNeutralDelta(plan.estUtilDelta, '%p', 2)}`
       : null,
-    plan.estAvgWaitDelta !== null && plan.estAvgWaitDelta !== undefined
-      ? `평균 대기 ${formatDelta(plan.estAvgWaitDelta, '일', 2)}`
+    plan.estQTimeDelta !== null && plan.estQTimeDelta !== undefined
+      ? `평균 Q-Time ${formatNeutralDelta(plan.estQTimeDelta, '분', 2)}`
       : null,
-    plan.estDeliveryComplianceDelta !== null && plan.estDeliveryComplianceDelta !== undefined
-      ? `납기 준수 ${formatDelta(plan.estDeliveryComplianceDelta, '%')}`
+    plan.estWipDelta !== null && plan.estWipDelta !== undefined
+      ? `WIP ${formatNeutralDelta(plan.estWipDelta, ' Lot', 1)}`
       : null,
-    plan.estDelayDelta !== null && plan.estDelayDelta !== undefined
-      ? `평균 지연 ${formatDelta(plan.estDelayDelta, '일', 2)}`
+    plan.estWaitRatioDelta !== null && plan.estWaitRatioDelta !== undefined
+      ? `Wait Ratio ${formatNeutralDelta(plan.estWaitRatioDelta, '', 3)}`
       : null,
   ].filter(Boolean);
   return impacts.length > 0 ? impacts.join(' · ') : '-';
@@ -412,6 +448,105 @@ function formatMonitoringKpis(items: Array<string | BackendCompareMonitoringKpi>
     const checkAfter = item.check_after_min ? ` · ${item.check_after_min}분 후 확인` : '';
     return `${label} ${item.target}${checkAfter}`;
   });
+}
+
+function finiteNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function stringValue(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
+
+function lotZoneLabel(zone: string, actionKind: string): string {
+  if (zone === 'danger' || actionKind === 'SET_SUPER_HOT') return '위험구간';
+  if (zone === 'warn_upper') return '경고상단';
+  if (zone === 'warn_lower') return '경고하단';
+  return '우선순위 조정';
+}
+
+function lotActionLabel(actionKind: string, priority: number | undefined): string {
+  if (actionKind === 'SET_SUPER_HOT') return `SuperHotLot (priority ${priority ?? 30})`;
+  return `priority ${priority ?? 20}`;
+}
+
+function buildLotGroupsFromAdjustments(value: unknown): NonNullable<BncActionSpec['lotGroups']> {
+  if (!Array.isArray(value)) return [];
+
+  const groups = new Map<string, NonNullable<BncActionSpec['lotGroups']>[number]>();
+  value.forEach((item, index) => {
+    if (!item || typeof item !== 'object') return;
+    const row = item as Record<string, unknown>;
+    const actionKind = stringValue(row.action_kind ?? row.actionKind);
+    const zone = stringValue(row.zone);
+    const priority = finiteNumber(row.priority);
+    const zoneLabel = lotZoneLabel(zone, actionKind);
+    const action = lotActionLabel(actionKind, priority);
+    const key = `${zoneLabel}:${action}`;
+    const lotPlanId = finiteNumber(row.lot_plan_id ?? row.lotPlanId);
+    const lotType = stringValue(row.lot_type ?? row.lotType);
+    const product = stringValue(row.product_name ?? row.productName) || lotType || '-';
+    const id = lotType || (lotPlanId !== undefined ? `LotPlan-${lotPlanId}` : `${product}-${index + 1}`);
+    const group =
+      groups.get(key) ??
+      ({
+        zone: zoneLabel,
+        action,
+        lots: [],
+      } satisfies NonNullable<BncActionSpec['lotGroups']>[number]);
+    group.lots.push({
+      id,
+      product,
+      t2dueMin: finiteNumber(row.time_to_due ?? row.timeToDue ?? row.t2dueMin) ?? 0,
+    });
+    groups.set(key, group);
+  });
+
+  return Array.from(groups.values());
+}
+
+function buildActionSpecFromParams(params: Record<string, unknown> | null | undefined): BncActionSpec | undefined {
+  if (!params) return undefined;
+
+  const intervalPct = finiteNumber(params.release_interval_delta_pct);
+  const intervalDeltaMin = finiteNumber(params.release_interval_delta_min);
+  const priorityRule = typeof params.lot_priority_rule === 'string' ? params.lot_priority_rule : '';
+  const superhotlot = params.superhotlot_enable === true;
+
+  const lotGroups: BncActionSpec['lotGroups'] = buildLotGroupsFromAdjustments(params.lot_adjustments);
+  if (lotGroups.length === 0 && superhotlot) {
+    lotGroups.push({
+      zone: '위험 Lot',
+      action: 'SuperHotLot',
+      lots: [],
+    });
+  } else if (lotGroups.length === 0 && priorityRule) {
+    lotGroups.push({
+      zone: '우선순위 조정',
+      action: priorityRule,
+      lots: [],
+    });
+  }
+
+  if (intervalPct === undefined && intervalDeltaMin === undefined && lotGroups.length === 0) {
+    return undefined;
+  }
+
+  const intervalText =
+    intervalPct !== undefined
+      ? `+${intervalPct.toFixed(1)}%`
+      : intervalDeltaMin !== undefined
+        ? `+${intervalDeltaMin.toFixed(1)}분`
+        : undefined;
+
+  return {
+    intervalPct,
+    intervalDeltaMin,
+    intervalText,
+    lotGroups: lotGroups.length > 0 ? lotGroups : undefined,
+    noLotAdjust: lotGroups.length === 0,
+    noLotReason: lotGroups.length === 0 ? '우선순위 변경 없음' : undefined,
+  };
 }
 
 function buildCompareMetrics(effect: BackendCompareActionEffect): BncActionPlanMetric[] {
@@ -552,6 +687,8 @@ function buildCompareV2ForecastMetrics(
       label: COMPARE_KPI_LABELS[key] ?? key.replaceAll('_', ' '),
       value: `${formatCompareV2Value(key, item.now)} → ${formatCompareV2Value(key, item.after)}`,
       caption: `${formatCompareV2Delta(key, item.delta)} · ${formatNumber(item.pct_change, 1)}% · 신뢰도 ${item.reliability}`,
+      pctDelta: item.pct_change,
+      tone: forecastMetricTone(key, item.delta),
     })),
   };
 }
@@ -562,7 +699,21 @@ function buildCompareV2Metrics(option: BackendCompareV2Payload['action_options']
     before: formatCompareV2Value(key, item.now),
     after: formatCompareV2Value(key, item.after),
     delta: item.delta === 0 ? '변화 없음' : formatCompareV2Delta(key, item.delta),
+    pctDelta: item.pct_change,
+    tone: compareVerdictTone(item.verdict),
   }));
+}
+
+function compareVerdictTone(verdict: string | null | undefined): 'positive' | 'negative' | 'neutral' {
+  if (verdict === 'improved') return 'positive';
+  if (verdict === 'worsened') return 'negative';
+  return 'neutral';
+}
+
+function forecastMetricTone(key: string, delta: number): 'positive' | 'negative' | 'neutral' {
+  if (delta === 0) return 'neutral';
+  if (key === 'available_tool_ratio') return delta > 0 ? 'positive' : 'negative';
+  return delta < 0 ? 'positive' : 'negative';
 }
 
 function buildCompareV2ExpectedImpact(option: BackendCompareV2Payload['action_options'][number]): string {
@@ -605,6 +756,16 @@ function buildCompareV2OperationItems(option: BackendCompareV2Payload['action_op
   return [option.description, ...paramItems];
 }
 
+function normalizeRagRiskLevel(value: string | undefined): 'high' | 'medium' | 'low' {
+  const normalized = value?.toLowerCase();
+  return normalized === 'high' || normalized === 'medium' || normalized === 'low' ? normalized : 'low';
+}
+
+function normalizeRagEvidenceStrength(value: string | undefined): 'strong' | 'moderate' | 'weak' {
+  const normalized = value?.toLowerCase();
+  return normalized === 'strong' || normalized === 'moderate' || normalized === 'weak' ? normalized : 'moderate';
+}
+
 function resolveCompareV2ImpactTone(
   option: BackendCompareV2Payload['action_options'][number]
 ): 'positive' | 'neutral' | 'negative' {
@@ -615,20 +776,17 @@ function resolveCompareV2ImpactTone(
 }
 
 function resolveImpactTone(plan: BackendActionPlan): 'positive' | 'neutral' | 'negative' {
-  const deltas = [
-    plan.estThroughputDelta,
-    plan.estAvgWaitDelta,
-    plan.estDeliveryComplianceDelta,
-    plan.estDelayDelta,
-  ].filter((value): value is number => value !== null && value !== undefined);
+  const deltas = [plan.estUtilDelta, plan.estQTimeDelta, plan.estWipDelta, plan.estWaitRatioDelta].filter(
+    (value): value is number => value !== null && value !== undefined
+  );
 
   if (deltas.length === 0 || deltas.every((value) => value === 0)) return 'neutral';
 
   const hasBadDelta =
-    toNumber(plan.estAvgWaitDelta) > 0 ||
-    toNumber(plan.estDelayDelta) > 0 ||
-    toNumber(plan.estThroughputDelta) < 0 ||
-    toNumber(plan.estDeliveryComplianceDelta) < 0;
+    toNumber(plan.estUtilDelta) > 0 ||
+    toNumber(plan.estQTimeDelta) > 0 ||
+    toNumber(plan.estWipDelta) > 0 ||
+    toNumber(plan.estWaitRatioDelta) > 0;
 
   return hasBadDelta ? 'negative' : 'positive';
 }
@@ -667,6 +825,50 @@ function normalizeTimeline(timelineJson: unknown): BncReportTimelineItem[] {
     .filter((item): item is BncReportTimelineItem => item !== null);
 }
 
+function normalizeCauseConfidence(value: string | null | undefined): 'HIGH' | 'MEDIUM' | 'LOW' {
+  return value === 'HIGH' || value === 'MEDIUM' || value === 'LOW' ? value : 'LOW';
+}
+
+function buildLlmVerdict(data: BackendCauseAnalysis): BncCauseAnalysis['llmVerdict'] {
+  const judgment = data.judgment;
+  if (!judgment) return null;
+
+  const categories = data.causeCategories ?? [];
+  const primaryCategory = categories.find((item) => item.name === judgment.primaryCategory);
+  const topShap = data.shapFeatures[0];
+  const gStar = data.gStar;
+  const firstGStarKpi = gStar?.sigKpis?.[0];
+  const worseningFeatures = (data.trendInsights ?? [])
+    .filter((item) => item.significant)
+    .map((item) => featureLabel(item.feature));
+  const forecast =
+    data.simForecast?.getsWorse === true
+      ? '2시간 내 악화 가능성이 있습니다.'
+      : data.simForecast?.getsWorse === false
+        ? '2시간 내 추가 악화 가능성은 낮게 관측됩니다.'
+        : 'Forward simulation 결과가 없습니다.';
+
+  return {
+    mainCategory: judgment.primaryCategory ?? '-',
+    mainFeature: judgment.primaryCause ? featureLabel(judgment.primaryCause) : '-',
+    confidence: normalizeCauseConfidence(judgment.primaryConfidence),
+    summary: judgment.causeSummary ?? judgment.primaryReasoning ?? '-',
+    reasoning: judgment.primaryReasoning ?? '',
+    evidence: {
+      shapContribPct: primaryCategory?.shapSharePct ?? topShap?.contributionPct ?? 0,
+      gStarSignificant: Boolean(primaryCategory?.gStarConfirmed ?? gStar?.confirmed),
+      gStarKpi: firstGStarKpi ? featureLabel(firstGStarKpi.kpi) : undefined,
+      gStarPValue: firstGStarKpi?.pAdjusted,
+      worseningFeatures,
+    },
+    forecast,
+    rejected: (judgment.dismissed ?? []).map((category) => ({
+      category,
+      reason: judgment.dismissedReason ?? '주원인 대비 설명력이 낮습니다.',
+    })),
+  };
+}
+
 function mapCauseAnalysis(data: BackendCauseAnalysis): BncCauseAnalysis {
   const totalShapAbs = data.shapFeatures.reduce((sum, item) => sum + Math.abs(toNumber(item.importance) ?? 0), 0);
 
@@ -691,8 +893,16 @@ function mapCauseAnalysis(data: BackendCauseAnalysis): BncCauseAnalysis {
         shapValue: importance,
       };
     }),
-    trendInsights: [],
+    trendInsights: (data.trendInsights ?? []).map((item) => ({
+      feature: item.feature,
+      label: featureLabel(item.feature),
+      slopePerHour: item.slopePerHour ?? 0,
+      values: item.values ?? [],
+      r2: item.r2 ?? undefined,
+      significant: item.significant ?? undefined,
+    })),
     judgment: data.judgment ?? null,
+    llmVerdict: buildLlmVerdict(data),
     causeCategories: data.causeCategories ?? [],
     upstreamSuspects: data.upstreamSuspects ?? [],
     simForecast: data.simForecast ?? null,
@@ -756,7 +966,7 @@ function mapCompareAgentActionPlans(data: BackendCompareAgentPayload, fallbackCa
     const hasNoKpiDelta = Object.values(effect.kpi_delta).every((value) => value === 0);
 
     return {
-      planId: `${data.caseId ?? fallbackCaseId}-plan-${actionLabel.toLowerCase()}`,
+      planId: effect.plan_id ?? `${data.caseId ?? fallbackCaseId}-plan-${actionLabel.toLowerCase()}`,
       actionLabel,
       actionKind: effect.action_kind,
       title: `${actionLabel}. ${effect.action_kind}`,
@@ -786,7 +996,6 @@ function mapCompareAgentActionPlans(data: BackendCompareAgentPayload, fallbackCa
   const recommendedPlan = plans.find((plan) => plan.recommended) ?? plans[0] ?? null;
   const isApproved = data.approval_info?.status === '승인';
   const isRejected = data.approval_info?.status === '반려';
-  const isAutoApproved = (data.approval_info?.approved_by ?? '').toUpperCase() === 'AUTO';
 
   return {
     caseId: data.caseId ?? fallbackCaseId,
@@ -859,10 +1068,10 @@ function mapCompareAgentActionPlans(data: BackendCompareAgentPayload, fallbackCa
         }
       : undefined,
     hitlStatus: {
-      hasDecision: !isAutoApproved && (isApproved || isRejected),
-      latestDecision: !isAutoApproved && isApproved ? 'APPROVED' : !isAutoApproved && isRejected ? 'REJECTED' : null,
+      hasDecision: isApproved || isRejected,
+      latestDecision: isApproved ? 'APPROVED' : isRejected ? 'REJECTED' : null,
       selectedPlanId: recommendedPlan?.planId ?? null,
-      comment: !isAutoApproved ? (data.approval_info?.comment ?? null) : null,
+      comment: data.approval_info?.comment ?? null,
     },
   };
 }
@@ -882,7 +1091,6 @@ function mapCompareV2ActionPlans(data: BackendCompareV2Payload, fallbackCaseId: 
     null;
   const isApproved = data.approval_info?.status === '승인';
   const isRejected = data.approval_info?.status === '반려';
-  const isAutoApproved = (data.approval_info?.approved_by ?? '').toUpperCase() === 'AUTO';
   const decisionMeta = data.decision_meta;
 
   const plans: BncActionPlansPayload['plans'] = candidateOptions.map((option) => {
@@ -890,10 +1098,11 @@ function mapCompareV2ActionPlans(data: BackendCompareV2Payload, fallbackCaseId: 
     const actionLabel = extractActionLabel(option.label);
 
     return {
-      planId: `${fallbackCaseId}-plan-${actionLabel}`,
+      planId: option.plan_id ?? `${fallbackCaseId}-plan-${actionLabel}`,
       actionLabel,
       actionKind: option.kind,
       title: `${actionLabel}. ${option.kind}`,
+      actionSpec: buildActionSpecFromParams(option.params),
       summary: option.description,
       expectedImpact: buildCompareV2ExpectedImpact(option),
       riskText:
@@ -1035,11 +1244,44 @@ function mapCompareV2ActionPlans(data: BackendCompareV2Payload, fallbackCaseId: 
         }
       : undefined,
     hitlStatus: {
-      hasDecision: !isAutoApproved && (isApproved || isRejected),
-      latestDecision: !isAutoApproved && isApproved ? 'APPROVED' : !isAutoApproved && isRejected ? 'REJECTED' : null,
-      selectedPlanId: recommendedOption ? `${fallbackCaseId}-plan-${recommendedOption.label.toLowerCase()}` : null,
-      comment: !isAutoApproved ? (data.approval_info?.comment ?? null) : null,
+      hasDecision: isApproved || isRejected,
+      latestDecision: isApproved ? 'APPROVED' : isRejected ? 'REJECTED' : null,
+      selectedPlanId: plans.find((p) => p.recommended)?.planId ?? null,
+      comment: data.approval_info?.comment ?? null,
     },
+    ragEvidence: data.rag_evidence
+      ? {
+          commonHits: (data.rag_evidence.common_hits ?? []).map((hit) => ({
+            caseId: hit.case_id ?? '',
+            summary: hit.cause_summary ?? '',
+            score: hit.score,
+            tgCode: hit.tg_code,
+            reportTitle: hit.report_title,
+          })),
+          perPlan: Object.fromEntries(
+            (data.rag_evidence.candidates ?? []).flatMap((c) => {
+              const actionLabel = extractActionLabel(c.label);
+              const planId = plans.find((plan) => plan.actionLabel === actionLabel)?.planId;
+              const evidence = {
+                candidateSummary: c.evidence?.candidate_summary ?? '',
+                riskLevel: normalizeRagRiskLevel(c.evidence?.risk_level),
+                evidenceStrength: normalizeRagEvidenceStrength(c.evidence?.evidence_strength),
+                effectOutlook: c.evidence?.effect_outlook,
+                claims: (c.evidence?.claims ?? []).map((claim) =>
+                  typeof claim === 'string' ? claim : (claim as { text?: string }).text ?? ''
+                ).filter(Boolean),
+              };
+
+              return planId
+                ? [
+                    [actionLabel, evidence],
+                    [planId, evidence],
+                  ]
+                : [[actionLabel, evidence]];
+            })
+          ),
+        }
+      : undefined,
   };
 }
 
@@ -1063,13 +1305,21 @@ function mapReport(data: BackendReportPayload): BncReportPayload {
 export async function fetchBncCases(params: FetchBncCasesParams = {}): Promise<BncCaseListData> {
   // 병목 대응 센터는 CRITICAL 케이스만(HIGH는 cascade-only라 원인/대응/보고서 없음). 명시 param이 있으면 우선.
   const merged = { riskGrade: 'CRITICAL', ...params };
-  const { data } = await api.get<BncCaseListData>('/v1/response-center/cases', { params: merged });
-  return data;
+  try {
+    const { data } = await api.get<BncCaseListData>('/v1/response-center/cases', { params: merged });
+    return data;
+  } catch (e) {
+    throw e instanceof Error ? e : new Error('케이스 목록 조회 실패');
+  }
 }
 
 export async function fetchBncCaseDetail(caseId: string): Promise<BncCaseDetail> {
-  const { data } = await api.get<BncCaseDetail>(`/v1/response-center/cases/${caseId}`);
-  return data;
+  try {
+    const { data } = await api.get<BncCaseDetail>(`/v1/response-center/cases/${caseId}`);
+    return data;
+  } catch (e) {
+    throw e instanceof Error ? e : new Error('케이스 상세 조회 실패');
+  }
 }
 
 export async function fetchBncCauseAnalysis(caseId: string): Promise<BncCauseAnalysis> {
@@ -1091,27 +1341,31 @@ export async function decideBncHitl(caseId: string, payload: BncHitlDecisionRequ
 }
 
 export async function fetchBncReport(caseId: string): Promise<BncReportPayload> {
-  if (shouldUseDemoMockData()) {
-    const mock = MOCK_BNC_REPORTS[caseId] ?? MOCK_ARCHIVE_REPORTS[caseId] ?? MOCK_ACTION_HISTORY_REPORTS[caseId];
-    if (mock) return mock;
+  if (shouldUsePresentationScenario()) {
+    const localReport = MOCK_BNC_REPORTS[caseId] ?? MOCK_ARCHIVE_REPORTS[caseId] ?? MOCK_ACTION_HISTORY_REPORTS[caseId];
+    if (localReport) return localReport;
   }
   const { data } = await api.get<BackendReportPayload>(`/v1/response-center/cases/${caseId}/report`);
   return mapReport(data);
 }
 
 export async function downloadBncReportPdf(caseId: string): Promise<void> {
-  if (shouldUseDemoMockData()) return;
+  if (shouldUsePresentationScenario()) return;
 
-  const response = await api.get<Blob>(`/v1/response-center/cases/${caseId}/report/pdf`, {
-    responseType: 'blob',
-  });
-  const blob = response.data;
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `report_${caseId}.pdf`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
+  try {
+    const response = await api.get<Blob>(`/v1/response-center/cases/${caseId}/report/pdf`, {
+      responseType: 'blob',
+    });
+    const blob = response.data;
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `report_${caseId}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    throw e instanceof Error ? e : new Error('PDF 다운로드 실패');
+  }
 }

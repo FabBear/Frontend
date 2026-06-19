@@ -19,6 +19,7 @@ const errorMessage = ref('');
 
 const editBody = ref('');
 const editReason = ref('');
+const isEditing = ref(false);
 const isSaving = ref(false);
 const saveError = ref('');
 
@@ -41,7 +42,7 @@ const selectedVersion = computed(
   () => versions.value.find((version) => version.id === selectedVersionId.value) ?? activeVersion.value
 );
 
-const isEditable = computed(() => selectedVersion.value?.status === 'ACTIVE');
+const canEditActive = computed(() => selectedVersion.value?.status === 'ACTIVE');
 
 const isDirty = computed(() => editBody.value !== (selectedVersion.value?.body ?? ''));
 
@@ -54,6 +55,7 @@ const versionColumns: BaseTableColumn[] = [
 ];
 
 watch(selectedTemplate, () => {
+  isEditing.value = false;
   selectedVersionId.value = activeVersion.value?.id ?? versions.value[0]?.id ?? null;
 });
 
@@ -62,10 +64,26 @@ watch(
   (v) => {
     editBody.value = v?.body ?? '';
     editReason.value = '';
+    isEditing.value = false;
     saveError.value = '';
   },
   { immediate: true }
 );
+
+function startEdit() {
+  if (!canEditActive.value) return;
+  editBody.value = selectedVersion.value?.body ?? '';
+  editReason.value = '';
+  saveError.value = '';
+  isEditing.value = true;
+}
+
+function cancelEdit() {
+  editBody.value = selectedVersion.value?.body ?? '';
+  editReason.value = '';
+  saveError.value = '';
+  isEditing.value = false;
+}
 
 async function saveEdit() {
   const category = selectedTemplate.value?.category;
@@ -83,8 +101,10 @@ async function saveEdit() {
   isSaving.value = true;
   saveError.value = '';
   try {
+    const currentTemplateId = selectedTemplate.value?.id;
     await updatePromptVersion(category, editBody.value, editReason.value);
-    await loadPrompts();
+    await loadPrompts(currentTemplateId);
+    isEditing.value = false;
   } catch (error) {
     console.error(error);
     saveError.value = '저장에 실패했습니다. 다시 시도해 주세요.';
@@ -93,15 +113,16 @@ async function saveEdit() {
   }
 }
 
-async function loadPrompts() {
+async function loadPrompts(preferredTemplateId = selectedId.value) {
   isLoading.value = true;
   errorMessage.value = '';
   try {
     const result = await fetchAdminPrompts();
     templates.value = result.templates;
     allVersions.value = result.versions;
-    const firstVisible = visibleTemplates.value[0];
-    selectedId.value = firstVisible?.id ?? '';
+    const targetTemplate =
+      visibleTemplates.value.find((template) => template.id === preferredTemplateId) ?? visibleTemplates.value[0];
+    selectedId.value = targetTemplate?.id ?? '';
     selectedVersionId.value =
       result.versions.find((version) => version.templateId === selectedId.value && version.status === 'ACTIVE')?.id ??
       null;
@@ -145,7 +166,7 @@ onMounted(() => {
 
     <section v-else-if="errorMessage" class="admin-prompt-view__card surface-card admin-prompt-view__state">
       <span>{{ errorMessage }}</span>
-      <BaseButton size="sm" variant="soft" @click="loadPrompts">다시 불러오기</BaseButton>
+      <BaseButton size="sm" variant="soft" @click="loadPrompts()">다시 불러오기</BaseButton>
     </section>
 
     <template v-else>
@@ -185,16 +206,21 @@ onMounted(() => {
       <section v-if="selectedTemplate && selectedVersion" class="admin-prompt-view__card surface-card">
         <div class="admin-prompt-view__two-col">
           <div class="admin-prompt-view__prompt-pane">
-            <h2>프롬프트 본문</h2>
+            <div class="admin-prompt-view__pane-head">
+              <h2>프롬프트 본문</h2>
+              <BaseButton v-if="canEditActive && !isEditing" size="sm" variant="soft" @click="startEdit">
+                편집
+              </BaseButton>
+            </div>
             <textarea
-              v-if="isEditable"
+              v-if="isEditing"
               v-model="editBody"
               class="admin-prompt-view__editor"
               spellcheck="false"
               aria-label="프롬프트 본문 편집"
             ></textarea>
             <pre v-else class="admin-prompt-view__preview">{{ selectedVersion.body }}</pre>
-            <template v-if="isEditable">
+            <template v-if="isEditing">
               <p v-if="saveError" class="admin-prompt-view__save-error">{{ saveError }}</p>
               <div class="admin-prompt-view__save-row">
                 <input
@@ -204,8 +230,9 @@ onMounted(() => {
                   maxlength="500"
                   placeholder="변경 사유 (선택)"
                 />
-                <BaseButton size="sm" :disabled="!isDirty || isSaving" @click="saveEdit">
-                  {{ isSaving ? '저장 중…' : '저장' }}
+                <BaseButton size="sm" variant="ghost" :disabled="isSaving" @click="cancelEdit">취소</BaseButton>
+                <BaseButton size="sm" :loading="isSaving" :disabled="!isDirty || !editBody.trim()" @click="saveEdit">
+                  저장
                 </BaseButton>
               </div>
             </template>
@@ -253,6 +280,11 @@ onMounted(() => {
 .admin-prompt-view__card {
   display: grid;
   gap: var(--space-4);
+}
+
+.admin-prompt-view__header {
+  border-bottom: var(--border-width-default) solid var(--color-border-default);
+  padding-bottom: var(--space-2);
 }
 
 .admin-prompt-view__header > div {
@@ -354,6 +386,13 @@ onMounted(() => {
 .admin-prompt-view__prompt-pane {
   display: grid;
   gap: var(--space-3);
+}
+
+.admin-prompt-view__pane-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
 }
 
 .admin-prompt-view__editor {
@@ -494,5 +533,18 @@ dd {
   min-width: 0;
   word-break: break-word;
   font-size: var(--font-size-sm);
+}
+
+@media (max-width: 900px) {
+  .admin-prompt-view__two-col {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-prompt-view__save-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
 }
 </style>

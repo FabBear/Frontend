@@ -2,7 +2,6 @@
 import { useBncSolutionsContext } from '@/composables/useBncSolutions';
 
 import BaseBadge from '@/components/base/BaseBadge.vue';
-import BncTargetMap from '@/components/bnc/BncTargetMap.vue';
 
 const {
   payload,
@@ -11,13 +10,6 @@ const {
   currentOptionTitle,
   currentOptionSummary,
   currentScenarioMetrics,
-  hasTargetMapData,
-  targetMapTitle,
-  visibleMapTargetToolGroups,
-  visibleMapCauseToolGroups,
-  visibleMapAffectedToolGroups,
-  selectedMapToolGroup,
-  handleSelectMapToolGroup,
   dataQualityWarnings,
   formatVerdict,
   formatScoreBreakdownMeta,
@@ -54,18 +46,6 @@ const {
           </div>
         </dl>
       </article>
-
-      <BncTargetMap
-        v-if="hasTargetMapData"
-        :title="targetMapTitle"
-        :anchor-tool-group="compareContext?.anchorToolgroup"
-        :target-tool-groups="visibleMapTargetToolGroups"
-        :cause-tool-groups="visibleMapCauseToolGroups"
-        :affected-tool-groups="visibleMapAffectedToolGroups"
-        :selected-tool-group="selectedMapToolGroup"
-        :case-id="payload?.caseId ?? null"
-        @select="handleSelectMapToolGroup"
-      />
     </div>
 
     <div

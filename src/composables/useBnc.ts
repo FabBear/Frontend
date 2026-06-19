@@ -1,4 +1,8 @@
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
+
+import axios from 'axios';
+
+import { latestCaseProgress } from '@/composables/useCaseProgress';
 
 import {
   decideBncHitl,
@@ -12,7 +16,7 @@ import {
 import { BNC_STATUS_META, BNC_TAB_OPTIONS } from '@/constants/bnc';
 import { MOCK_BNC_CASE_DETAILS, MOCK_BNC_CASE_LIST } from '@/constants/mockData/bnc';
 import { MOCK_BNC_ACTION_PLANS, MOCK_BNC_CAUSE_ANALYSIS, MOCK_BNC_REPORTS } from '@/constants/mockData/bncArtifacts';
-import { shouldUseDemoMockData } from '@/constants/mockMode';
+import { shouldUsePresentationScenario } from '@/constants/scenarioMode';
 
 import type {
   BncActionPlansPayload,
@@ -29,7 +33,7 @@ import type {
 const DEFAULT_TAB: BncTabId = 'progress';
 const CASE_PAGE_SIZE = 10;
 const TOTAL_BNC_STEPS = 6;
-const USE_BNC_MOCK_DATA = shouldUseDemoMockData() || import.meta.env.VITE_USE_BNC_MOCK_DATA === 'true';
+const USE_BNC_PRESENTATION_SCENARIO = shouldUsePresentationScenario() || import.meta.env.VITE_USE_PRESENTATION_SCENARIO === 'true';
 const DEFAULT_PAGE_INFO: BncPageInfo = {
   page: 0,
   size: CASE_PAGE_SIZE,
@@ -39,11 +43,11 @@ const DEFAULT_PAGE_INFO: BncPageInfo = {
 };
 type PageButton = number | 'ellipsis-start' | 'ellipsis-end';
 
-function cloneMock<T>(value: T): T {
+function cloneScenario<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
-function getMockCasesPage(nextPage: number): BncCaseListData {
+function getScenarioCasesPage(nextPage: number): BncCaseListData {
   // 병목 대응 센터는 Critical로 판명된 케이스만 노출한다.
   const criticalItems = MOCK_BNC_CASE_LIST.items.filter((item) => item.riskGrade === 'CRITICAL');
   const totalElements = criticalItems.length;
@@ -51,7 +55,7 @@ function getMockCasesPage(nextPage: number): BncCaseListData {
   const items = criticalItems.slice(startIndex, startIndex + CASE_PAGE_SIZE);
 
   return {
-    items: cloneMock(items),
+    items: cloneScenario(items),
     pageInfo: {
       page: nextPage,
       size: CASE_PAGE_SIZE,
@@ -62,15 +66,15 @@ function getMockCasesPage(nextPage: number): BncCaseListData {
   };
 }
 
-function getMockCaseDetail(caseId: string): BncCaseDetail | null {
-  return cloneMock(MOCK_BNC_CASE_DETAILS[caseId] ?? null);
+function getScenarioCaseDetail(caseId: string): BncCaseDetail | null {
+  return cloneScenario(MOCK_BNC_CASE_DETAILS[caseId] ?? null);
 }
 
-function getMockCaseArtifacts(caseId: string) {
+function getScenarioCaseArtifacts(caseId: string) {
   return {
-    cause: cloneMock(MOCK_BNC_CAUSE_ANALYSIS[caseId] ?? null),
-    actions: cloneMock(MOCK_BNC_ACTION_PLANS[caseId] ?? null),
-    report: cloneMock(MOCK_BNC_REPORTS[caseId] ?? null),
+    cause: cloneScenario(MOCK_BNC_CAUSE_ANALYSIS[caseId] ?? null),
+    actions: cloneScenario(MOCK_BNC_ACTION_PLANS[caseId] ?? null),
+    report: cloneScenario(MOCK_BNC_REPORTS[caseId] ?? null),
   };
 }
 
@@ -80,7 +84,9 @@ function normalizeCaseStatus(status: string): BncCaseStatus {
     normalized === 'DETECTED' ||
     normalized === 'ANALYZING' ||
     normalized === 'AWAITING_HITL' ||
-    normalized === 'RESOLVED'
+    normalized === 'RESOLVED' ||
+    normalized === 'EXPIRED' ||
+    normalized === 'NOT_ACTIONABLE'
   ) {
     return normalized;
   }
@@ -108,7 +114,14 @@ function resolveCurrentStepName(detail: BncCaseDetail): string | null {
 }
 
 function resolveStepProgress(detail: BncCaseDetail): number {
-  return Math.max(0, ...detail.agentProgress.filter((step) => step.status === 'DONE').map((step) => step.stepOrder));
+  // 완료(DONE)뿐 아니라 진행 중·실패 등 '시작된' 단계까지 카운트 — 백엔드 step_progress와 동일 기준.
+  // 대기(PENDING/WAITING)만 제외해, 첫 단계(확산영향분석)가 진행 중이어도 1로 표시되게 한다.
+  return Math.max(
+    0,
+    ...detail.agentProgress
+      .filter((step) => step.status !== 'PENDING' && step.status !== 'WAITING')
+      .map((step) => step.stepOrder)
+  );
 }
 
 export function useBnc(initialCaseId?: string | null, initialTab?: string | null) {
@@ -126,6 +139,9 @@ export function useBnc(initialCaseId?: string | null, initialTab?: string | null
   const errorMessage = ref<string | null>(null);
   const detailErrorMessage = ref<string | null>(null);
   const artifactErrorMessage = ref<string | null>(null);
+  const hitlErrorMessage = ref<string | null>(null);
+  const hitlSubmitMessage = ref<string | null>(null);
+  let _hitlMsgTimer: ReturnType<typeof setTimeout> | null = null;
   const page = ref(0);
   const pageInfo = ref<BncPageInfo>({ ...DEFAULT_PAGE_INFO });
 
@@ -148,7 +164,11 @@ export function useBnc(initialCaseId?: string | null, initialTab?: string | null
   const highPriorityCount = computed(
     () =>
       cases.value.filter(
-        (item) => item.status !== 'RESOLVED' && (item.riskGrade === 'CRITICAL' || item.status === 'AWAITING_HITL')
+        (item) =>
+          item.status !== 'RESOLVED' &&
+          item.status !== 'EXPIRED' &&
+          item.status !== 'NOT_ACTIONABLE' &&
+          (item.riskGrade === 'CRITICAL' || item.status === 'AWAITING_HITL')
       ).length
   );
   const totalPages = computed(() => Math.max(1, pageInfo.value.totalPages));
@@ -187,8 +207,8 @@ export function useBnc(initialCaseId?: string | null, initialTab?: string | null
     errorMessage.value = null;
 
     try {
-      if (USE_BNC_MOCK_DATA) {
-        const data = getMockCasesPage(nextPage);
+      if (USE_BNC_PRESENTATION_SCENARIO) {
+        const data = getScenarioCasesPage(nextPage);
         cases.value = data.items;
         pageInfo.value = data.pageInfo;
         page.value = data.pageInfo.page;
@@ -210,7 +230,7 @@ export function useBnc(initialCaseId?: string | null, initialTab?: string | null
         selectedCaseId.value = sortedCases.value[0]?.caseId ?? null;
       }
     } catch {
-      const data = getMockCasesPage(nextPage);
+      const data = getScenarioCasesPage(nextPage);
       cases.value = data.items;
       pageInfo.value = data.pageInfo;
       page.value = data.pageInfo.page;
@@ -232,8 +252,8 @@ export function useBnc(initialCaseId?: string | null, initialTab?: string | null
     detailErrorMessage.value = null;
 
     try {
-      if (USE_BNC_MOCK_DATA) {
-        selectedCaseDetail.value = getMockCaseDetail(caseId);
+      if (USE_BNC_PRESENTATION_SCENARIO) {
+        selectedCaseDetail.value = getScenarioCaseDetail(caseId);
         if (selectedCaseDetail.value) ensureCaseInList(selectedCaseDetail.value);
         detailErrorMessage.value = selectedCaseDetail.value ? null : 'Agent 진행 상세가 없습니다.';
         return;
@@ -242,7 +262,7 @@ export function useBnc(initialCaseId?: string | null, initialTab?: string | null
       selectedCaseDetail.value = await fetchBncCaseDetail(caseId);
       ensureCaseInList(selectedCaseDetail.value);
     } catch {
-      selectedCaseDetail.value = getMockCaseDetail(caseId);
+      selectedCaseDetail.value = getScenarioCaseDetail(caseId);
       if (selectedCaseDetail.value) ensureCaseInList(selectedCaseDetail.value);
       detailErrorMessage.value = selectedCaseDetail.value ? null : 'Agent 진행 상세를 불러오지 못했습니다.';
     } finally {
@@ -263,8 +283,8 @@ export function useBnc(initialCaseId?: string | null, initialTab?: string | null
     artifactErrorMessage.value = null;
 
     try {
-      if (USE_BNC_MOCK_DATA) {
-        const { cause, actions, report } = getMockCaseArtifacts(caseId);
+      if (USE_BNC_PRESENTATION_SCENARIO) {
+        const { cause, actions, report } = getScenarioCaseArtifacts(caseId);
         if (tab === 'cause') selectedCauseAnalysis.value = cause;
         if (tab === 'solutions') selectedActionPlans.value = actions;
         if (tab === 'report') selectedReport.value = report;
@@ -284,10 +304,22 @@ export function useBnc(initialCaseId?: string | null, initialTab?: string | null
         return;
       }
       if (tab === 'report') {
-        selectedReport.value = await fetchBncReport(caseId);
+        try {
+          selectedReport.value = await fetchBncReport(caseId);
+        } catch (error) {
+          // 404/E-REPORT-001 = 아직 생성 전(HITL 대기 또는 생성 진행 중). 에러가 아니라 '생성 중' 빈 상태로 두고
+          // 백그라운드 폴링으로 완료되면 자동 표시한다. 그 외 오류만 바깥 catch(시나리오 폴백)로 넘긴다.
+          if (isReportNotReady(error)) {
+            selectedReport.value = null;
+            artifactErrorMessage.value = null;
+            void pollReport(caseId);
+            return;
+          }
+          throw error;
+        }
       }
     } catch {
-      const { cause, actions, report } = getMockCaseArtifacts(caseId);
+      const { cause, actions, report } = getScenarioCaseArtifacts(caseId);
       if (tab === 'cause') selectedCauseAnalysis.value = cause;
       if (tab === 'solutions') selectedActionPlans.value = actions;
       if (tab === 'report') selectedReport.value = report;
@@ -298,6 +330,13 @@ export function useBnc(initialCaseId?: string | null, initialTab?: string | null
     } finally {
       isArtifactLoading.value = false;
     }
+  }
+
+  // 리포트 미생성(HITL 대기/생성 진행)은 백엔드가 404(E-REPORT-001)로 응답한다 — 진짜 실패가 아님.
+  function isReportNotReady(error: unknown): boolean {
+    if (!axios.isAxiosError(error)) return false;
+    const code = (error.response?.data as { error?: { code?: string } } | undefined)?.error?.code;
+    return error.response?.status === 404 || code === 'E-REPORT-001';
   }
 
   // HITL 결정 후 FastAPI가 보고서를 비동기 생성하므로 최대 90초 동안 5초 간격으로 polling
@@ -315,6 +354,7 @@ export function useBnc(initialCaseId?: string | null, initialTab?: string | null
         // 아직 생성 중 — 계속 polling
       }
     }
+    artifactErrorMessage.value = '보고서 생성에 시간이 걸리고 있습니다. 잠시 후 다시 확인해 주세요.';
   }
 
   async function submitHitlDecision(
@@ -325,10 +365,11 @@ export function useBnc(initialCaseId?: string | null, initialTab?: string | null
 
     isDecisionSubmitting.value = true;
     artifactErrorMessage.value = null;
+    hitlErrorMessage.value = null;
 
     try {
-      if (USE_BNC_MOCK_DATA) {
-        const currentActions = selectedActionPlans.value ?? getMockCaseArtifacts(caseId).actions;
+      if (USE_BNC_PRESENTATION_SCENARIO) {
+        const currentActions = selectedActionPlans.value ?? getScenarioCaseArtifacts(caseId).actions;
 
         if (currentActions) {
           selectedActionPlans.value = {
@@ -347,15 +388,42 @@ export function useBnc(initialCaseId?: string | null, initialTab?: string | null
 
       await decideBncHitl(caseId, payload);
       await Promise.all([loadCaseDetail(caseId), loadCases(page.value)]);
-      // 결정 직후 보고서 탭으로 전환하고 보고서가 생성될 때까지 polling
-      selectTab('report');
+      selectTab('progress');
+      if (_hitlMsgTimer) clearTimeout(_hitlMsgTimer);
+      hitlSubmitMessage.value = '요청됐습니다.';
+      _hitlMsgTimer = setTimeout(() => { hitlSubmitMessage.value = null; }, 4000);
       void pollReport(caseId);
-    } catch {
-      artifactErrorMessage.value = '승인/반려 결정을 저장하지 못했습니다.';
+    } catch (e) {
+      if (axios.isAxiosError(e) && e.response?.status === 409) {
+        const code = e.response.data?.error?.code;
+        if (code === 'E-HITL-003') {
+          hitlErrorMessage.value = '이미 처리 완료된 케이스입니다.';
+          await Promise.all([loadCaseDetail(caseId), loadCases(page.value)]);
+        } else if (code === 'E-HITL-005') {
+          hitlErrorMessage.value = '만료된 케이스입니다. 최신 병목 알림을 다시 선택해 주세요.';
+          await Promise.all([loadCaseDetail(caseId), loadCases(page.value)]);
+        } else {
+          hitlErrorMessage.value = '동시 요청 충돌 — 잠시 후 다시 시도해 주세요.';
+        }
+      } else {
+        hitlErrorMessage.value = '승인/반려 결정을 저장하지 못했습니다.';
+      }
     } finally {
       isDecisionSubmitting.value = false;
     }
   }
+
+  // SSE "caseProgress" 이벤트 수신 시 현재 선택 케이스의 detail을 즉시 재조회.
+  // ACTION_PLAN_COMPARE DONE 시 solutions 데이터를 백그라운드 프리패치 —
+  // 탭 클릭 시 이미 로드된 상태로 즉시 표시.
+  watch(latestCaseProgress, (event) => {
+    if (event && selectedCaseId.value && event.caseId === selectedCaseId.value) {
+      void loadCaseDetail(selectedCaseId.value);
+      if (event.stepName === 'ACTION_PLAN_COMPARE' && event.status === 'DONE') {
+        void loadCaseArtifacts(selectedCaseId.value, 'solutions');
+      }
+    }
+  });
 
   function selectCase(caseId: string) {
     selectedCaseId.value = caseId;
@@ -366,8 +434,12 @@ export function useBnc(initialCaseId?: string | null, initialTab?: string | null
   }
 
   function ensureCaseInList(detail: BncCaseDetail) {
-    if (cases.value.some((item) => item.caseId === detail.caseId)) return;
-    cases.value = [toAlertCase(detail), ...cases.value];
+    const nextCase = toAlertCase(detail);
+    if (cases.value.some((item) => item.caseId === detail.caseId)) {
+      cases.value = cases.value.map((item) => (item.caseId === detail.caseId ? nextCase : item));
+      return;
+    }
+    cases.value = [nextCase, ...cases.value];
   }
 
   function toAlertCase(detail: BncCaseDetail): BncAlertCase {
@@ -386,6 +458,8 @@ export function useBnc(initialCaseId?: string | null, initialTab?: string | null
       currentStepName: resolveCurrentStepName(detail),
       stepProgress: resolveStepProgress(detail),
       totalSteps: TOTAL_BNC_STEPS,
+      // 상세에서 만든 카드도 요약/카드 지표(영향·후속TG·CT증가·위험Lot)를 잃지 않도록 alertMetrics를 보존한다.
+      alertMetrics: detail.alertMetrics,
     };
   }
 
@@ -396,7 +470,7 @@ export function useBnc(initialCaseId?: string | null, initialTab?: string | null
   }
 
   return {
-    isMockMode: USE_BNC_MOCK_DATA,
+    isPresentationScenario: USE_BNC_PRESENTATION_SCENARIO,
     tabOptions: BNC_TAB_OPTIONS,
     cases: sortedCases,
     selectedCaseId,
@@ -417,6 +491,8 @@ export function useBnc(initialCaseId?: string | null, initialTab?: string | null
     errorMessage,
     detailErrorMessage,
     artifactErrorMessage,
+    hitlErrorMessage,
+    hitlSubmitMessage,
     loadCases,
     loadCaseDetail,
     loadCaseArtifacts,

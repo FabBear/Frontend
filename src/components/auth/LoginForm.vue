@@ -116,7 +116,7 @@ function handleSubmit() {
       <span v-if="passwordError" class="login-form__error">{{ passwordError }}</span>
     </label>
 
-    <BaseButton class="login-form__submit" type="submit" :loading="loading">로그인</BaseButton>
+    <BaseButton class="login-form__submit" type="submit" :disabled="!canSubmit" :loading="loading">로그인</BaseButton>
   </form>
 </template>
 

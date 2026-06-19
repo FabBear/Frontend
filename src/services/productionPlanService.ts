@@ -5,6 +5,7 @@ import {
   getMockReleasePlan,
   getMockReleasePlanHotLots,
 } from '@/constants/mockData/productionPlan';
+import { shouldUsePresentationScenario } from '@/constants/scenarioMode';
 
 import type {
   ReleasePlanHotLotsResponse,
@@ -17,8 +18,9 @@ export async function fetchReleasePlanSummary(): Promise<ReleasePlanSummary> {
   try {
     const { data } = await api.get<ReleasePlanSummary>('/v1/dashboard/release-plan-summary');
     return data;
-  } catch {
-    return { ...MOCK_RELEASE_PLAN_SUMMARY };
+  } catch (e) {
+    if (shouldUsePresentationScenario()) return { ...MOCK_RELEASE_PLAN_SUMMARY };
+    throw e;
   }
 }
 
@@ -28,8 +30,9 @@ export async function fetchReleasePlan(range: ReleasePlanRange): Promise<Release
       params: { range },
     });
     return data;
-  } catch {
-    return getMockReleasePlan(range);
+  } catch (e) {
+    if (shouldUsePresentationScenario()) return getMockReleasePlan(range);
+    throw e;
   }
 }
 
@@ -43,7 +46,8 @@ export async function fetchReleasePlanHotLots(
       params: { range, page, size },
     });
     return data;
-  } catch {
-    return getMockReleasePlanHotLots(range, page, size);
+  } catch (e) {
+    if (shouldUsePresentationScenario()) return getMockReleasePlanHotLots(range, page, size);
+    throw e;
   }
 }

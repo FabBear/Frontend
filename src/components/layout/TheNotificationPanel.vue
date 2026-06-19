@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { type Component, computed } from 'vue';
 
-import { AlertTriangle, CheckCircle2, Info, TriangleAlert, X } from '@lucide/vue';
+import { BrainCog, CircleCheckBig, Info, Siren, TriangleAlert, UserCheck, X } from '@lucide/vue';
 
-import type { NotificationItem, NotificationLevel } from '@/types/notification';
+import type { NotificationItem, NotificationLevel, NotificationType } from '@/types/notification';
 
 import BaseBadge from '@/components/base/BaseBadge.vue';
 
@@ -29,16 +29,22 @@ const emit = defineEmits<{
   close: [];
   markRead: [notificationId: string];
   markAllRead: [];
-  openCase: [caseId: string];
+  openCase: [caseId: string, tab?: string];
   openMonitoring: [caseId: string];
   openMlflow: [notificationId: string];
 }>();
 
-const levelIconMap: Record<NotificationLevel, Component> = {
-  critical: AlertTriangle,
+const typeIconMap: Partial<Record<NotificationType, Component>> = {
+  BOTTLENECK_CRITICAL: Siren,
+  HITL_PENDING: UserCheck,
+  MODEL_RETRAIN: BrainCog,
+};
+
+const levelFallbackIconMap: Record<NotificationLevel, Component> = {
+  critical: Siren,
   warning: TriangleAlert,
   info: Info,
-  success: CheckCircle2,
+  success: CircleCheckBig,
 };
 
 const levelLabelMap: Record<NotificationLevel, string> = {
@@ -48,12 +54,27 @@ const levelLabelMap: Record<NotificationLevel, string> = {
   success: '완료',
 };
 
+// 타입별 배지 라벨 우선. HITL_PENDING은 level(warning) 라벨('경고') 대신 '승인'으로 표시.
+const typeLabelMap: Partial<Record<NotificationType, string>> = {
+  HITL_PENDING: '승인',
+};
+
+function getIcon(notification: NotificationItem): Component {
+  return typeIconMap[notification.type] ?? levelFallbackIconMap[notification.level];
+}
+
+function getBadgeLabel(notification: NotificationItem): string {
+  return typeLabelMap[notification.type] ?? levelLabelMap[notification.level];
+}
+
 const hasUnread = computed(() => props.unreadCount > 0);
 
 function handleOpenCase(notification: NotificationItem) {
   if (!notification.refCaseId) return;
   emit('markRead', notification.id);
-  emit('openCase', notification.refCaseId);
+  // HITL 승인 대기 알림은 곧장 대응안(HITL 승인) 탭으로. 그 외는 기본(진행) 탭.
+  const tab = notification.type === 'HITL_PENDING' ? 'solutions' : undefined;
+  emit('openCase', notification.refCaseId, tab);
 }
 
 function handleOpenMonitoring(notification: NotificationItem) {
@@ -92,8 +113,8 @@ function handleOpenMonitoring(notification: NotificationItem) {
       >
         <div class="notification-panel__item-header">
           <BaseBadge :variant="notification.level">
-            <component :is="levelIconMap[notification.level]" :size="14" aria-hidden="true" />
-            {{ levelLabelMap[notification.level] }}
+            <component :is="getIcon(notification)" :size="14" aria-hidden="true" />
+            {{ getBadgeLabel(notification) }}
           </BaseBadge>
           <span class="notification-panel__time">{{ formatKoTime(notification.createdAt) }}</span>
         </div>
@@ -120,7 +141,7 @@ function handleOpenMonitoring(notification: NotificationItem) {
             type="button"
             @click="handleOpenCase(notification)"
           >
-            케이스 보기
+            {{ notification.type === 'HITL_PENDING' ? '승인 검토' : '케이스 보기' }}
           </button>
           <button
             v-if="notification.type === 'MODEL_RETRAIN'"

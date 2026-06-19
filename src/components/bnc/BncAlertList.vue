@@ -26,7 +26,7 @@ defineEmits<{
 
 <template>
   <aside class="bnc-alert-list">
-    <header class="bnc-alert-list__header">
+    <div class="bnc-alert-list__header">
       <div>
         <h2 class="bnc-alert-list__title">병목 케이스</h2>
         <p class="bnc-alert-list__summary">
@@ -34,77 +34,83 @@ defineEmits<{
         </p>
       </div>
       <BaseButton variant="ghost" size="sm" :loading="loading" @click="$emit('retry')">새로고침</BaseButton>
-    </header>
+    </div>
 
-    <p v-if="loading && cases.length === 0" class="bnc-alert-list__state">케이스를 불러오는 중입니다.</p>
-    <p v-else-if="errorMessage" class="bnc-alert-list__state bnc-alert-list__state--error">
-      {{ errorMessage }}
-    </p>
-    <p v-else-if="cases.length === 0" class="bnc-alert-list__state">대응이 필요한 병목 케이스가 없습니다.</p>
+    <div class="bnc-alert-list__body">
+      <p v-if="loading && cases.length === 0" class="bnc-alert-list__state">케이스를 불러오는 중입니다.</p>
+      <p v-else-if="errorMessage" class="bnc-alert-list__state bnc-alert-list__state--error">
+        {{ errorMessage }}
+      </p>
+      <p v-else-if="cases.length === 0" class="bnc-alert-list__state">대응이 필요한 병목 케이스가 없습니다.</p>
 
-    <template v-else>
-      <div class="bnc-alert-list__items" role="list">
-        <BncAlertCard
-          v-for="item in cases"
-          :key="item.caseId"
-          :item="item"
-          :selected="item.caseId === selectedCaseId"
-          role="listitem"
-          @select="$emit('select', $event)"
-        />
-      </div>
-
-      <div v-if="totalPages > 1" class="bnc-alert-list__pagination">
-        <button
-          class="bnc-alert-list__pagination-arrow"
-          type="button"
-          aria-label="이전 페이지"
-          :disabled="pageInfo.page <= 0 || loading"
-          @click="$emit('pageChange', pageInfo.page - 1)"
-        >
-          이전
-        </button>
-        <div class="bnc-alert-list__pagination-pages" aria-label="병목 케이스 페이지">
-          <template v-for="page in pageButtons" :key="page">
-            <span v-if="typeof page === 'string'" class="bnc-alert-list__pagination-ellipsis" aria-hidden="true">
-              ...
-            </span>
-            <button
-              v-else
-              class="bnc-alert-list__pagination-page"
-              :class="{ 'bnc-alert-list__pagination-page--active': page === pageInfo.page }"
-              type="button"
-              :aria-current="page === pageInfo.page ? 'page' : undefined"
-              :disabled="loading"
-              @click="$emit('pageChange', page)"
-            >
-              {{ page + 1 }}
-            </button>
-          </template>
+      <template v-else>
+        <div class="bnc-alert-list__items" role="list">
+          <BncAlertCard
+            v-for="item in cases"
+            :key="item.caseId"
+            :item="item"
+            :selected="item.caseId === selectedCaseId"
+            role="listitem"
+            @select="$emit('select', $event)"
+          />
         </div>
-        <button
-          class="bnc-alert-list__pagination-arrow"
-          type="button"
-          aria-label="다음 페이지"
-          :disabled="pageInfo.page >= totalPages - 1 || loading"
-          @click="$emit('pageChange', pageInfo.page + 1)"
-        >
-          다음
-        </button>
-      </div>
-    </template>
+
+        <div v-if="totalPages > 1" class="bnc-alert-list__pagination">
+          <button
+            class="bnc-alert-list__pagination-arrow"
+            type="button"
+            aria-label="이전 페이지"
+            :disabled="pageInfo.page <= 0 || loading"
+            @click="$emit('pageChange', pageInfo.page - 1)"
+          >
+            이전
+          </button>
+          <div class="bnc-alert-list__pagination-pages" aria-label="병목 케이스 페이지">
+            <template v-for="page in pageButtons" :key="page">
+              <span v-if="typeof page === 'string'" class="bnc-alert-list__pagination-ellipsis" aria-hidden="true">
+                ...
+              </span>
+              <button
+                v-else
+                class="bnc-alert-list__pagination-page"
+                :class="{ 'bnc-alert-list__pagination-page--active': page === pageInfo.page }"
+                type="button"
+                :aria-current="page === pageInfo.page ? 'page' : undefined"
+                :disabled="loading"
+                @click="$emit('pageChange', page)"
+              >
+                {{ page + 1 }}
+              </button>
+            </template>
+          </div>
+          <button
+            class="bnc-alert-list__pagination-arrow"
+            type="button"
+            aria-label="다음 페이지"
+            :disabled="pageInfo.page >= totalPages - 1 || loading"
+            @click="$emit('pageChange', pageInfo.page + 1)"
+          >
+            다음
+          </button>
+        </div>
+      </template>
+    </div>
   </aside>
 </template>
 
 <style scoped>
 .bnc-alert-list {
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--space-2);
+  height: 100%;
   min-height: 0;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  background: var(--color-bg-surface);
-  border: 1px solid var(--color-border-default);
+  overflow: hidden;
+  border: var(--border-width-default) solid var(--color-border-default);
   border-radius: var(--radius-lg);
+  background: var(--color-bg-card);
+  padding: var(--space-3);
+  box-shadow: var(--shadow-sm);
 }
 
 .bnc-alert-list__header {
@@ -118,13 +124,29 @@ defineEmits<{
   margin: 0;
   color: var(--color-fg-strong);
   font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+  white-space: nowrap;
 }
 
-.bnc-alert-list__summary,
-.bnc-alert-list__state {
+.bnc-alert-list__summary {
   margin: var(--space-1) 0 0;
   color: var(--color-fg-muted);
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-sm);
+}
+
+.bnc-alert-list__body {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.bnc-alert-list__state {
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-sm);
 }
 
 .bnc-alert-list__state--error {
@@ -133,11 +155,7 @@ defineEmits<{
 
 .bnc-alert-list__items {
   display: grid;
-  min-height: 0;
-  max-height: calc(100vh - 220px);
-  gap: var(--space-3);
-  overflow: auto;
-  padding-right: var(--space-1);
+  gap: var(--space-2);
 }
 
 .bnc-alert-list__pagination {

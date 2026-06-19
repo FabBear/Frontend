@@ -12,14 +12,9 @@ interface Props {
   alertMetrics: BncAlertMetrics | null;
   statusText: string | null;
   causeText: string | null;
-  disabled?: boolean;
 }
 
 const props = defineProps<Props>();
-
-const emit = defineEmits<{
-  openCenter: [];
-}>();
 
 const metricCells = computed(() => {
   const metrics = props.alertMetrics;
@@ -42,14 +37,6 @@ const metricCells = computed(() => {
         <h2 id="snapshot-title" class="bottleneck-snapshot-card__tg">{{ title }}</h2>
         <p class="bottleneck-snapshot-card__subtitle">{{ subtitle }}</p>
       </div>
-      <button
-        class="bottleneck-snapshot-card__case-button"
-        type="button"
-        :disabled="disabled"
-        @click="emit('openCenter')"
-      >
-        병목 대응 센터
-      </button>
     </header>
 
     <dl class="bottleneck-snapshot-card__meta">
@@ -197,24 +184,6 @@ const metricCells = computed(() => {
   color: var(--color-action-primary);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-}
-
-.bottleneck-snapshot-card__case-button {
-  min-height: 34px;
-  border: var(--border-width-default) solid var(--color-action-primary-border);
-  border-radius: var(--radius-md);
-  background: var(--color-action-primary);
-  padding: 0 12px;
-  color: var(--color-text-inverse);
-  cursor: pointer;
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  white-space: nowrap;
-}
-
-.bottleneck-snapshot-card__case-button:disabled {
-  cursor: not-allowed;
-  opacity: var(--opacity-disabled);
 }
 
 @media (max-width: 1120px) {

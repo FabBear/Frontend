@@ -4,13 +4,12 @@ import {
   fetchBottleneckProcessMap,
   fetchBottleneckRankings,
 } from '@/services/bottleneckMonitoringService';
-import { mapKpi, mapTrends } from '@/services/mappers/dashboardMapper';
 import {
   mapBottleneckRankings,
   mapBottleneckToolGroupsToDashboardAreas,
 } from '@/services/mappers/bottleneckMonitoringMapper';
+import { mapKpi, mapTrends } from '@/services/mappers/dashboardMapper';
 import { fetchReleasePlanSummary } from '@/services/productionPlanService';
-import { shouldUsePresentationScenario } from '@/constants/scenarioMode';
 
 import {
   DASHBOARD_ALERTS_PAGE_SIZE,
@@ -25,6 +24,7 @@ import { getDemoBottleneckAlertsPage } from '@/constants/mockData/demoAlert';
 import { MOCK_MES_MONITORING_DATA } from '@/constants/mockData/mes';
 import { getProcessAreaSortOrder } from '@/constants/processArea';
 import { riskGradeToLevel } from '@/constants/riskLevel';
+import { shouldUsePresentationScenario } from '@/constants/scenarioMode';
 
 import type {
   BottleneckAlertItem,
@@ -130,7 +130,7 @@ export async function fetchDashboardRiskAlertsPage({
   detectedTo,
 }: DashboardRiskAlertParams = {}): Promise<DashboardRiskAlertsPage> {
   try {
-    return await fetchBottleneckAlertsPage({ page, size, riskGrade: 'CRITICAL', detectedFrom, detectedTo });
+    return await fetchBottleneckAlertsPage({ page, size, detectedFrom, detectedTo });
   } catch (e) {
     if (shouldUsePresentationScenario()) return getDemoBottleneckAlertsPage({ size, detectedFrom, detectedTo });
     throw e;
@@ -189,7 +189,8 @@ export async function fetchDashboardTrendsForPeriod(
     });
     return sortDashboardTrends(mapTrends(data));
   } catch (e) {
-    if (shouldUsePresentationScenario()) return sortDashboardTrends(MOCK_KPI_TRENDS.filter((trend) => kpis.includes(trend.key as DashboardTrendKey)));
+    if (shouldUsePresentationScenario())
+      return sortDashboardTrends(MOCK_KPI_TRENDS.filter((trend) => kpis.includes(trend.key as DashboardTrendKey)));
     throw e;
   }
 }
